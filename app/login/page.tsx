@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0A0A0A', display: 'flex',
+      minHeight: '100vh', background: 'var(--bg)', display: 'flex',
       alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden'
     }}>
       {/* Background grid */}
@@ -44,26 +44,26 @@ export default function LoginPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '20px', fontWeight: '800', color: '#000'
             }}>N</div>
-            <span style={{ fontSize: '26px', fontWeight: '700', color: '#fff', letterSpacing: '-0.5px' }}>
-              Notorious <span style={{ color: '#C9A84C' }}>AI</span>
+            <span style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', letterSpacing: '-0.5px' }}>
+              Notorious <span style={{ color: 'var(--gold)' }}>AI</span>
             </span>
           </div>
-          <p style={{ fontSize: '13px', color: '#555', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: '500' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-4)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: '500' }}>
             O Sistema Operacional do Advogado Brasileiro
           </p>
         </div>
 
         {/* Card */}
         <div style={{
-          background: '#111', border: '1px solid #1f1f1f', borderRadius: '12px', padding: '36px'
+          background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '36px'
         }}>
-          <h2 style={{ margin: '0 0 24px 0', fontSize: '16px', fontWeight: '600', color: '#fff' }}>
+          <h2 style={{ margin: '0 0 24px 0', fontSize: '16px', fontWeight: '600', color: 'var(--text)' }}>
             Acesse sua conta
           </h2>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 E-mail
               </label>
               <input
@@ -72,7 +72,7 @@ export default function LoginPage() {
               />
             </div>
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Senha
               </label>
               <input
@@ -80,7 +80,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
               />
               <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#C9A84C', cursor: 'pointer' }}>Esqueci minha senha</span>
+                <span style={{ fontSize: '12px', color: 'var(--gold)', cursor: 'pointer' }}>Esqueci minha senha</span>
               </div>
             </div>
             <button
@@ -97,7 +97,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: '#333' }}>
+        <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: 'var(--text-5)' }}>
           B/Luz Advogados · Plano Enterprise · 25 usuários
         </p>
       </div>

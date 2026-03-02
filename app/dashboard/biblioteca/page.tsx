@@ -23,14 +23,14 @@ export default function BibliotecaPage() {
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-              <span style={{ color: '#C9A84C', marginRight: '8px' }}>▤</span>Biblioteca
+              <span style={{ color: 'var(--gold)', marginRight: '8px' }}>▤</span>Biblioteca
             </h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>B/Luz Advogados · 307 documentos</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>B/Luz Advogados · 307 documentos</p>
           </div>
           <button className="btn-gold">+ Novo documento</button>
         </div>
@@ -39,13 +39,13 @@ export default function BibliotecaPage() {
       <div style={{ padding: '24px 28px' }}>
         {/* Search */}
         <div style={{ marginBottom: '24px', position: 'relative', maxWidth: '500px' }}>
-          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#555', fontSize: '16px' }}>◎</span>
+          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-4)', fontSize: '16px' }}>◎</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar na biblioteca..." style={{ paddingLeft: '40px' }} />
         </div>
 
         {/* Folders */}
         <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600', marginBottom: '12px' }}>PASTAS</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600', marginBottom: '12px' }}>PASTAS</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
             {FOLDERS.map(f => (
               <div key={f.name} onClick={() => setActiveFolder(activeFolder === f.name ? null : f.name)}
@@ -57,8 +57,8 @@ export default function BibliotecaPage() {
                 <div style={{ fontSize: '24px', marginBottom: '10px' }}>{f.icon}</div>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: activeFolder === f.name ? '#C9A84C' : '#e0e0e0', marginBottom: '4px' }}>{f.name}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: '#555' }}>{f.count} docs</span>
-                  <span style={{ fontSize: '10px', color: '#444' }}>{f.updated}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>{f.count} docs</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-5)' }}>{f.updated}</span>
                 </div>
               </div>
             ))}
@@ -67,15 +67,15 @@ export default function BibliotecaPage() {
 
         {/* Recent */}
         <div>
-          <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600', marginBottom: '12px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600', marginBottom: '12px' }}>
             {activeFolder ? `PASTA: ${activeFolder.toUpperCase()}` : 'DOCUMENTOS RECENTES'}
           </div>
           <div className="card" style={{ overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Nome', 'Pasta', 'Data', 'Tamanho', 'Ações'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#555', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -85,12 +85,12 @@ export default function BibliotecaPage() {
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>{d.name.includes('.pdf') ? '📄' : '📝'}</span>
-                        <span style={{ fontSize: '13px', color: '#e0e0e0' }}>{d.name}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.name}</span>
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}><span className="badge-gray">{d.folder}</span></td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#555' }}>{d.date}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#555' }}>{d.size}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-4)' }}>{d.date}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-4)' }}>{d.size}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button className="btn-ghost" style={{ padding: '3px 8px', fontSize: '11px' }}>Abrir</button>

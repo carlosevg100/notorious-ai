@@ -30,14 +30,14 @@ export default function PrazosPage() {
   const today = 3; // March 3
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-              <span style={{ color: '#C9A84C', marginRight: '8px' }}>◷</span>Prazos
+              <span style={{ color: 'var(--gold)', marginRight: '8px' }}>◷</span>Prazos
             </h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>
               <span style={{ color: '#ef4444', fontWeight: '600' }}>2 críticos</span> · <span style={{ color: '#eab308' }}>4 esta semana</span> · 4 futuros
             </p>
           </div>
@@ -64,9 +64,9 @@ export default function PrazosPage() {
           <div className="card" style={{ overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Data', 'Prazo', 'Caso', 'Tipo', 'Urgência', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#555', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -80,12 +80,12 @@ export default function PrazosPage() {
                           fontWeight: '700', fontSize: '15px',
                           color: d.urgency === 'red' ? '#ef4444' : d.urgency === 'yellow' ? '#eab308' : '#22c55e'
                         }}>{d.date}</div>
-                        <div style={{ fontSize: '10px', color: '#444', marginTop: '2px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-5)', marginTop: '2px' }}>
                           {daysLeft === 0 ? 'Hoje' : daysLeft < 0 ? `${Math.abs(daysLeft)}d atrás` : `em ${daysLeft}d`}
                         </div>
                       </td>
                       <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '13px', color: '#e0e0e0' }}>{d.name}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.name}</div>
                       </td>
                       <td style={{ padding: '14px 16px' }}><span className="badge-gray">{d.case}</span></td>
                       <td style={{ padding: '14px 16px' }}><span className="badge-gray">{d.type}</span></td>
@@ -112,7 +112,7 @@ export default function PrazosPage() {
             {/* Days header */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '8px' }}>
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-                <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#555', fontWeight: '600', padding: '4px' }}>{d}</div>
+                <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', padding: '4px' }}>{d}</div>
               ))}
             </div>
             {/* Calendar grid */}

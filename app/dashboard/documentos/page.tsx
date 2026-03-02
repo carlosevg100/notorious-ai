@@ -29,12 +29,12 @@ export default function DocumentosPage() {
   const [selectedDoc, setSelectedDoc] = useState<typeof DOCS[0] | null>(null);
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Documentos</h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#555', marginTop: '2px' }}>47 documentos · 8 aguardando análise</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)', marginTop: '2px' }}>47 documentos · 8 aguardando análise</p>
           </div>
           <button className="btn-gold">+ Enviar Documento</button>
         </div>
@@ -56,14 +56,14 @@ export default function DocumentosPage() {
           <div style={{ fontSize: '14px', color: dragging ? '#C9A84C' : '#666', fontWeight: '500' }}>
             {dragging ? 'Solte para enviar' : 'Arraste e solte documentos aqui'}
           </div>
-          <div style={{ fontSize: '12px', color: '#444', marginTop: '6px' }}>PDF, DOCX, TXT — máx. 50MB por arquivo</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-5)', marginTop: '6px' }}>PDF, DOCX, TXT — máx. 50MB por arquivo</div>
           <button className="btn-ghost" style={{ marginTop: '16px' }}>Selecionar arquivos</button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: selectedDoc ? '1fr 400px' : '1fr', gap: '20px' }}>
           {/* List */}
           <div className="card" style={{ overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a1a1a', display: 'flex', gap: '8px' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
               <input placeholder="Buscar documento..." style={{ flex: 1 }} />
               <select style={{ width: '150px' }}>
                 <option>Todos os tipos</option>
@@ -74,9 +74,9 @@ export default function DocumentosPage() {
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Documento', 'Tipo', 'Caso', 'Data', 'Status', 'Ações'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', color: '#555', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -87,14 +87,14 @@ export default function DocumentosPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>📄</span>
                         <div>
-                          <div style={{ fontSize: '12px', color: '#e0e0e0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
-                          <div style={{ fontSize: '11px', color: '#444' }}>{d.size}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-2)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-5)' }}>{d.size}</div>
                         </div>
                       </div>
                     </td>
                     <td style={{ padding: '12px 14px' }}><span className="badge-gray">{d.type}</span></td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: '#666' }}>{d.case}</td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: '#555' }}>{d.date}</td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-3)' }}>{d.case}</td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-4)' }}>{d.date}</td>
                     <td style={{ padding: '12px 14px' }}>
                       <span className={d.status === 'analisado' ? 'badge-green' : d.status === 'risco' ? 'badge-yellow' : d.status === 'processando' ? 'badge-gold' : 'badge-gray'}>
                         {d.status === 'analisado' ? '✓ Analisado' : d.status === 'risco' ? '⚠ Riscos' : d.status === 'processando' ? '⟳ Processando' : 'Pendente'}
@@ -116,16 +116,16 @@ export default function DocumentosPage() {
           {selectedDoc && selectedDoc.status !== 'pendente' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div className="card" style={{ padding: '20px' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#C9A84C' }}>◈ Análise IA</h3>
-                <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>{selectedDoc.name}</div>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: 'var(--gold)' }}>◈ Análise IA</h3>
+                <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '8px' }}>{selectedDoc.name}</div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: '600' }}>RESUMO</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: '600' }}>RESUMO</div>
                   <p style={{ margin: 0, fontSize: '12px', color: '#bbb', lineHeight: 1.6 }}>{ANALYSIS.summary}</p>
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>RISCOS DETECTADOS</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>RISCOS DETECTADOS</div>
                   {ANALYSIS.risks.map((r, i) => (
                     <div key={i} style={{ padding: '8px 10px', marginBottom: '6px', background: r.level === 'high' ? 'rgba(239,68,68,0.08)' : 'rgba(234,179,8,0.08)', border: `1px solid ${r.level === 'high' ? '#ef444420' : '#eab30820'}`, borderRadius: '6px' }}>
                       <span style={{ fontSize: '11px', color: r.level === 'high' ? '#ef4444' : '#eab308' }}>
@@ -136,11 +136,11 @@ export default function DocumentosPage() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>DATAS EXTRAÍDAS</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>DATAS EXTRAÍDAS</div>
                   {ANALYSIS.dates.map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #111', fontSize: '12px' }}>
-                      <span style={{ color: '#666' }}>{d.label}</span>
-                      <span style={{ color: '#C9A84C', fontWeight: '500' }}>{d.value}</span>
+                      <span style={{ color: 'var(--text-3)' }}>{d.label}</span>
+                      <span style={{ color: 'var(--gold)', fontWeight: '500' }}>{d.value}</span>
                     </div>
                   ))}
                 </div>

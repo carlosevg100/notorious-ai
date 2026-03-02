@@ -57,12 +57,12 @@ export default function ElaboracaoPage() {
   };
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-          <span style={{ color: '#C9A84C', marginRight: '8px' }}>✦</span>Elaboração
+          <span style={{ color: 'var(--gold)', marginRight: '8px' }}>✦</span>Elaboração
         </h1>
-        <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>Geração de peças processuais com IA</p>
+        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>Geração de peças processuais com IA</p>
       </div>
 
       <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
@@ -71,7 +71,7 @@ export default function ElaboracaoPage() {
           <h3 style={{ margin: '0 0 20px 0', fontSize: '13px', fontWeight: '600' }}>Configurar Geração</h3>
           <form onSubmit={generate}>
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                 Tipo de Documento
               </label>
               <select value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} required>
@@ -92,7 +92,7 @@ export default function ElaboracaoPage() {
             </div>
 
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                 Área do Direito
               </label>
               <select value={form.area} onChange={e => setForm({...form, area: e.target.value})} required>
@@ -107,7 +107,7 @@ export default function ElaboracaoPage() {
             </div>
 
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                 Posição do Cliente
               </label>
               <select value={form.posicao} onChange={e => setForm({...form, posicao: e.target.value})} required>
@@ -123,7 +123,7 @@ export default function ElaboracaoPage() {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>
                 Dados Relevantes do Caso
               </label>
               <textarea
@@ -148,25 +148,25 @@ export default function ElaboracaoPage() {
         {/* Result */}
         <div className="card" style={{ padding: '20px' }}>
           {!generated && !loading && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px', color: '#444' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px', color: 'var(--text-5)' }}>
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>✦</div>
-              <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px', color: '#666' }}>Pronto para gerar</div>
-              <div style={{ fontSize: '13px', color: '#444' }}>Preencha o formulário e clique em Gerar com IA</div>
+              <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px', color: 'var(--text-3)' }}>Pronto para gerar</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-5)' }}>Preencha o formulário e clique em Gerar com IA</div>
             </div>
           )}
           {loading && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
               <div style={{ width: '40px', height: '40px', border: '3px solid #1f1f1f', borderTop: '3px solid #C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '16px' }} />
-              <div style={{ fontSize: '14px', color: '#C9A84C', fontWeight: '600', marginBottom: '6px' }}>Gerando peça processual...</div>
-              <div style={{ fontSize: '12px', color: '#555' }}>Analisando jurisprudência e precedentes</div>
+              <div style={{ fontSize: '14px', color: 'var(--gold)', fontWeight: '600', marginBottom: '6px' }}>Gerando peça processual...</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>Analisando jurisprudência e precedentes</div>
             </div>
           )}
           {generated && (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#C9A84C' }}>✓ Peça gerada com sucesso</h3>
-                  <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Contestação · Direito do Trabalho · 847 palavras</div>
+                  <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: 'var(--gold)' }}>✓ Peça gerada com sucesso</h3>
+                  <div style={{ fontSize: '11px', color: 'var(--text-4)', marginTop: '2px' }}>Contestação · Direito do Trabalho · 847 palavras</div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button className="btn-ghost" onClick={copy} style={{ fontSize: '12px' }}>{copied ? '✓ Copiado' : 'Copiar'}</button>
@@ -174,8 +174,8 @@ export default function ElaboracaoPage() {
                   <button className="btn-gold" style={{ fontSize: '12px' }}>Editar</button>
                 </div>
               </div>
-              <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: '6px', padding: '20px', overflowY: 'auto', maxHeight: '500px' }}>
-                <pre style={{ margin: 0, fontSize: '12px', color: '#ccc', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{DRAFT}</pre>
+              <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '20px', overflowY: 'auto', maxHeight: '500px' }}>
+                <pre style={{ margin: 0, fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{DRAFT}</pre>
               </div>
             </>
           )}

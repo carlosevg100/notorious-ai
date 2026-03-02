@@ -28,12 +28,12 @@ export default function CasosPage() {
   }
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Casos</h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#555', marginTop: '2px' }}>23 casos ativos · 3 em situação crítica</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)', marginTop: '2px' }}>23 casos ativos · 3 em situação crítica</p>
           </div>
           <button className="btn-gold">+ Novo Caso</button>
         </div>
@@ -65,20 +65,20 @@ export default function CasosPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid #1f1f1f' }}>
                 {['Caso', 'Área', 'Cliente', 'Status', 'Risco', 'Próximo Prazo', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#555', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(c => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #1a1a1a', cursor: 'pointer' }}
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                   onClick={() => setSelected(c)}>
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontSize: '13px', color: '#e0e0e0', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                    <div style={{ fontSize: '11px', color: '#444', marginTop: '2px' }}>{c.proc}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-2)', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '2px' }}>{c.proc}</div>
                   </td>
                   <td style={{ padding: '14px 16px' }}><span className="badge-gray">{c.area}</span></td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#888' }}>{c.client}</td>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-3)' }}>{c.client}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <span className={`badge-${c.risk === 'red' && c.status === 'URGENTE' ? 'red' : 'gray'}`} style={{ fontSize: '11px' }}>{c.status}</span>
                   </td>
@@ -117,14 +117,14 @@ function CaseDetail({ caso, onBack }: { caso: typeof CASES[0], onBack: () => voi
   ];
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button onClick={onBack} className="btn-ghost" style={{ padding: '6px 12px' }}>← Voltar</button>
             <div>
               <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>{caso.name}</h1>
-              <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>{caso.proc} · {caso.judge}</p>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>{caso.proc} · {caso.judge}</p>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -151,8 +151,8 @@ function CaseDetail({ caso, onBack }: { caso: typeof CASES[0], onBack: () => voi
                 { label: 'Próximo prazo', value: caso.deadline },
               ].map(f => (
                 <div key={f.label}>
-                  <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{f.label}</div>
-                  <div style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: '500' }}>{f.value}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>{f.label}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: '500' }}>{f.value}</div>
                 </div>
               ))}
             </div>
@@ -174,7 +174,7 @@ function CaseDetail({ caso, onBack }: { caso: typeof CASES[0], onBack: () => voi
                     {i < TIMELINE.length - 1 && <div style={{ width: '1px', flex: 1, background: '#1f1f1f', minHeight: '20px', margin: '4px 0' }} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>{t.date}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '2px' }}>{t.date}</div>
                     <div style={{ fontSize: '13px', color: t.type === 'deadline' ? '#ef4444' : t.type === 'future' ? '#555' : '#ccc', fontWeight: t.type === 'deadline' ? '600' : '400' }}>
                       {t.event}
                     </div>
@@ -191,11 +191,11 @@ function CaseDetail({ caso, onBack }: { caso: typeof CASES[0], onBack: () => voi
             <h3 style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '600' }}>Documentos</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {DOCS_CASO.map((d, i) => (
-                <div key={i} style={{ padding: '10px 12px', background: '#0d0d0d', borderRadius: '6px', border: '1px solid #1a1a1a' }}>
-                  <div style={{ fontSize: '12px', color: '#ccc' }}>📄 {d.name}</div>
+                <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-2)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>📄 {d.name}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                     <span style={{ fontSize: '11px', color: d.status.includes('✓') ? '#22c55e' : '#eab308' }}>{d.status}</span>
-                    <span style={{ fontSize: '11px', color: '#444' }}>{d.date}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-5)' }}>{d.date}</span>
                   </div>
                 </div>
               ))}

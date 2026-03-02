@@ -36,13 +36,13 @@ export default function ChatPage() {
   return (
     <div style={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
       {/* Header */}
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '16px 24px' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '16px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>
-              <span style={{ color: '#C9A84C', marginRight: '8px' }}>◈</span>Chat IA
+              <span style={{ color: 'var(--gold)', marginRight: '8px' }}>◈</span>Chat IA
             </h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>Contexto: TechBrasil Ltda · 3 documentos ativos</p>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>Contexto: TechBrasil Ltda · 3 documentos ativos</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn-ghost" style={{ fontSize: '12px' }}>Trocar contexto</button>
@@ -54,32 +54,32 @@ export default function ChatPage() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Context Panel */}
         <div style={{
-          width: '280px', borderRight: '1px solid #1a1a1a', padding: '16px',
-          background: '#0d0d0d', overflowY: 'auto', flexShrink: 0
+          width: '280px', borderRight: '1px solid var(--border)', padding: '16px',
+          background: 'var(--bg-2)', overflowY: 'auto', flexShrink: 0
         }}>
-          <div style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', fontWeight: '600' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', fontWeight: '600' }}>
             Contexto Ativo
           </div>
 
           {/* Case */}
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>CASO</div>
-            <div style={{ padding: '10px 12px', background: '#141414', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '12px', color: '#C9A84C', fontWeight: '600', marginBottom: '4px' }}>TechBrasil Ltda</div>
-              <div style={{ fontSize: '11px', color: '#555' }}>Rescisão contratual</div>
-              <div style={{ fontSize: '11px', color: '#555' }}>Proc. 0009876-54.2026</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '8px' }}>CASO</div>
+            <div style={{ padding: '10px 12px', background: 'var(--bg-3)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '6px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--gold)', fontWeight: '600', marginBottom: '4px' }}>TechBrasil Ltda</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Rescisão contratual</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Proc. 0009876-54.2026</div>
             </div>
           </div>
 
           {/* Docs */}
           <div>
-            <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>DOCUMENTOS NO CONTEXTO</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '8px' }}>DOCUMENTOS NO CONTEXTO</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {CONTEXT_DOCS.map((d, i) => (
-                <div key={i} style={{ padding: '8px 10px', background: '#141414', border: '1px solid #1f1f1f', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div key={i} style={{ padding: '8px 10px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '11px', color: '#ccc' }}>📄 {d.name}</div>
-                    <div style={{ fontSize: '10px', color: '#444', marginTop: '2px' }}>{d.pages} páginas</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>📄 {d.name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-5)', marginTop: '2px' }}>{d.pages} páginas</div>
                   </div>
                   <span className={d.status === 'ativo' ? 'badge-green' : 'badge-gray'}>{d.status}</span>
                 </div>
@@ -89,9 +89,9 @@ export default function ChatPage() {
           </div>
 
           <div style={{ marginTop: '16px', padding: '10px 12px', background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: '6px' }}>
-            <div style={{ fontSize: '11px', color: '#C9A84C', fontWeight: '600', marginBottom: '4px' }}>Modelo Ativo</div>
-            <div style={{ fontSize: '11px', color: '#666' }}>Notorious AI v2.1</div>
-            <div style={{ fontSize: '10px', color: '#444', marginTop: '2px' }}>Treinado em direito brasileiro</div>
+            <div style={{ fontSize: '11px', color: 'var(--gold)', fontWeight: '600', marginBottom: '4px' }}>Modelo Ativo</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>Notorious AI v2.1</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-5)', marginTop: '2px' }}>Treinado em direito brasileiro</div>
           </div>
         </div>
 
@@ -113,7 +113,7 @@ export default function ChatPage() {
                   maxWidth: '75%', padding: '12px 16px', borderRadius: '10px',
                   background: m.role === 'user' ? 'rgba(201,168,76,0.12)' : '#141414',
                   border: m.role === 'user' ? '1px solid rgba(201,168,76,0.2)' : '1px solid #1f1f1f',
-                  fontSize: '13px', color: '#e0e0e0', lineHeight: '1.6',
+                  fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6',
                   whiteSpace: 'pre-line'
                 }}>
                   {m.content}
@@ -123,7 +123,7 @@ export default function ChatPage() {
             {loading && (
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <div style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #C9A84C, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#000', fontWeight: '700' }}>N</div>
-                <div style={{ padding: '12px 16px', background: '#141414', border: '1px solid #1f1f1f', borderRadius: '10px' }}>
+                <div style={{ padding: '12px 16px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '10px' }}>
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     {[0,1,2].map(n => (
                       <div key={n} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#C9A84C', animation: `pulse 1.2s ${n*0.4}s ease-in-out infinite` }} />
@@ -135,7 +135,7 @@ export default function ChatPage() {
           </div>
 
           {/* Input */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #1a1a1a', background: '#0d0d0d' }}>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
               <textarea
                 value={input} onChange={e => setInput(e.target.value)}
@@ -150,8 +150,8 @@ export default function ChatPage() {
             <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {["Resumir documentos", "Identificar riscos", "Buscar jurisprudência", "Gerar estratégia"].map(s => (
                 <button key={s} onClick={() => setInput(s)} style={{
-                  background: 'transparent', border: '1px solid #2a2a2a', borderRadius: '4px',
-                  padding: '4px 10px', fontSize: '11px', color: '#555', cursor: 'pointer'
+                  background: 'transparent', border: '1px solid var(--border-2)', borderRadius: '4px',
+                  padding: '4px 10px', fontSize: '11px', color: 'var(--text-4)', cursor: 'pointer'
                 }}>{s}</button>
               ))}
             </div>

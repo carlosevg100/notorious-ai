@@ -15,15 +15,15 @@ export default function ConfiguracoesPage() {
   const [tab, setTab] = useState<'firm' | 'team' | 'plan' | 'ai'>('firm');
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh' }}>
-      <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', padding: '18px 28px' }}>
+    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
         <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-          <span style={{ color: '#C9A84C', marginRight: '8px' }}>⚙</span>Configurações
+          <span style={{ color: 'var(--gold)', marginRight: '8px' }}>⚙</span>Configurações
         </h1>
-        <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>B/Luz Advogados · Plano Enterprise</p>
+        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>B/Luz Advogados · Plano Enterprise</p>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a', background: '#0d0d0d', padding: '0 28px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-2)', padding: '0 28px' }}>
         {[
           { id: 'firm', label: 'Escritório' },
           { id: 'team', label: 'Equipe' },
@@ -52,7 +52,7 @@ export default function ConfiguracoesPage() {
                 }}>B</div>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>B/Luz Advogados</h2>
-                  <div style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>Sociedade de Advogados</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-4)', marginTop: '4px' }}>Sociedade de Advogados</div>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -65,7 +65,7 @@ export default function ConfiguracoesPage() {
                   { label: 'E-mail', value: 'contato@bluz.adv.br' },
                 ].map(f => (
                   <div key={f.label}>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{f.label}</label>
+                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{f.label}</label>
                     <input defaultValue={f.value} />
                   </div>
                 ))}
@@ -85,10 +85,10 @@ export default function ConfiguracoesPage() {
               ].map(o => (
                 <div key={o.city} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #111', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontSize: '13px', color: '#e0e0e0' }}>{o.city}, {o.state}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{o.city}, {o.state}</span>
                     <span className="badge-gray" style={{ marginLeft: '8px' }}>{o.role}</span>
                   </div>
-                  <span style={{ fontSize: '12px', color: '#555' }}>{o.lawyers} advogados</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-4)' }}>{o.lawyers} advogados</span>
                 </div>
               ))}
             </div>
@@ -98,15 +98,15 @@ export default function ConfiguracoesPage() {
         {tab === 'team' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '13px', color: '#888' }}>{TEAM.length} membros</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{TEAM.length} membros</div>
               <button className="btn-gold">+ Convidar membro</button>
             </div>
             <div className="card" style={{ overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Advogado', 'Área', 'Escritório', 'Acesso', ''].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#555', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -119,15 +119,15 @@ export default function ConfiguracoesPage() {
                             width: '36px', height: '36px', borderRadius: '50%', minWidth: '36px',
                             background: 'linear-gradient(135deg, rgba(201,168,76,0.3), rgba(201,168,76,0.1))',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '13px', color: '#C9A84C', fontWeight: '700'
+                            fontSize: '13px', color: 'var(--gold)', fontWeight: '700'
                           }}>{m.name.split(' ').map(n => n[0]).slice(1,3).join('')}</div>
                           <div>
-                            <div style={{ fontSize: '13px', color: '#e0e0e0', fontWeight: '500' }}>{m.name}</div>
-                            <div style={{ fontSize: '11px', color: '#444' }}>{m.role} · {m.oab}</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: '500' }}>{m.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-5)' }}>{m.role} · {m.oab}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: '12px', color: '#666' }}>{m.area}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-3)' }}>{m.area}</td>
                       <td style={{ padding: '12px 16px' }}><span className="badge-gray">{m.office}</span></td>
                       <td style={{ padding: '12px 16px' }}>
                         <span className={m.status === 'admin' ? 'badge-gold' : m.status === 'member' ? 'badge-green' : 'badge-gray'}>
@@ -151,12 +151,12 @@ export default function ConfiguracoesPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <div>
                   <div className="badge-gold" style={{ marginBottom: '10px', display: 'inline-block' }}>Plano Atual</div>
-                  <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: '#C9A84C' }}>Enterprise</h2>
-                  <p style={{ margin: '6px 0 0', color: '#666', fontSize: '13px' }}>B/Luz Advogados · 25 usuários</p>
+                  <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: 'var(--gold)' }}>Enterprise</h2>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-3)', fontSize: '13px' }}>B/Luz Advogados · 25 usuários</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>R$ 4.900</div>
-                  <div style={{ fontSize: '12px', color: '#555' }}>/mês · cobrado anualmente</div>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text)' }}>R$ 4.900</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>/mês · cobrado anualmente</div>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -170,7 +170,7 @@ export default function ConfiguracoesPage() {
                   '✓ Treinamento personalizado',
                   '✓ Relatórios avançados',
                 ].map(f => (
-                  <div key={f} style={{ fontSize: '12px', color: '#888' }}>{f}</div>
+                  <div key={f} style={{ fontSize: '12px', color: 'var(--text-3)' }}>{f}</div>
                 ))}
               </div>
               <div style={{ marginTop: '20px', display: 'flex', gap: '8px' }}>
@@ -188,8 +188,8 @@ export default function ConfiguracoesPage() {
               ].map(u => (
                 <div key={u.label} style={{ marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '12px', color: '#888' }}>{u.label}</span>
-                    <span style={{ fontSize: '12px', color: '#C9A84C', fontWeight: '600' }}>{u.used} / {u.limit}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{u.label}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--gold)', fontWeight: '600' }}>{u.used} / {u.limit}</span>
                   </div>
                   {u.label === 'Armazenamento' && (
                     <div style={{ height: '4px', background: '#1f1f1f', borderRadius: '2px' }}>
@@ -212,7 +212,7 @@ export default function ConfiguracoesPage() {
                 { label: 'Tribunal principal', value: 'São Paulo (TJ-SP, TRT-2)', type: 'select', options: ['São Paulo (TJ-SP, TRT-2)', 'Brasília (STF, STJ)', 'Paraná (TJ-PR, TRT-9)'] },
               ].map(f => (
                 <div key={f.label} style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#555', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{f.label}</label>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>{f.label}</label>
                   <select defaultValue={f.value}>
                     {f.options.map(o => <option key={o}>{o}</option>)}
                   </select>
@@ -225,7 +225,7 @@ export default function ConfiguracoesPage() {
                 { label: 'Notificações de novas decisões relevantes', checked: false },
               ].map(t => (
                 <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #111' }}>
-                  <span style={{ fontSize: '13px', color: '#e0e0e0' }}>{t.label}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{t.label}</span>
                   <div style={{
                     width: '40px', height: '22px', borderRadius: '11px',
                     background: t.checked ? '#C9A84C' : '#2a2a2a',
