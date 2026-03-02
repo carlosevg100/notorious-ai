@@ -3,12 +3,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { User } from '@supabase/supabase-js'
 
-function getBrowserSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 
 interface UserProfile {
   id: string; firm_id: string; email: string; name: string; role: string;
@@ -20,13 +16,20 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
+
 const AuthContext = createContext<AuthContextType>({} as AuthContextType)
+
+// Singleton supabase for browser
+let _browserClient: ReturnType<typeof createClient> | null = null
+function getBrowserSupabase() {
+  if (!_browserClient) _browserClient = createClient(SUPA_URL, SUPA_KEY)
+  return _browserClient
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [supabase] = useState(() => getBrowserSupabase())
 
   async function fetchProfile() {
     try {
@@ -36,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    const supabase = getBrowserSupabase()
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile().finally(() => setLoading(false))
@@ -50,12 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await getBrowserSupabase().auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    await getBrowserSupabase().auth.signOut()
     setUser(null); setProfile(null)
   }
 
