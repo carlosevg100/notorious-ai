@@ -1,159 +1,61 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 
-const DOCS = [
-  { id: 1, name: "Petição Inicial — Grupo Nordeste.pdf", type: "Petição", date: "14/02/2026", size: "2.4 MB", status: "analisado", case: "Grupo Nordeste", tags: ["M&A", "Recuperação Judicial"] },
-  { id: 2, name: "Contrato de Prestação_TechBrasil_v3.pdf", type: "Contrato", date: "18/02/2026", size: "856 KB", status: "risco", case: "TechBrasil", tags: ["Contratos"] },
-  { id: 3, name: "Notificação Extrajudicial_ABC.pdf", type: "Notificação", date: "20/02/2026", size: "341 KB", status: "analisado", case: "Metalúrgica ABC", tags: ["Trabalhista"] },
-  { id: 4, name: "AR de citação — Vista Verde.pdf", type: "Ato Processual", date: "28/02/2026", size: "128 KB", status: "pendente", case: "Vista Verde", tags: ["Cível"] },
-  { id: 5, name: "Laudo Pericial — Inovação Tech.pdf", type: "Laudo", date: "01/03/2026", size: "4.1 MB", status: "processando", case: "Inovação Tech", tags: ["Contratos"] },
-];
-
-const ANALYSIS = {
-  summary: "Contrato de Prestação de Serviços entre TechBrasil Ltda (contratante) e Inovação Solutions (contratada). Vigência de 24 meses com renovação automática. Valor total: R$ 890.000,00 em 24 parcelas mensais.",
-  risks: [
-    { level: "high", text: "Cláusula de não-concorrência de 5 anos — excede entendimento STJ (máx. 2 anos)" },
-    { level: "high", text: "Foro de eleição estrangeiro (Frankfurt) — pode ser afastado pelo juiz brasileiro" },
-    { level: "medium", text: "Multa rescisória de 30% — potencialmente abusiva (TJ-SP: máx. 20%)" },
-  ],
-  dates: [
-    { label: "Início de vigência", value: "01/03/2026" },
-    { label: "Término previsto", value: "28/02/2028" },
-    { label: "Prazo para rescisão sem multa", value: "01/12/2026 (90 dias de aviso prévio)" },
-    { label: "Reajuste anual (IGPM)", value: "01/03 de cada ano" },
-  ]
-};
+interface Doc { id: string; name: string; file_type: string; ai_status: string; created_at: string; project_id: string; document_extractions?: any[]; }
 
 export default function DocumentosPage() {
-  const [dragging, setDragging] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<typeof DOCS[0] | null>(null);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/documents').then(r => r.json()).then(d => { setDocs(Array.isArray(d) ? d : []); setLoading(false); });
+  }, []);
+
+  const filtered = docs.filter(d => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Documentos</h1>
-            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)', marginTop: '2px' }}>47 documentos · 8 aguardando análise</p>
-          </div>
-          <button className="btn-gold">+ Enviar Documento</button>
-        </div>
+        <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Biblioteca de Documentos</h1>
+        <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-4)' }}>{docs.length} documentos</p>
       </div>
-
       <div style={{ padding: '24px 28px' }}>
-        {/* Upload */}
-        <div
-          onDragOver={e => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={e => { e.preventDefault(); setDragging(false); }}
-          style={{
-            border: `2px dashed ${dragging ? '#C9A84C' : '#2a2a2a'}`,
-            borderRadius: '10px', padding: '32px', textAlign: 'center',
-            background: dragging ? 'rgba(201,168,76,0.05)' : '#0d0d0d',
-            cursor: 'pointer', marginBottom: '24px', transition: 'all 0.2s'
-          }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>📂</div>
-          <div style={{ fontSize: '14px', color: dragging ? '#C9A84C' : '#666', fontWeight: '500' }}>
-            {dragging ? 'Solte para enviar' : 'Arraste e solte documentos aqui'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-5)', marginTop: '6px' }}>PDF, DOCX, TXT — máx. 50MB por arquivo</div>
-          <button className="btn-ghost" style={{ marginTop: '16px' }}>Selecionar arquivos</button>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: selectedDoc ? '1fr 400px' : '1fr', gap: '20px' }}>
-          {/* List */}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome..." style={{ width: '300px', marginBottom: '20px' }} />
+        {loading ? <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-4)' }}>Carregando...</div> : (
           <div className="card" style={{ overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
-              <input placeholder="Buscar documento..." style={{ flex: 1 }} />
-              <select style={{ width: '150px' }}>
-                <option>Todos os tipos</option>
-                <option>Petição</option>
-                <option>Contrato</option>
-                <option>Laudo</option>
-              </select>
-            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Documento', 'Tipo', 'Caso', 'Data', 'Status', 'Ações'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                <tr style={{ borderBottom: '1px solid #1f1f1f' }}>
+                  {['Documento', 'Tipo IA', 'Status IA', 'Enviado em', ''].map(h => (
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {DOCS.map(d => (
-                  <tr key={d.id} style={{ borderBottom: '1px solid #111', cursor: 'pointer' }} onClick={() => setSelectedDoc(d === selectedDoc ? null : d)}>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>📄</span>
-                        <div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-2)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-5)' }}>{d.size}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 14px' }}><span className="badge-gray">{d.type}</span></td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-3)' }}>{d.case}</td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-4)' }}>{d.date}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <span className={d.status === 'analisado' ? 'badge-green' : d.status === 'risco' ? 'badge-yellow' : d.status === 'processando' ? 'badge-gold' : 'badge-gray'}>
-                        {d.status === 'analisado' ? '✓ Analisado' : d.status === 'risco' ? '⚠ Riscos' : d.status === 'processando' ? '⟳ Processando' : 'Pendente'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button className="btn-ghost" style={{ padding: '3px 8px', fontSize: '11px' }}>Resumir</button>
-                        <button className="btn-ghost" style={{ padding: '3px 8px', fontSize: '11px' }}>Riscos</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(d => {
+                  const ext = d.document_extractions?.[0];
+                  return (
+                    <tr key={d.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-2)' }}>📄 {d.name}</td>
+                      <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--gold)' }}>{ext?.doc_type || '—'}</td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{ fontSize: '12px', color: d.ai_status === 'complete' ? '#22c55e' : d.ai_status === 'processing' ? '#C9A84C' : '#888' }}>
+                          {d.ai_status === 'complete' ? '✓ Analisado' : d.ai_status === 'processing' ? '⟳ Processando' : 'Pendente'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--text-5)' }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <Link href={`/dashboard/projeto/${d.project_id}`}><button className="btn-ghost" style={{ padding: '4px 10px', fontSize: '11px' }}>Ver projeto</button></Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
-          {/* Analysis Panel */}
-          {selectedDoc && selectedDoc.status !== 'pendente' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="card" style={{ padding: '20px' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: 'var(--gold)' }}>◈ Análise IA</h3>
-                <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '8px' }}>{selectedDoc.name}</div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', fontWeight: '600' }}>RESUMO</div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#bbb', lineHeight: 1.6 }}>{ANALYSIS.summary}</p>
-                </div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>RISCOS DETECTADOS</div>
-                  {ANALYSIS.risks.map((r, i) => (
-                    <div key={i} style={{ padding: '8px 10px', marginBottom: '6px', background: r.level === 'high' ? 'rgba(239,68,68,0.08)' : 'rgba(234,179,8,0.08)', border: `1px solid ${r.level === 'high' ? '#ef444420' : '#eab30820'}`, borderRadius: '6px' }}>
-                      <span style={{ fontSize: '11px', color: r.level === 'high' ? '#ef4444' : '#eab308' }}>
-                        {r.level === 'high' ? '🔴' : '🟡'} {r.text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>DATAS EXTRAÍDAS</div>
-                  {ANALYSIS.dates.map((d, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #111', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--text-3)' }}>{d.label}</span>
-                      <span style={{ color: 'var(--gold)', fontWeight: '500' }}>{d.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px', marginTop: '16px' }}>
-                  <button className="btn-ghost" style={{ flex: 1, justifyContent: 'center', fontSize: '11px' }}>Copiar</button>
-                  <button className="btn-ghost" style={{ flex: 1, justifyContent: 'center', fontSize: '11px' }}>Exportar</button>
-                  <button className="btn-gold" style={{ flex: 1, justifyContent: 'center', fontSize: '11px' }}>Chat IA</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

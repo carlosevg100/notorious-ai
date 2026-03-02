@@ -1,18 +1,52 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("cristiano@bluz.adv.br");
-  const [pass, setPass] = useState("••••••••");
+  const { signIn } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [name, setName] = useState("");
+  const [firmName, setFirmName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    router.push("/dashboard");
+    setError("");
+    try {
+      await signIn(email, pass);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Erro ao entrar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass, name, firmName })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await signIn(email, pass);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Erro ao criar conta");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -20,13 +54,11 @@ export default function LoginPage() {
       minHeight: '100vh', background: 'var(--bg)', display: 'flex',
       alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden'
     }}>
-      {/* Background grid */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage: 'linear-gradient(rgba(201,168,76,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.03) 1px, transparent 1px)',
         backgroundSize: '40px 40px'
       }} />
-      {/* Glow */}
       <div style={{
         position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
         width: '600px', height: '400px',
@@ -35,7 +67,6 @@ export default function LoginPage() {
       }} />
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '420px', padding: '0 24px' }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '16px' }}>
             <div style={{
@@ -53,55 +84,63 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Card */}
         <div style={{
           background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '36px'
         }}>
-          <h2 style={{ margin: '0 0 24px 0', fontSize: '16px', fontWeight: '600', color: 'var(--text)' }}>
-            Acesse sua conta
-          </h2>
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: 'var(--bg-3)', borderRadius: '8px', padding: '4px' }}>
+            {(['login', 'signup'] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                style={{
+                  flex: 1, padding: '8px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  background: mode === m ? 'var(--bg-2)' : 'transparent',
+                  color: mode === m ? 'var(--text)' : 'var(--text-4)',
+                  fontSize: '13px', fontWeight: mode === m ? '600' : '400',
+                  transition: 'all 0.15s'
+                }}>
+                {m === 'login' ? 'Entrar' : 'Criar conta'}
+              </button>
+            ))}
+          </div>
 
-          <form onSubmit={handleLogin}>
+          {error && (
+            <div style={{ background: '#ef444415', border: '1px solid #ef444440', borderRadius: '6px', padding: '10px 12px', marginBottom: '16px', fontSize: '13px', color: '#ef4444' }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+            {mode === 'signup' && (
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome completo</label>
+                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Dr. João Silva" required />
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome do escritório</label>
+                  <input type="text" value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Silva & Associados" required />
+                </div>
+              </>
+            )}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                E-mail
-              </label>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="seu@escritorio.adv.br"
-              />
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>E-mail</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@escritorio.adv.br" required />
             </div>
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Senha
-              </label>
-              <input
-                type="password" value={pass} onChange={e => setPass(e.target.value)}
-                placeholder="••••••••"
-              />
-              <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--gold)', cursor: 'pointer' }}>Esqueci minha senha</span>
-              </div>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Senha</label>
+              <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
-            <button
-              type="submit" className="btn-gold" disabled={loading}
-              style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}
-            >
+            <button type="submit" className="btn-gold" disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
               {loading ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                   <span style={{ width: '14px', height: '14px', border: '2px solid #00000040', borderTop: '2px solid #000', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                  Entrando...
+                  {mode === 'login' ? 'Entrando...' : 'Criando conta...'}
                 </span>
-              ) : 'Entrar'}
+              ) : (mode === 'login' ? 'Entrar' : 'Criar conta')}
             </button>
           </form>
         </div>
-
-        <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: 'var(--text-5)' }}>
-          B/Luz Advogados · Plano Enterprise · 25 usuários
-        </p>
       </div>
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
