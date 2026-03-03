@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "app/api/drafts/auto-contestacao/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/drafts/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/documents/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/chat/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

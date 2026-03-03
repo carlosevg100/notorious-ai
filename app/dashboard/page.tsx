@@ -201,6 +201,11 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [caseFilter, setCaseFilter] = useState('todos');
+  const [showNovoCaso, setShowNovoCaso] = useState(false);
+  const [novoCasoCliente, setNovoCasoCliente] = useState('');
+  const [novoCasoNome, setNovoCasoNome] = useState('');
+  const [novoCasoArea, setNovoCasoArea] = useState('Trabalhista');
+  const [creatingCaso, setCreatingCaso] = useState(false);
   const [animStats, setAnimStats] = useState<DashboardStats>({
     clientCount: 0, casosAtivos: 0, contratosVigentes: 0, alertasUnread: 0, valorGestao: 0,
   });
@@ -246,6 +251,24 @@ export default function Dashboard() {
       fetch('/api/alerts', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id }) })
     ));
     loadData();
+  }
+
+  async function createCaso(e: React.FormEvent) {
+    e.preventDefault();
+    if (!novoCasoCliente || !novoCasoNome) return;
+    setCreatingCaso(true);
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: novoCasoNome, area: novoCasoArea, client_id: novoCasoCliente }),
+      });
+      if (res.ok) {
+        const p = await res.json();
+        window.location.href = `/dashboard/projeto/${p.id}`;
+      }
+    } catch {}
+    setCreatingCaso(false);
   }
 
   if (loading) return <SkeletonDashboard />;
@@ -326,6 +349,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowNovoCaso(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--gold)', color: '#0a0a0b', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            ＋ Novo Caso
+          </button>
           {([
             { icon: '🏢', label: 'Clientes',    val: String(animStats.clientCount),          color: 'var(--gold)',  red: false },
             { icon: '⚖️', label: 'Casos Ativos', val: String(animStats.casosAtivos),           color: '#22c55e',      red: false },
@@ -653,6 +679,40 @@ export default function Dashboard() {
         @media (max-width: 1150px) { .dash-z2 { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 800px)  { .dash-z2 { grid-template-columns: 1fr; } .dash-z3 { grid-template-columns: 1fr; } }
       `}</style>
+
+      {/* ══ MODAL: NOVO CASO ══ */}
+      {showNovoCaso && (
+        <div onClick={() => setShowNovoCaso(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '440px', margin: '0 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', letterSpacing: '-0.4px' }}>Novo Caso</h2>
+              <button onClick={() => setShowNovoCaso(false)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <form onSubmit={createCaso} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Cliente</label>
+                <select value={novoCasoCliente} onChange={e => setNovoCasoCliente(e.target.value)} required style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: 'var(--text)', outline: 'none' }}>
+                  <option value="">Selecionar cliente...</option>
+                  {data?.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Nome do Caso</label>
+                <input value={novoCasoNome} onChange={e => setNovoCasoNome(e.target.value)} required placeholder="Ex: Rescisão Indireta — João Silva" style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: 'var(--text)', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Área Jurídica</label>
+                <select value={novoCasoArea} onChange={e => setNovoCasoArea(e.target.value)} style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: 'var(--text)', outline: 'none' }}>
+                  {['Trabalhista','Cível','Tributário','Contratos','M&A','Contencioso','Societário','Penal','Imobiliário','Outros'].map(a => <option key={a}>{a}</option>)}
+                </select>
+              </div>
+              <button type="submit" disabled={creatingCaso} style={{ marginTop: '6px', padding: '12px', background: creatingCaso ? 'var(--border)' : 'var(--gold)', color: '#0a0a0b', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '800', cursor: creatingCaso ? 'not-allowed' : 'pointer' }}>
+                {creatingCaso ? 'Criando...' : 'Criar Caso →'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

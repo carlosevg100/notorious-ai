@@ -12,6 +12,13 @@ interface Contract {
   end_date: string | null; contract_type: string;
   contract_extractions?: { risk_level: string }[];
 }
+interface Contact {
+  id: string; name: string; role: string | null;
+  email: string | null; phone: string | null; whatsapp: string | null;
+}
+interface AdminDoc {
+  id: string; name: string; document_category: string | null; created_at: string;
+}
 interface Client {
   id: string; name: string; type: string; document: string | null;
   email: string | null; phone: string | null; address: string | null; notes: string | null;
@@ -48,19 +55,72 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNewCase, setShowNewCase] = useState(false);
+  const [activeTab, setActiveTab] = useState<'casos'|'contratos'|'admin'>('casos');
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [adminDocs, setAdminDocs] = useState<AdminDoc[]>([]);
+  const [relNotes, setRelNotes] = useState('');
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContact, setNewContact] = useState({ name:'', role:'', email:'', phone:'', whatsapp:'' });
+  const [savingNotes, setSavingNotes] = useState(false);
   const [newCaseName, setNewCaseName] = useState("");
   const [newCaseArea, setNewCaseArea] = useState("Trabalhista");
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => { loadClient(); }, [id]);
+  useEffect(() => { loadClient(); loadAdminData(); }, [id]);
 
   async function loadClient() {
     try {
       const res = await fetch(`/api/clients/${id}`);
-      if (res.ok) setClient(await res.json());
+      if (res.ok) { const c = await res.json(); setClient(c); setRelNotes((c as any).relationship_notes || ''); }
       else router.push('/dashboard/clientes');
     } catch {}
     setLoading(false);
+  }
+
+  async function loadAdminData() {
+    try {
+      const [cRes, dRes] = await Promise.all([
+        fetch(`/api/clients/${id}/contacts`),
+        fetch(`/api/clients/${id}/admin-docs`),
+      ]);
+      if (cRes.ok) setContacts(await cRes.json());
+      if (dRes.ok) setAdminDocs(await dRes.json());
+    } catch {}
+  }
+
+  async function saveRelNotes() {
+    setSavingNotes(true);
+    try {
+      await fetch(`/api/clients/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationship_notes: relNotes }),
+      });
+    } catch {}
+    setSavingNotes(false);
+  }
+
+  async function addContact(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const res = await fetch(`/api/clients/${id}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContact),
+      });
+      if (res.ok) {
+        const newC = await res.json();
+        setContacts(prev => [...prev, newC]);
+        setNewContact({ name:'', role:'', email:'', phone:'', whatsapp:'' });
+        setShowNewContact(false);
+      }
+    } catch {}
+  }
+
+  async function deleteContact(cid: string) {
+    if (!confirm('Remover contato?')) return;
+    await fetch(`/api/clients/${id}/contacts/${cid}`, { method: 'DELETE' });
+    setContacts(prev => prev.filter(c => c.id !== cid));
   }
 
   async function createCase(e: React.FormEvent) {
@@ -158,9 +218,28 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px' }}>
+
+      {/* TABS */}
+      <div style={{ padding: '0 28px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', display: 'flex', gap: '4px' }}>
+        {([
+          { key: 'casos', label: '⚖ Casos', count: client.projects.length },
+          { key: 'contratos', label: '▤ Contratos', count: client.contracts.length },
+          { key: 'admin', label: '🗂 Administrativo', count: contacts.length + adminDocs.length },
+        ] as const).map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+            padding: '10px 16px', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === t.key ? 'var(--gold)' : 'transparent'}`,
+            color: activeTab === t.key ? 'var(--gold)' : 'var(--text-4)', cursor: 'pointer', fontSize: '13px', fontWeight: activeTab === t.key ? '700' : '400',
+            display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', whiteSpace: 'nowrap',
+          }}>
+            {t.label}
+            {t.count > 0 && <span style={{ fontSize: '10px', background: activeTab === t.key ? 'var(--gold)' : 'var(--border)', color: activeTab === t.key ? '#0a0a0b' : 'var(--text-4)', borderRadius: '10px', padding: '1px 6px', fontWeight: '700' }}>{t.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '24px 28px', display: activeTab !== 'admin' ? 'grid' : 'block', gridTemplateColumns: '1fr 380px', gap: '24px' }}>
         {/* Section 1: Cases */}
-        <div>
+        <div style={{ display: activeTab === 'casos' ? 'block' : 'none' }}>
           <div className="card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
@@ -228,7 +307,7 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Section 2: Contracts */}
-        <div>
+        <div style={{ display: activeTab === 'contratos' ? 'block' : 'none' }}>
           <div className="card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>
@@ -286,6 +365,98 @@ export default function ClientDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Section 3: Admin */}
+        {activeTab === 'admin' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+
+            {/* Contatos */}
+            <div className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: '700' }}>👤 Contatos Principais</h2>
+                <button onClick={() => setShowNewContact(!showNewContact)} className="btn-gold" style={{ fontSize: '11px', padding: '5px 12px' }}>+ Contato</button>
+              </div>
+              {showNewContact && (
+                <form onSubmit={addContact} style={{ marginBottom: '16px', padding: '14px', background: 'var(--bg-2)', borderRadius: '8px', border: '1px solid var(--gold-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <input required value={newContact.name} onChange={e => setNewContact(p=>({...p,name:e.target.value}))} placeholder="Nome *" style={{ background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px 10px',fontSize:'13px',color:'var(--text)',outline:'none' }} />
+                  <input value={newContact.role} onChange={e => setNewContact(p=>({...p,role:e.target.value}))} placeholder="Cargo" style={{ background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px 10px',fontSize:'13px',color:'var(--text)',outline:'none' }} />
+                  <input value={newContact.email} onChange={e => setNewContact(p=>({...p,email:e.target.value}))} placeholder="E-mail" type="email" style={{ background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px 10px',fontSize:'13px',color:'var(--text)',outline:'none' }} />
+                  <div style={{ display:'flex',gap:'8px' }}>
+                    <input value={newContact.phone} onChange={e => setNewContact(p=>({...p,phone:e.target.value}))} placeholder="Telefone" style={{ flex:1,background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px 10px',fontSize:'13px',color:'var(--text)',outline:'none' }} />
+                    <input value={newContact.whatsapp} onChange={e => setNewContact(p=>({...p,whatsapp:e.target.value}))} placeholder="WhatsApp" style={{ flex:1,background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'6px',padding:'8px 10px',fontSize:'13px',color:'var(--text)',outline:'none' }} />
+                  </div>
+                  <div style={{ display:'flex',gap:'8px' }}>
+                    <button type="submit" className="btn-gold" style={{ flex:1,justifyContent:'center',fontSize:'12px',padding:'7px' }}>Salvar</button>
+                    <button type="button" className="btn-ghost" style={{ fontSize:'12px',padding:'7px 12px' }} onClick={() => setShowNewContact(false)}>Cancelar</button>
+                  </div>
+                </form>
+              )}
+              {contacts.length === 0 && !showNewContact ? (
+                <div style={{ textAlign:'center', padding:'28px', color:'var(--text-4)', fontSize:'13px' }}>Nenhum contato cadastrado</div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {contacts.map(c => (
+                    <div key={c.id} style={{ padding:'12px 14px', background:'var(--bg-2)', borderRadius:'8px', border:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                      <div>
+                        <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--text)', marginBottom:'4px' }}>{c.name}</div>
+                        {c.role && <div style={{ fontSize:'11px', color:'var(--gold)', marginBottom:'4px' }}>{c.role}</div>}
+                        <div style={{ display:'flex', flexDirection:'column', gap:'2px' }}>
+                          {c.email && <span style={{ fontSize:'11px', color:'var(--text-4)' }}>✉ {c.email}</span>}
+                          {c.phone && <span style={{ fontSize:'11px', color:'var(--text-4)' }}>☎ {c.phone}</span>}
+                          {c.whatsapp && <span style={{ fontSize:'11px', color:'#22c55e' }}>● WhatsApp: {c.whatsapp}</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => deleteContact(c.id)} style={{ background:'none', border:'none', color:'var(--text-5)', cursor:'pointer', fontSize:'16px', padding:'2px 4px' }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Docs + Notas */}
+            <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+              {/* Admin Docs */}
+              <div className="card" style={{ padding:'20px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+                  <h2 style={{ margin:0, fontSize:'14px', fontWeight:'700' }}>📄 Documentos Administrativos</h2>
+                </div>
+                <div style={{ border:'2px dashed var(--border)', borderRadius:'8px', padding:'16px', textAlign:'center', marginBottom:'12px', fontSize:'12px', color:'var(--text-4)' }}>
+                  Mandato · Honorários · NDA · Procuração<br/>
+                  <span style={{ fontSize:'11px', marginTop:'4px', display:'block' }}>Upload em breve via aba de documentos do caso</span>
+                </div>
+                {adminDocs.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                    {adminDocs.map(d => (
+                      <div key={d.id} style={{ padding:'8px 12px', background:'var(--bg-2)', borderRadius:'6px', border:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <div style={{ fontSize:'12px', fontWeight:'600', color:'var(--text)' }}>{d.name}</div>
+                          {d.document_category && <span style={{ fontSize:'10px', background:'var(--bg-3)', color:'var(--gold)', border:'1px solid var(--gold-border)', borderRadius:'4px', padding:'1px 6px' }}>{d.document_category}</span>}
+                        </div>
+                        <span style={{ fontSize:'10px', color:'var(--text-5)' }}>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Relationship Notes */}
+              <div className="card" style={{ padding:'20px' }}>
+                <h2 style={{ margin:'0 0 12px', fontSize:'14px', fontWeight:'700' }}>📝 Observações do Relacionamento</h2>
+                <textarea
+                  value={relNotes}
+                  onChange={e => setRelNotes(e.target.value)}
+                  onBlur={saveRelNotes}
+                  placeholder="Histórico do relacionamento, preferências, contexto da contratação, pessoas-chave, observações estratégicas..."
+                  rows={6}
+                  style={{ width:'100%', boxSizing:'border-box', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:'8px', padding:'12px', fontSize:'13px', color:'var(--text)', outline:'none', resize:'vertical', lineHeight:'1.6' }}
+                />
+                <div style={{ marginTop:'6px', fontSize:'11px', color:'var(--text-5)' }}>
+                  {savingNotes ? 'Salvando...' : 'Salvo automaticamente ao sair do campo'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -74,6 +74,8 @@ export default function ProjectView() {
   const [autoContestacaoLoading, setAutoContestacaoLoading] = useState(false);
   const [autoContestacaoStats, setAutoContestacaoStats] = useState<any>(null);
   const [autoContestacaoEditable, setAutoContestacaoEditable] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [draftError, setDraftError] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fraudInputRef = useRef<HTMLInputElement>(null);
@@ -224,18 +226,39 @@ export default function ProjectView() {
     setAutoContestacaoLoading(true);
     setAutoContestacao("");
     setAutoContestacaoStats(null);
+    setDraftError('');
     try {
       const res = await fetch('/api/drafts/auto-contestacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: id })
+        body: JSON.stringify({ projectId: id, draftType, extraContext: draftFacts, selectedDocIds: selectedDocIds.length > 0 ? selectedDocIds : undefined })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAutoContestacao(data.draft);
-        setAutoContestacaoStats(data.stats);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+        setDraftError(err.error || 'Erro ' + res.status);
+        setAutoContestacaoLoading(false);
+        return;
       }
-    } catch {}
+      // Streaming read
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) { setDraftError('Stream indisponivel'); setAutoContestacaoLoading(false); return; }
+      let full = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        setAutoContestacao(full);
+      }
+      setAutoContestacaoStats({
+        documentsAnalyzed: Number(res.headers.get('X-Docs-Analyzed') || 0),
+        totalDocuments: Number(res.headers.get('X-Total-Docs') || 0),
+        partiesIdentified: 0,
+        factsExtracted: 0,
+      });
+    } catch (e: any) {
+      setDraftError(e.message || 'Erro de rede');
+    }
     setAutoContestacaoLoading(false);
   }
 
@@ -389,6 +412,13 @@ export default function ProjectView() {
                             : <span style={{ color: '#888' }}>Pendente</span>}
                         </div>
                       </div>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        const { data } = supabase.storage.from('documents').getPublicUrl(doc.file_path);
+                        if (data?.publicUrl) window.open(data.publicUrl, '_blank');
+                      }} style={{ fontSize: '11px', padding: '4px 10px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-4)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        ⬇ Abrir
+                      </button>
                       {ext && (
                         <div style={{ display: 'flex', gap: '6px' }}>
                           {(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length > 0 && (
@@ -601,108 +631,174 @@ export default function ProjectView() {
 
       {/* DRAFT TAB */}
       {tab === 'draft' && (
-        <div style={{ padding: '24px 28px' }}>
-          {/* Auto-contestação button */}
-          <div className="card" style={{ padding: '20px 24px', marginBottom: '24px', background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.02))', border: '1px solid var(--gold-border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: autoContestacao ? '16px' : '0' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--gold)', marginBottom: '4px' }}>✨ Gerar Contestação Automática</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>A IA lê todos os documentos do caso e elabora uma contestação completa automaticamente</div>
-              </div>
-              <button onClick={generateAutoContestacao} className="btn-gold" disabled={autoContestacaoLoading}
-                style={{ flexShrink: 0, marginLeft: '16px' }}>
-                {autoContestacaoLoading ? '✨ Gerando...' : '✨ Gerar Automático'}
-              </button>
-            </div>
+        <div style={{ padding: '24px 28px', maxWidth: '900px' }}>
 
-            {autoContestacaoLoading && (
-              <div style={{ padding: '12px 16px', background: 'rgba(201,168,76,0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '16px', height: '16px', border: '2px solid var(--gold-border)', borderTop: '2px solid var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-                IA analisando todos os documentos do caso...
-              </div>
-            )}
-
-            {autoContestacao && (
-              <div>
-                {autoContestacaoStats && (
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
-                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.documentsAnalyzed}</span> documentos analisados
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
-                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.partiesIdentified}</span> partes identificadas
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
-                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.factsExtracted}</span> fatos extraídos
-                    </span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => navigator.clipboard.writeText(autoContestacao)}>Copiar</button>
-                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => {
-                    const blob = new Blob([autoContestacao], { type: 'text/plain' });
-                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                    a.download = `contestacao-${project?.name || 'caso'}.txt`; a.click();
-                  }}>Baixar .txt</button>
-                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => setAutoContestacaoEditable(!autoContestacaoEditable)}>
-                    {autoContestacaoEditable ? 'Fechar edição' : 'Editar'}
-                  </button>
-                </div>
-                <textarea
-                  value={autoContestacao}
-                  onChange={e => setAutoContestacao(e.target.value)}
-                  readOnly={!autoContestacaoEditable}
-                  rows={24}
-                  style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '16px', fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.8', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', cursor: autoContestacaoEditable ? 'text' : 'default', opacity: autoContestacaoEditable ? 1 : 0.9 }}
-                />
-              </div>
-            )}
+          {/* Header */}
+          <div style={{ marginBottom: '20px' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '700' }}>✨ Elaboração de Peças com IA</h2>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-4)' }}>
+              A IA lê automaticamente todos os documentos do caso e gera a peça com o contexto completo — sem precisar digitar nada.
+            </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: draftResult ? '1fr 1fr' : '1fr', gap: '24px' }}>
-          <div>
-            <form onSubmit={generateDraft}>
-              <div className="card" style={{ padding: '24px' }}>
-                <h3 style={{ margin: '0 0 20px 0', fontSize: '14px', fontWeight: '600', color: 'var(--gold)' }}>✦ Elaboração de Documento</h3>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', textTransform: 'uppercase' }}>Tipo de Documento</label>
-                  <select value={draftType} onChange={e => setDraftType(e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px' }}>
-                    {['Petição Inicial', 'Contestação', 'Réplica', 'Recurso de Apelação', 'Recurso Especial', 'Agravo de Instrumento', 'Contrato', 'Parecer Jurídico', 'Notificação Extrajudicial', 'Acordo de Confidencialidade'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', textTransform: 'uppercase' }}>Posição do Cliente</label>
-                  <input value={draftPosition} onChange={e => setDraftPosition(e.target.value)}
-                    placeholder="Ex: Reclamante, trabalhador demitido sem justa causa..." required />
-                </div>
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', textTransform: 'uppercase' }}>Fatos Relevantes</label>
-                  <textarea value={draftFacts} onChange={e => setDraftFacts(e.target.value)}
-                    placeholder="Descreva os fatos principais do caso..."
-                    required rows={6}
-                    style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px', color: 'var(--text)', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
-                </div>
-                <button type="submit" className="btn-gold" disabled={draftLoading} style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
-                  {draftLoading ? '✦ Gerando...' : '✦ Gerar Documento com IA'}
-                </button>
-              </div>
-            </form>
-          </div>
-          {draftResult && (
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{draftType}</h3>
-                <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => navigator.clipboard.writeText(draftResult)}>Copiar</button>
-              </div>
-              <div style={{ whiteSpace: 'pre-wrap', fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.8', maxHeight: '600px', overflowY: 'auto' }}>
-                {draftResult}
+          {/* No docs warning */}
+          {project.documents.length === 0 && (
+            <div className="card" style={{ padding: '24px', marginBottom: '20px', border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#f59e0b', marginBottom: '4px' }}>Nenhum documento no caso</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>Faça upload de documentos na aba <strong style={{ color: 'var(--text-2)' }}>▦ Documentos</strong> primeiro. A IA usa esses arquivos para gerar a peça com contexto real.</div>
               </div>
             </div>
           )}
+
+          {/* Doc selector */}
+          {project.documents.length > 0 && (
+            <div className="card" style={{ padding: '16px 18px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Documentos do caso — selecione quais usar
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setSelectedDocIds(project.documents.map((d:any) => d.id))}
+                    style={{ fontSize: '11px', color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600', padding: 0 }}>
+                    Selecionar todos
+                  </button>
+                  <span style={{ color: 'var(--border)' }}>|</span>
+                  <button onClick={() => setSelectedDocIds([])}
+                    style={{ fontSize: '11px', color: 'var(--text-5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    Limpar
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {project.documents.map((d: any) => {
+                  const checked = selectedDocIds.includes(d.id);
+                  const hasExtraction = d.document_extractions?.length > 0;
+                  return (
+                    <label key={d.id} onClick={() => setSelectedDocIds(prev => checked ? prev.filter(x => x !== d.id) : [...prev, d.id])}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
+                        background: checked ? 'rgba(201,168,76,0.08)' : 'var(--bg-3)',
+                        border: `1px solid ${checked ? 'var(--gold-border)' : 'var(--border)'}`,
+                        transition: 'all 0.15s' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${checked ? 'var(--gold)' : 'var(--text-5)'}`,
+                        background: checked ? 'var(--gold)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {checked && <span style={{ color: '#0a0a0b', fontSize: '10px', fontWeight: '900' }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: '13px', color: checked ? 'var(--text)' : 'var(--text-3)', flex: 1 }}>📄 {d.name}</span>
+                      {hasExtraction
+                        ? <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: '600', background: 'rgba(34,197,94,0.1)', padding: '2px 7px', borderRadius: '4px' }}>IA extraída</span>
+                        : <span style={{ fontSize: '10px', color: 'var(--text-5)', background: 'var(--bg)', padding: '2px 7px', borderRadius: '4px' }}>sem extração</span>
+                      }
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedDocIds.length === 0 && (
+                <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#f59e0b' }}>⚠️ Selecione ao menos um documento para gerar a peça</p>
+              )}
+              {selectedDocIds.length > 0 && (
+                <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#22c55e' }}>✅ {selectedDocIds.length} documento{selectedDocIds.length > 1 ? 's' : ''} selecionado{selectedDocIds.length > 1 ? 's' : ''}</p>
+              )}
+            </div>
+          )}
+
+          {/* Piece type selector */}
+          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Tipo de Peça</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {[
+                { label: 'Contestação', icon: '⚔️' },
+                { label: 'Petição Inicial', icon: '📋' },
+                { label: 'Recurso de Apelação', icon: '📤' },
+                { label: 'Recurso Especial', icon: '⚖️' },
+                { label: 'Agravo de Instrumento', icon: '📎' },
+                { label: 'Réplica', icon: '↩️' },
+                { label: 'Parecer Jurídico', icon: '📝' },
+                { label: 'Notificação Extrajudicial', icon: '✉️' },
+                { label: 'Acordo de Confidencialidade', icon: '🔒' },
+                { label: 'Contrato', icon: '📃' },
+              ].map(t => (
+                <button key={t.label} onClick={() => setDraftType(t.label)}
+                  style={{
+                    padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                    background: draftType === t.label ? 'var(--gold)' : 'var(--bg-3)',
+                    color: draftType === t.label ? '#0a0a0b' : 'var(--text-3)',
+                    border: `1px solid ${draftType === t.label ? 'var(--gold)' : 'var(--border)'}`,
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '5px',
+                  }}>
+                  {t.icon} {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Optional context */}
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                Instrução adicional <span style={{ fontWeight: '400', textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
+              </label>
+              <textarea
+                value={draftFacts}
+                onChange={e => setDraftFacts(e.target.value)}
+                placeholder="Alguma instrução específica? Ex: enfatizar ausência de provas, incluir pedido de gratuidade, tese específica de defesa... (Se não preencher, a IA decide com base nos documentos)"
+                rows={3}
+                style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: 'var(--text)', outline: 'none', resize: 'vertical', lineHeight: '1.5' }}
+              />
+            </div>
+
+            <button onClick={generateAutoContestacao} disabled={autoContestacaoLoading || project.documents.length === 0 || selectedDocIds.length === 0}
+              style={{
+                marginTop: '16px', width: '100%', padding: '14px', borderRadius: '10px', border: 'none', cursor: (project.documents.length === 0 || selectedDocIds.length === 0) ? 'not-allowed' : 'pointer',
+                background: (project.documents.length === 0 || selectedDocIds.length === 0) ? 'var(--border)' : autoContestacaoLoading ? 'rgba(201,168,76,0.5)' : 'var(--gold)',
+                color: '#0a0a0b', fontSize: '14px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}>
+              {autoContestacaoLoading
+                ? <><div style={{ width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.3)', borderTop: '2px solid #0a0a0b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> IA lendo documentos e gerando {draftType}...</>
+                : <>✨ Gerar {draftType} com IA</>
+              }
+            </button>
+
+            {draftError && (
+              <div style={{ marginTop: '12px', padding: '12px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '13px', color: '#f87171' }}>
+                ⚠️ Erro ao gerar: {draftError}
+              </div>
+            )}
           </div>
+
+          {/* Result */}
+          {autoContestacao && (
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', marginBottom: '3px' }}>{draftType} gerada</div>
+                  {autoContestacaoStats && (
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-4)' }}><span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.documentsAnalyzed}</span> docs analisados</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-4)' }}><span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.factsExtracted}</span> fatos extraídos</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => navigator.clipboard.writeText(autoContestacao)}>📋 Copiar</button>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => {
+                    const blob = new Blob([autoContestacao], { type: 'text/plain' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                    a.download = `${draftType.toLowerCase().replace(/\s/g,'-')}-${project?.name || 'caso'}.txt`; a.click();
+                  }}>⬇ Baixar</button>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => setAutoContestacaoEditable(!autoContestacaoEditable)}>
+                    {autoContestacaoEditable ? '✓ Fechar edição' : '✏️ Editar'}
+                  </button>
+                </div>
+              </div>
+              <textarea
+                value={autoContestacao}
+                onChange={e => setAutoContestacao(e.target.value)}
+                readOnly={!autoContestacaoEditable}
+                rows={28}
+                style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '18px', fontSize: '12.5px', color: 'var(--text-2)', lineHeight: '1.85', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', cursor: autoContestacaoEditable ? 'text' : 'default' }}
+              />
+            </div>
+          )}
         </div>
       )}
 

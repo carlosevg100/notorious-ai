@@ -1,3 +1,6 @@
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, createServerSupabase } from '@/lib/supabase'
 import OpenAI from 'openai'
@@ -6,118 +9,122 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' })
 }
 
+function extractText(val: any): string[] {
+  if (!val) return []
+  if (typeof val === 'string') return [val]
+  if (Array.isArray(val)) return val.map((v: any) => typeof v === 'string' ? v : JSON.stringify(v))
+  if (typeof val === 'object') return Object.entries(val).map(([k, v]) => `${k}: ${v}`)
+  return [String(val)]
+}
+
 export async function POST(request: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { projectId } = await request.json()
+  const { projectId, draftType: pieceType, extraContext, selectedDocIds } = await request.json()
+  const tipoPeca = pieceType || 'Contestacao'
   if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 })
 
   try {
-    // Fetch project details
     const { data: project } = await supabaseAdmin
       .from('projects')
       .select('*, clients(*)')
       .eq('id', projectId)
       .single()
 
-    // Fetch all documents with their extractions
     const { data: documents } = await supabaseAdmin
       .from('documents')
       .select('*, document_extractions(*)')
       .eq('project_id', projectId)
 
-    const docs = documents || []
+    const docs = (documents || []).filter((d: any) =>
+      !selectedDocIds?.length || selectedDocIds.includes(d.id)
+    )
     const docsWithExtractions = docs.filter((d: any) => d.document_extractions?.length > 0)
 
-    // Aggregate all data
-    const allParties: string[] = []
-    const allRiskFlags: string[] = []
-    const allDates: string[] = []
-    const allSummaries: string[] = []
-    const allFacts: string[] = []
-    const allStatements: string[] = []
-    const allLegalArgs: string[] = []
-    const fraudFlags: string[] = []
+    const sections: string[] = []
+    sections.push('CASO: ' + (project?.name || ''))
+    sections.push('AREA: ' + (project?.area || ''))
+    sections.push('CLIENTE: ' + ((project as any)?.clients?.name || ''))
+    sections.push('DOCUMENTOS: ' + docs.map((d:any) => d.name).join(', '))
+    sections.push('')
 
     for (const doc of docsWithExtractions) {
       const ext = doc.document_extractions[0]
-      const raw = ext.raw_extraction || {}
-
-      if (ext.parties) {
-        const parties = Array.isArray(ext.parties) ? ext.parties : []
-        allParties.push(...parties.map((p: any) =>
-          typeof p === 'object' ? `${p.name}${p.role ? ` (${p.role})` : ''}` : String(p)
-        ))
+      sections.push('=== DOCUMENTO: ' + doc.name + ' ===')
+      if (ext.summary) sections.push('Resumo: ' + ext.summary)
+      if (ext.parties) { sections.push('Partes:'); sections.push(...extractText(ext.parties)) }
+      const facts = ext.key_facts || ext.key_dates || ext.facts || []
+      if (facts?.length) { sections.push('Fatos:'); sections.push(...extractText(facts)) }
+      const risks = ext.risk_factors || ext.risk_flags || []
+      if (risks?.length) { sections.push('Riscos:'); sections.push(...extractText(risks)) }
+      const deadlines = ext.deadlines || []
+      if (deadlines?.length) { sections.push('Prazos:'); sections.push(...extractText(deadlines)) }
+      if (ext.case_type) sections.push('Tipo: ' + ext.case_type)
+      if (ext.risk_level) sections.push('Risco: ' + ext.risk_level)
+      if (ext.raw_extraction) {
+        const raw = ext.raw_extraction
+        if (raw.relevant_facts?.length) { sections.push('Fatos relevantes:'); sections.push(...raw.relevant_facts) }
+        if (raw.key_statements?.length) { sections.push('Declaracoes:'); sections.push(...raw.key_statements) }
       }
-      if (ext.risk_flags) {
-        const flags = Array.isArray(ext.risk_flags) ? ext.risk_flags : []
-        allRiskFlags.push(...flags.map((r: any) => `[${(r.severity || 'medio').toUpperCase()}] ${r.description}`))
-      }
-      if (ext.key_dates) {
-        const dates = Array.isArray(ext.key_dates) ? ext.key_dates : []
-        allDates.push(...dates.map((d: any) => `${d.date}: ${d.description}`))
-      }
-      if (ext.summary) allSummaries.push(`Documento "${doc.name}": ${ext.summary}`)
-
-      // Audio-specific data
-      if (raw.relevant_facts) allFacts.push(...(raw.relevant_facts as string[]))
-      if (raw.key_statements) allStatements.push(...(raw.key_statements as string[]))
-      if (raw.legal_arguments) allLegalArgs.push(...(raw.legal_arguments as string[]))
-      if (raw.fraud_risk?.detected) {
-        fraudFlags.push(...(raw.fraud_risk.indicators || []))
-      }
+      sections.push('')
     }
 
-    const uniqueParties = [...new Set(allParties)]
-    const clientName = (project as any)?.clients?.name || 'Não informado'
+    if (docsWithExtractions.length === 0) {
+      sections.push('Documentos disponiveis: ' + docs.map((d:any) => d.name).join(', '))
+    }
+    if (extraContext) sections.push('INSTRUCAO DO ADVOGADO: ' + extraContext)
 
-    const contextBlock = [
-      `CASO: ${project?.name || 'Não informado'}`,
-      `ÁREA DO DIREITO: ${project?.area || 'Não informado'}`,
-      `CLIENTE: ${clientName}`,
-      ``,
-      `PARTES IDENTIFICADAS (${uniqueParties.length}):`,
-      uniqueParties.join('\n') || 'Não identificadas',
-      ``,
-      `RESUMOS DOS DOCUMENTOS ANALISADOS (${docsWithExtractions.length} de ${docs.length} documentos):`,
-      allSummaries.join('\n\n') || 'Nenhum documento com extração disponível.',
-      ``,
-      allRiskFlags.length > 0 ? `RISCOS IDENTIFICADOS:\n${allRiskFlags.join('\n')}` : '',
-      allDates.length > 0 ? `\nDATAS E FATOS-CHAVE:\n${allDates.join('\n')}` : '',
-      allFacts.length > 0 ? `\nFATOS RELEVANTES EXTRAÍDOS:\n${allFacts.map(f => `• ${f}`).join('\n')}` : '',
-      allStatements.length > 0 ? `\nDECLARAÇÕES E ADMISSÕES:\n${allStatements.map(s => `• ${s}`).join('\n')}` : '',
-      allLegalArgs.length > 0 ? `\nARGUMENTOS JURÍDICOS IDENTIFICADOS:\n${allLegalArgs.map(a => `• ${a}`).join('\n')}` : '',
-      fraudFlags.length > 0 ? `\nINDÍCIOS DE FRAUDE/IRREGULARIDADE:\n${fraudFlags.map(f => `• ${f}`).join('\n')}` : '',
-    ].filter(Boolean).join('\n')
+    const contextBlock = sections.join('\n')
+    const clientName = (project as any)?.clients?.name || 'cliente'
 
     const openai = getOpenAI()
-    const response = await openai.chat.completions.create({
+
+    // STREAMING response
+    const stream = await openai.chat.completions.create({
       model: 'gpt-4o',
-      messages: [{
-        role: 'user',
-        content: `Você é um advogado sênior brasileiro. Com base nos documentos e fatos abaixo, elabore uma CONTESTAÇÃO completa, formal e tecnicamente fundamentada. Use linguagem jurídica precisa. Estruture: I - DOS FATOS, II - DO DIREITO, III - DAS PROVAS, IV - DOS PEDIDOS. Inclua fundamentos legais relevantes (CLT, CC, CDC conforme área). A contestação deve ser personalizada aos fatos específicos do caso.
-
-${contextBlock}
-
-Elabore a CONTESTAÇÃO completa agora, sem truncar:`
-      }],
-      max_tokens: 4000
+      stream: true,
+      messages: [
+        {
+          role: 'system',
+          content: 'Voce e um advogado brasileiro senior. Escreve pecas juridicas completas, formais, fundamentadas na legislacao e jurisprudencia brasileira. Nunca trunca. Conclui sempre com os pedidos.'
+        },
+        {
+          role: 'user',
+          content: 'Com base nos documentos abaixo, elabore uma ' + tipoPeca.toUpperCase() + ' completa para o cliente "' + clientName + '" no caso "' + (project?.name || '') + '".\n\nA peca deve ser especifica para os fatos abaixo, com fundamentacao legal pertinente a area ' + (project?.area || 'do caso') + ', do cabecalho ate a assinatura.\n\n=== CONTEXTO ===\n' + contextBlock + '\n================\n\nElabore a ' + tipoPeca.toUpperCase() + ' completa agora:'
+        }
+      ],
+      max_tokens: 3000,
+      temperature: 0.2,
     })
 
-    const draft = response.choices[0].message.content || ''
-
-    return NextResponse.json({
-      draft,
-      stats: {
-        documentsAnalyzed: docsWithExtractions.length,
-        totalDocuments: docs.length,
-        partiesIdentified: uniqueParties.length,
-        factsExtracted: allFacts.length + allRiskFlags.length + allDates.length
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        let fullText = ''
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content || ''
+          if (text) {
+            fullText += text
+            controller.enqueue(encoder.encode(text))
+          }
+        }
+        controller.close()
       }
     })
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'X-Docs-Analyzed': String(docsWithExtractions.length),
+        'X-Total-Docs': String(docs.length),
+      }
+    })
+
   } catch (error: any) {
+    console.error('auto-contestacao error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
