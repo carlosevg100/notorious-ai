@@ -124,19 +124,18 @@ export default function ProjectView() {
         continue;
       }
 
-      const filePath = `${id}/${Date.now()}_${file.name}`;
       setUploadProgress(30);
-      const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, file);
-      if (uploadErr) { alert(`Erro ao fazer upload: ${uploadErr.message}`); continue; }
-      setUploadProgress(50);
-
-      const docRes = await fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: file.name, file_path: filePath, file_type: file.type, project_id: id })
-      });
-      if (!docRes.ok) continue;
-      const newDoc = await docRes.json();
+      // Upload via server-side route (uses service role, bypasses Storage RLS)
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+      uploadForm.append('project_id', id);
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadForm });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ error: 'Upload falhou' }));
+        alert(`Erro ao fazer upload: ${err.error}`);
+        continue;
+      }
+      const { doc: newDoc, filePath } = await uploadRes.json();
       setUploadProgress(60);
 
       await runAIExtraction(newDoc.id, file);
@@ -233,29 +232,13 @@ export default function ProjectView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: id, draftType, extraContext: draftFacts, selectedDocIds: selectedDocIds.length > 0 ? selectedDocIds : undefined })
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-        setDraftError(err.error || 'Erro ' + res.status);
-        setAutoContestacaoLoading(false);
-        return;
+      const data = await res.json();
+      if (res.ok && data.draft) {
+        setAutoContestacao(data.draft);
+        setAutoContestacaoStats(data.stats);
+      } else {
+        setDraftError(data.error || 'Erro ' + res.status);
       }
-      // Streaming read
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) { setDraftError('Stream indisponivel'); setAutoContestacaoLoading(false); return; }
-      let full = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        full += decoder.decode(value, { stream: true });
-        setAutoContestacao(full);
-      }
-      setAutoContestacaoStats({
-        documentsAnalyzed: Number(res.headers.get('X-Docs-Analyzed') || 0),
-        totalDocuments: Number(res.headers.get('X-Total-Docs') || 0),
-        partiesIdentified: 0,
-        factsExtracted: 0,
-      });
     } catch (e: any) {
       setDraftError(e.message || 'Erro de rede');
     }
@@ -418,6 +401,14 @@ export default function ProjectView() {
                         if (data?.publicUrl) window.open(data.publicUrl, '_blank');
                       }} style={{ fontSize: '11px', padding: '4px 10px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-4)', flexShrink: 0, whiteSpace: 'nowrap' }}>
                         ⬇ Abrir
+                      </button>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Deletar "${doc.name}"?`)) return;
+                        await fetch(`/api/documents/${doc.id}`, { method: 'DELETE' });
+                        loadProject();
+                      }} style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '4px', cursor: 'pointer', color: '#f87171', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        ✕
                       </button>
                       {ext && (
                         <div style={{ display: 'flex', gap: '6px' }}>

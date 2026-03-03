@@ -22,13 +22,13 @@ export async function extractDocumentData(text: string) {
 }
 Para fraud_risk, analise especificamente: inconsistências de datas (ex: data de admissão posterior à data de rescisão, datas impossíveis), cláusulas contraditórias entre si, alterações suspeitas no documento (partes rasuradas, fontes diferentes, espaçamentos irregulares), signatários impossíveis (pessoas falecidas, menores de idade, documentos com numeração inválida), assinaturas divergentes entre páginas, valores inconsistentes, e qualquer outro indício de adulteração documental. Se detectar indícios, liste cada um em "indicators". Se não houver indícios, retorne detected: false, confidence: "baixo", indicators: [].
 Retorne APENAS o JSON válido, sem texto adicional.
-Conteúdo do documento: ${text.substring(0, 8000)}`
+Conteúdo do documento: ${text.substring(0, 3000)}`
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
-    max_tokens: 2000
+    max_tokens: 1500
   })
   const content = response.choices[0].message.content
   if (!content) throw new Error('No response from OpenAI')

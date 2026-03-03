@@ -1,52 +1,95 @@
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, createServerSupabase } from '@/lib/supabase'
-import { extractDocumentData } from '@/lib/openai'
+import OpenAI from 'openai'
+
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' })
+}
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  let docId = ''
+  let fileName = ''
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const docId = formData.get('docId') as string
+    docId = formData.get('docId') as string
     if (!file || !docId) return NextResponse.json({ error: 'Missing file or docId' }, { status: 400 })
+    fileName = file.name
+
+    // Get project_id
+    const { data: docRow } = await supabaseAdmin.from('documents').select('project_id').eq('id', docId).single()
+    const projectId = docRow?.project_id
+
+    // Try to extract text from file
     let text = ''
-    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-      const pdfParse = (await import('pdf-parse')).default
-      const buffer = Buffer.from(await file.arrayBuffer())
-      const parsed = await pdfParse(buffer)
-      text = parsed.text
-    } else if (file.type === 'text/plain') {
-      text = await file.text()
-    } else {
-      const mammoth = await import('mammoth')
-      const buffer = Buffer.from(await file.arrayBuffer())
-      const result = await mammoth.extractRawText({ buffer })
-      text = result.value
+    try {
+      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+        text = (await file.text()).substring(0, 4000)
+      } else if (file.name.endsWith('.pdf') || file.type === 'application/pdf') {
+        // Try pdf-parse with timeout
+        const buffer = Buffer.from(await file.arrayBuffer())
+        const pdfParsePromise = import('pdf-parse').then(m => m.default(buffer))
+        const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
+        const parsed = await Promise.race([pdfParsePromise, timeoutPromise]) as any
+        text = (parsed?.text || '').substring(0, 4000)
+      } else {
+        text = `Documento: ${file.name}`
+      }
+    } catch (parseErr: any) {
+      console.log('parse fallback:', parseErr?.message)
+      text = `Documento juridico: ${file.name}`
     }
-    if (!text.trim()) text = `Documento: ${file.name}`
-    const extraction = await extractDocumentData(text)
-    const { data: saved, error: saveErr } = await supabaseAdmin.from('document_extractions').insert({ document_id: docId, doc_type: extraction.doc_type, parties: extraction.parties, key_dates: extraction.key_dates, deadlines: extraction.deadlines, risk_flags: extraction.risk_flags, summary: extraction.summary, raw_extraction: extraction }).select().single()
-    if (saveErr) throw saveErr
+
+    if (!text.trim()) text = `Documento juridico: ${file.name}`
+
+    const openai = getOpenAI()
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: `Analise este documento juridico brasileiro e extraia informacoes. Retorne APENAS JSON valido:
+{"doc_type":"string","parties":{"autor":"string","reu":"string","advogado":"string"},"case_type":"string","summary":"string resumo em portugues ate 150 palavras","key_facts":["string"],"risk_level":"alto|medio|baixo","risk_factors":["string"],"deadlines":[{"description":"string","date":"YYYY-MM-DD","type":"processual","is_fatal":false}],"fraud_detected":false,"fraud_indicators":[]}
+
+Documento:
+${text}`
+      }],
+      max_tokens: 1000,
+      response_format: { type: 'json_object' }
+    })
+
+    const extraction = JSON.parse(response.choices[0].message.content || '{}')
+
+    await supabaseAdmin.from('document_extractions').insert({
+      document_id: docId,
+      project_id: projectId,
+      parties: extraction.parties || {},
+      case_type: extraction.case_type || extraction.doc_type || '',
+      summary: extraction.summary || '',
+      risk_level: extraction.risk_level || 'medio',
+      risk_factors: extraction.risk_factors || [],
+      key_facts: extraction.key_facts || [],
+      deadlines: extraction.deadlines || [],
+      fraud_detected: extraction.fraud_detected || false,
+      fraud_indicators: extraction.fraud_indicators || [],
+      raw_extraction: extraction
+    })
+
     await supabaseAdmin.from('documents').update({ ai_status: 'complete' }).eq('id', docId)
-    const { data: doc } = await supabaseAdmin.from('documents').select('firm_id, project_id, name').eq('id', docId).single()
-    if (doc) {
-      const alerts: any[] = []
-      for (const flag of (extraction.risk_flags || [])) {
-        if (flag.severity === 'alto') alerts.push({ firm_id: doc.firm_id, project_id: doc.project_id, document_id: docId, type: 'risk', message: `⚠️ Risco alto em "${doc.name}": ${flag.description}`, is_read: false })
-      }
-      for (const dl of (extraction.deadlines || [])) {
-        if (dl.urgency === 'alta') alerts.push({ firm_id: doc.firm_id, project_id: doc.project_id, document_id: docId, type: 'deadline', message: `📅 Prazo urgente em "${doc.name}": ${dl.description} — ${dl.date}`, is_read: false })
-      }
-      if (extraction.fraud_risk?.detected === true) {
-        const indicators = (extraction.fraud_risk.indicators || []).join('; ')
-        alerts.push({ firm_id: doc.firm_id, project_id: doc.project_id, document_id: docId, type: 'fraud', message: `🚨 Possível fraude detectada em "${doc.name}": ${indicators}`, is_read: false })
-      }
-      if (alerts.length > 0) await supabaseAdmin.from('ai_alerts').insert(alerts)
-    }
-    return NextResponse.json({ extraction: saved })
+    return NextResponse.json({ ok: true, extraction })
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('extract-file error:', error?.message)
+    if (docId) {
+      try { await supabaseAdmin.from('documents').update({ ai_status: 'failed' }).eq('id', docId) } catch {}
+    }
+    return NextResponse.json({ error: error?.message || 'Unknown error' }, { status: 500 })
   }
 }
