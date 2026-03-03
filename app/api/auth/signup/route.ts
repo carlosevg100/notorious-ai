@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
   const { email, password, name, firmName } = await request.json()
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
   if (authError) return NextResponse.json({ error: authError.message }, { status: 400 })
   if (!authData.user) return NextResponse.json({ error: 'User creation failed' }, { status: 500 })
