@@ -6,14 +6,12 @@ import { useTheme } from "../theme-context";
 import { useAuth } from "@/lib/auth-context";
 
 const NAV = [
-  { href: "/dashboard",               label: "Dashboard",   icon: "⊞" },
-  { href: "/dashboard/casos",         label: "Casos",       icon: "⚖" },
-  { href: "/dashboard/chat",          label: "Chat IA",     icon: "◈" },
-  { href: "/dashboard/documentos",    label: "Documentos",  icon: "▦" },
-  { href: "/dashboard/contratos",     label: "Contratos",   icon: "▤" },
-  { href: "/dashboard/pesquisa",      label: "Pesquisa",    icon: "◎" },
-  { href: "/dashboard/prazos",        label: "Prazos",      icon: "◷" },
-  { href: "/dashboard/configuracoes", label: "Config.",     icon: "⚙" },
+  { href: "/dashboard",                label: "Dashboard",   icon: "⊞" },
+  { href: "/dashboard/clientes",       label: "Clientes",    icon: "◉" },
+  { href: "/dashboard/pesquisa",       label: "Pesquisa",    icon: "◎" },
+  { href: "/dashboard/prazos",         label: "Prazos",      icon: "◷" },
+  { href: "/dashboard/contratos",      label: "Contratos",   icon: "▤" },
+  { href: "/dashboard/configuracoes",  label: "Config.",     icon: "⚙" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
