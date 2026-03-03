@@ -9,6 +9,10 @@ interface Project {
   created_at: string; documents: any[];
 }
 interface Alert { id: string; message: string; type: string; is_read: boolean; created_at: string; }
+interface Contract {
+  id: string; name: string; status: string; value: number|null; end_date: string|null;
+  contract_type: string; parties: any[];
+}
 
 const AREAS = ["Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Contencioso", "Societário", "Penal", "Imobiliário", "Outros"];
 
@@ -17,6 +21,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newName, setNewName] = useState("");
@@ -29,12 +34,14 @@ export default function Dashboard() {
 
   async function loadData() {
     try {
-      const [pRes, aRes] = await Promise.all([
+      const [pRes, aRes, cRes] = await Promise.all([
         fetch('/api/projects'),
-        fetch('/api/alerts')
+        fetch('/api/alerts'),
+        fetch('/api/contratos')
       ]);
       if (pRes.ok) setProjects(await pRes.json());
       if (aRes.ok) setAlerts(await aRes.json());
+      if (cRes.ok) setContracts(await cRes.json());
     } catch (e) {}
     setLoading(false);
   }
@@ -213,6 +220,77 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Contratos Widget */}
+        {contracts.length > 0 && (() => {
+          const today = new Date(); today.setHours(0,0,0,0);
+          const cVigentes = contracts.filter(c => c.status === 'vigente').length;
+          const cVencendo = contracts.filter(c => {
+            if(!c.end_date || c.status === 'vencido') return false;
+            const d = new Date(c.end_date); d.setHours(0,0,0,0);
+            const diff = Math.floor((d.getTime()-today.getTime())/86400000);
+            return diff >= 0 && diff <= 30;
+          }).length;
+          const cValor = contracts.reduce((s,c)=>s+(c.value||0),0);
+          const urgent = contracts
+            .filter(c=>c.end_date && c.status!=='vencido' && c.status!=='rescindido')
+            .sort((a,b)=>new Date(a.end_date!).getTime()-new Date(b.end_date!).getTime())
+            .slice(0,3);
+          return (
+            <div style={{ marginTop: "20px" }}>
+              <div className="card" style={{ padding: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <h3 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "var(--text)" }}>
+                    <span style={{ color: "var(--gold)", marginRight: "6px" }}>▤</span>Contratos
+                  </h3>
+                  <Link href="/dashboard/contratos" style={{ fontSize: "12px", color: "var(--gold)", textDecoration: "none" }}>Ver todos →</Link>
+                </div>
+                {/* Mini stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "10px", marginBottom: "16px" }}>
+                  {[
+                    { label: "Total", value: String(contracts.length), color: "var(--gold)" },
+                    { label: "Vigentes", value: String(cVigentes), color: "#22c55e" },
+                    { label: "Vencendo 30d", value: String(cVencendo), color: cVencendo>0?"#ef4444":"var(--text-4)" },
+                    { label: "Valor", value: cValor>0?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',notation:'compact',maximumFractionDigits:1}).format(cValor):'—', color: "#3b82f6" },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: "var(--bg-2)", borderRadius: "8px", padding: "10px 12px", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: "10px", color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>{s.label}</div>
+                      <div style={{ fontSize: "18px", fontWeight: "700", color: s.color }}>{s.value}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Urgent contracts */}
+                {urgent.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {urgent.map(c => {
+                      const d = new Date(c.end_date!); d.setHours(0,0,0,0);
+                      const days = Math.floor((d.getTime()-today.getTime())/86400000);
+                      const isRed = days <= 7;
+                      return (
+                        <Link href={`/dashboard/contratos/${c.id}`} key={c.id} style={{ textDecoration: "none" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "var(--bg-2)", borderRadius: "6px", border: `1px solid ${isRed?'#ef444430':'var(--border)'}`, cursor: "pointer" }}
+                            onMouseEnter={e=>(e.currentTarget.style.borderColor=isRed?'#ef4444':'var(--gold)')}
+                            onMouseLeave={e=>(e.currentTarget.style.borderColor=isRed?'#ef444430':'var(--border)')}>
+                            <div style={{ overflow: "hidden" }}>
+                              <div style={{ fontSize: "12px", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "300px" }}>{c.name}</div>
+                              <div style={{ fontSize: "11px", color: "var(--text-5)", marginTop: "2px" }}>{c.contract_type||''}</div>
+                            </div>
+                            <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "12px" }}>
+                              <div style={{ fontSize: "12px", color: isRed?"#ef4444":"var(--text-4)", fontWeight: isRed?"600":"400" }}>
+                                {days===0?"Hoje":days<0?`${Math.abs(days)}d atrás`:`${days}d`}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--text-5)" }}>{new Date(c.end_date!+'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
