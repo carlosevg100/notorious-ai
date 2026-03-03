@@ -10,6 +10,7 @@ const NAV = [
   { href: "/dashboard/casos",         label: "Casos",       icon: "⚖" },
   { href: "/dashboard/chat",          label: "Chat IA",     icon: "◈" },
   { href: "/dashboard/documentos",    label: "Documentos",  icon: "▦" },
+  { href: "/dashboard/contratos",     label: "Contratos",   icon: "▤" },
   { href: "/dashboard/pesquisa",      label: "Pesquisa",    icon: "◎" },
   { href: "/dashboard/prazos",        label: "Prazos",      icon: "◷" },
   { href: "/dashboard/configuracoes", label: "Config.",     icon: "⚙" },
