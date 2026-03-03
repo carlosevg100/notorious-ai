@@ -33,7 +33,11 @@ function daysUntil(dateStr: string): number {
 }
 function fmtDate(s: string|null): string {
   if(!s) return '—';
-  return new Date(s+'T12:00:00').toLocaleDateString('pt-BR');
+  // Handle both date-only (2026-03-01) and full timestamps
+  const clean = s.includes('T') ? s : s + 'T12:00:00';
+  const d = new Date(clean);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR');
 }
 function fmtCurrency(v: number|null, cur='BRL'): string {
   if(!v) return '—';
