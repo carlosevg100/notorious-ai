@@ -39,6 +39,10 @@ export async function POST(request: Request) {
       for (const dl of (extraction.deadlines || [])) {
         if (dl.urgency === 'alta') alerts.push({ firm_id: doc.firm_id, project_id: doc.project_id, document_id: docId, type: 'deadline', message: `📅 Prazo urgente em "${doc.name}": ${dl.description} — ${dl.date}`, is_read: false })
       }
+      if (extraction.fraud_risk?.detected === true) {
+        const indicators = (extraction.fraud_risk.indicators || []).join('; ')
+        alerts.push({ firm_id: doc.firm_id, project_id: doc.project_id, document_id: docId, type: 'fraud', message: `🚨 Possível fraude detectada em "${doc.name}": ${indicators}`, is_read: false })
+      }
       if (alerts.length > 0) await supabaseAdmin.from('ai_alerts').insert(alerts)
     }
     return NextResponse.json({ extraction: saved })

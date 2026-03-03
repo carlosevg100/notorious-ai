@@ -6,15 +6,21 @@ function getOpenAI() {
 
 export async function extractDocumentData(text: string) {
   const openai = getOpenAI()
-  const prompt = `Você é um analista jurídico sênior brasileiro. Analise este documento e extraia em formato JSON:
+  const prompt = `Você é um analista jurídico sênior e perito em detecção de fraudes documentais brasileiro. Analise este documento e extraia em formato JSON:
 {
   "doc_type": "string (tipo do documento jurídico em português)",
   "parties": ["string (todas as partes mencionadas)"],
   "key_dates": [{"date": "string", "description": "string"}],
   "deadlines": [{"date": "string", "description": "string", "urgency": "alta|media|baixa"}],
   "risk_flags": [{"description": "string", "severity": "alto|medio|baixo"}],
-  "summary": "string (resumo de 200 palavras em português)"
+  "summary": "string (resumo de 200 palavras em português)",
+  "fraud_risk": {
+    "detected": boolean,
+    "confidence": "alto|medio|baixo",
+    "indicators": ["string (descrição do indicador de fraude)"]
+  }
 }
+Para fraud_risk, analise especificamente: inconsistências de datas (ex: data de admissão posterior à data de rescisão, datas impossíveis), cláusulas contraditórias entre si, alterações suspeitas no documento (partes rasuradas, fontes diferentes, espaçamentos irregulares), signatários impossíveis (pessoas falecidas, menores de idade, documentos com numeração inválida), assinaturas divergentes entre páginas, valores inconsistentes, e qualquer outro indício de adulteração documental. Se detectar indícios, liste cada um em "indicators". Se não houver indícios, retorne detected: false, confidence: "baixo", indicators: [].
 Retorne APENAS o JSON válido, sem texto adicional.
 Conteúdo do documento: ${text.substring(0, 8000)}`
 
@@ -47,11 +53,15 @@ export async function chatWithContext(message: string, projectName: string, proj
   return response.choices[0].message.content || ''
 }
 
-export async function generateLegalDraft(params: { docType: string; area: string; clientPosition: string; facts: string }) {
+export async function generateLegalDraft(params: { docType: string; area?: string; clientPosition?: string; facts: string; parties?: string; legalBasis?: string }) {
   const openai = getOpenAI()
+  const area = params.area || 'Direito Civil'
+  const partiesSection = params.parties ? `\nPartes envolvidas: ${params.parties}` : ''
+  const legalBasisSection = params.legalBasis ? `\nFundamentação jurídica a incluir: ${params.legalBasis}` : ''
+  const posicaoSection = params.clientPosition ? `\nPosição do cliente: ${params.clientPosition}` : ''
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
-    messages: [{ role: 'user', content: `Você é um advogado sênior brasileiro especialista em ${params.area}. Elabore um ${params.docType} completo e profissional em português brasileiro.\n\nPosição do cliente: ${params.clientPosition}\nFatos relevantes: ${params.facts}\n\nO documento deve seguir as normas processuais brasileiras, ter estrutura formal adequada e linguagem técnico-jurídica. Elabore agora:` }],
+    messages: [{ role: 'user', content: `Você é um advogado sênior brasileiro especialista em ${area}. Elabore uma ${params.docType} completa e profissional em português brasileiro, seguindo rigorosamente as normas processuais brasileiras (CPC/CLT conforme aplicável), com estrutura formal adequada, cabeçalho, qualificação das partes, exposição dos fatos, fundamentos jurídicos (com citação de jurisprudência e doutrina relevantes), pedidos e fechamento.${posicaoSection}${partiesSection}\nFatos relevantes: ${params.facts}${legalBasisSection}\n\nElabore a peça completa agora, sem truncar:` }],
     max_tokens: 4000
   })
   return response.choices[0].message.content || ''
