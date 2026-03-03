@@ -23,7 +23,7 @@ export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
-  const [tab, setTab] = useState<'docs' | 'chat' | 'draft'>('docs');
+  const [tab, setTab] = useState<'docs' | 'chat' | 'draft' | 'extraction'>('docs');
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -199,7 +199,7 @@ export default function ProjectView() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0', marginTop: '16px', borderBottom: '1px solid var(--border)' }}>
-          {([['docs', '▦ Documentos'], ['chat', '◈ Chat IA'], ['draft', '✦ Elaboração']] as const).map(([t, label]) => (
+          {([['docs', '▦ Documentos'], ['chat', '◈ Chat IA'], ['draft', '✦ Elaboração'], ['extraction', '⚙ Extração IA']] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 padding: '8px 20px', border: 'none', cursor: 'pointer',
@@ -443,6 +443,107 @@ export default function ProjectView() {
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.8', maxHeight: '600px', overflowY: 'auto' }}>
                 {draftResult}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* EXTRACTION TAB */}
+      {tab === 'extraction' && (
+        <div style={{ padding: '24px 28px' }}>
+          {project.documents.length === 0 ? (
+            <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-4)' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚙</div>
+              <p style={{ margin: 0, fontSize: '13px' }}>Nenhum documento analisado ainda. Faça upload na aba Documentos.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {project.documents.map(doc => {
+                const ext = doc.document_extractions?.[0] as any;
+                const fraudRisk = ext?.raw_extraction?.fraud_risk || (ext as any)?.fraud_risk;
+                if (!ext) return (
+                  <div key={doc.id} className="card" style={{ padding: '16px', opacity: 0.6 }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>📄 {doc.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '4px' }}>
+                      {doc.ai_status === 'processing' ? '⟳ Análise em andamento...' : 'Sem extração disponível'}
+                    </div>
+                  </div>
+                );
+                return (
+                  <div key={doc.id} className="card" style={{ padding: '20px' }}>
+                    {/* Fraud Warning */}
+                    {fraudRisk?.detected && (
+                      <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: '8px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444', marginBottom: '6px' }}>
+                          🚨 Possível Fraude Detectada — Confiança: {fraudRisk.confidence?.toUpperCase()}
+                        </div>
+                        {(fraudRisk.indicators || []).map((ind: string, i: number) => (
+                          <div key={i} style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>• {ind}</div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)', marginBottom: '4px' }}>{ext.doc_type || 'Documento'}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>📄 {doc.name}</div>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#22c55e' }}>✓ Análise completa</span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Partes</div>
+                        {((ext.parties as any[]) || []).map((p: any, i: number) => (
+                          <div key={i} style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '3px' }}>
+                            {typeof p === 'object' ? `${p.name} (${p.role})` : p}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Datas-chave</div>
+                        {((ext.key_dates as any[]) || []).slice(0, 4).map((d: any, i: number) => (
+                          <div key={i} style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '3px' }}>
+                            <span style={{ fontWeight: '600', color: 'var(--text-3)' }}>{d.date}</span> — {d.description}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {ext.summary && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: '600' }}>Resumo</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.7' }}>{ext.summary}</div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      {((ext.risk_flags as any[]) || []).length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Riscos</div>
+                          {((ext.risk_flags as any[]) || []).map((r: any, i: number) => (
+                            <div key={i} style={{ padding: '6px 10px', background: 'var(--bg-3)', borderRadius: '4px', border: `1px solid ${r.severity === 'alto' ? '#ef444430' : r.severity === 'medio' ? '#eab30830' : '#22c55e30'}`, marginBottom: '4px', display: 'flex', gap: '8px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: '700', color: r.severity === 'alto' ? '#ef4444' : r.severity === 'medio' ? '#eab308' : '#22c55e', textTransform: 'uppercase', minWidth: '36px' }}>{r.severity}</span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{r.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {((ext.deadlines as any[]) || []).length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Prazos</div>
+                          {((ext.deadlines as any[]) || []).map((d: any, i: number) => (
+                            <div key={i} style={{ padding: '6px 10px', background: 'var(--bg-3)', borderRadius: '4px', border: `1px solid ${d.urgency === 'alta' ? '#ef444430' : '#eab30830'}`, marginBottom: '4px', display: 'flex', gap: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: d.urgency === 'alta' ? '#ef4444' : '#eab308', minWidth: '60px' }}>{d.date}</span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{d.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
