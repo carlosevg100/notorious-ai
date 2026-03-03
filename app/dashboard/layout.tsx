@@ -6,14 +6,12 @@ import { useTheme } from "../theme-context";
 import { useAuth } from "@/lib/auth-context";
 
 const NAV = [
-  { href: "/dashboard",                label: "Dashboard",   icon: "⊞" },
-  { href: "/dashboard/clientes",       label: "Clientes",    icon: "◉" },
-  { href: "/dashboard/pesquisa",       label: "Pesquisa",    icon: "◎" },
-  { href: "/dashboard/prazos",         label: "Prazos",      icon: "◷" },
-  { href: "/dashboard/contratos",      label: "Contratos",   icon: "▤" },
-  { href: "/dashboard/litigancia",     label: "Litigância",  icon: "⚖" },
-  { href: "/dashboard/gratuidade",     label: "Gratuidade",  icon: "💰" },
-  { href: "/dashboard/configuracoes",  label: "Config.",     icon: "⚙" },
+  { href: "/dashboard",                label: "Dashboard",      icon: "⊞" },
+  { href: "/dashboard/clientes",       label: "Clientes",       icon: "◉" },
+  { href: "/dashboard/processos",      label: "Processos",      icon: "⚖" },
+  { href: "/dashboard/pesquisa",       label: "Jurisprudência", icon: "◎" },
+  { href: "/dashboard/prazos",         label: "Prazos",         icon: "◷" },
+  { href: "/dashboard/configuracoes",  label: "Configurações",  icon: "⚙" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -59,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }}>N</div>
             {!collapsed && (
               <div>
-                <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text)", lineHeight: 1 }}>Notorious AI</div>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text)", lineHeight: 1 }}>Contencioso</div>
                 <div style={{ fontSize: "10px", color: "var(--text-4)", marginTop: "2px" }}>{profile?.firms?.name || '...'}</div>
               </div>
             )}
