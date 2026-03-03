@@ -92,19 +92,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div style={{ fontSize: "11px", color: "var(--text-4)" }}>{profile?.role || 'Advogado'}</div>
               </div>
             </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", padding: "4px 2px" }}>
+              <span style={{ fontSize: "11px", color: "var(--text-4)" }}>{isDark ? "🌙 Escuro" : "☀️ Claro"}</span>
+              <button onClick={toggle} style={{ position: "relative", width: "36px", height: "20px", borderRadius: "10px", background: isDark ? "#C9A84C" : "#D0D0D0", border: "none", cursor: "pointer", padding: 0, transition: "background 0.2s", flexShrink: 0 }}>
+                <div style={{ position: "absolute", top: "2px", left: isDark ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+              </button>
+            </div>
             <button onClick={signOut} className="btn-ghost" style={{ width: '100%', justifyContent: 'center', fontSize: '11px', padding: '6px' }}>Sair</button>
           </div>
         )}
       </aside>
 
       <main style={{ flex: 1, marginLeft: collapsed ? "56px" : "220px", minHeight: "100vh", transition: "margin-left 0.2s", background: "var(--bg)" }}>
-        <div style={{ position: "fixed", bottom: "20px", right: "16px", zIndex: 100, display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: "8px", padding: "5px 10px", boxShadow: isDark ? "0 2px 12px rgba(0,0,0,0.5)" : "0 2px 12px rgba(0,0,0,0.08)" }}>
-          <span style={{ fontSize: "13px" }}>{isDark ? "🌙" : "☀️"}</span>
-          <button onClick={toggle} style={{ position: "relative", width: "44px", height: "24px", borderRadius: "12px", background: isDark ? "#C9A84C" : "#D0D0D0", border: "none", cursor: "pointer", padding: 0, transition: "background 0.2s" }}>
-            <div style={{ position: "absolute", top: "3px", left: isDark ? "23px" : "3px", width: "18px", height: "18px", borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
-          </button>
-          <span style={{ fontSize: "11px", color: "var(--text-4)", fontWeight: "500", minWidth: "36px" }}>{isDark ? "Escuro" : "Claro"}</span>
-        </div>
+
         {children}
       </main>
     </div>
