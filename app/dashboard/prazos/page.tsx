@@ -1,33 +1,72 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 
-const DEADLINES = [
-  { date: "05/03", day: 5, month: 3, name: "Contestação — Metalúrgica ABC", case: "Trabalhista", type: "Peça processual", urgency: "red" },
-  { date: "07/03", day: 7, month: 3, name: "Recurso Especial ao STJ — Grupo Nordeste", case: "M&A", type: "Recurso", urgency: "red" },
-  { date: "10/03", day: 10, month: 3, name: "Réplica — 5ª Vara Cível SP", case: "TechBrasil", type: "Peça processual", urgency: "yellow" },
-  { date: "12/03", day: 12, month: 3, name: "Audiência de conciliação", case: "TechBrasil", type: "Audiência", urgency: "yellow" },
-  { date: "15/03", day: 15, month: 3, name: "Laudo pericial — Inovação Tech", case: "Contratos", type: "Perícia", urgency: "yellow" },
-  { date: "18/03", day: 18, month: 3, name: "Prazo para manifestação CARF", case: "Tributário", type: "Administrativo", urgency: "yellow" },
-  { date: "20/03", day: 20, month: 3, name: "Contestação — Vista Verde", case: "Cível", type: "Peça processual", urgency: "green" },
-  { date: "25/03", day: 25, month: 3, name: "Proposta de acordo — Família Rodrigues", case: "Tributário", type: "Consultivo", urgency: "green" },
-  { date: "28/03", day: 28, month: 3, name: "Memorial — TRF 3ª Região", case: "Tributário", type: "Peça processual", urgency: "green" },
-  { date: "30/03", day: 30, month: 3, name: "Recurso Ordinário — TST", case: "Trabalhista", type: "Recurso", urgency: "green" },
-];
+interface Deadline {
+  date: string;
+  description: string;
+  urgency: 'alta' | 'media' | 'baixa';
+  docName: string;
+  projectId: string;
+  projectName: string;
+}
+
+interface Project { id: string; name: string; area: string; }
 
 export default function PrazosPage() {
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [projects, setProjects] = useState<Record<string, Project>>({});
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'calendar'>('list');
-  const [filterCase, setFilterCase] = useState("Todos");
-  const [filterType, setFilterType] = useState("Todos");
+  const [filterUrgency, setFilterUrgency] = useState('Todos');
 
-  const cases = ["Todos", "Trabalhista", "M&A", "TechBrasil", "Cível", "Tributário", "Contratos"];
-  const types = ["Todos", "Peça processual", "Recurso", "Audiência", "Perícia", "Administrativo", "Consultivo"];
+  useEffect(() => { loadData(); }, []);
 
-  const filtered = DEADLINES.filter(d =>
-    (filterCase === 'Todos' || d.case === filterCase) &&
-    (filterType === 'Todos' || d.type === filterType)
-  );
+  async function loadData() {
+    try {
+      const [docsRes, projRes] = await Promise.all([
+        fetch('/api/documents'),
+        fetch('/api/projects')
+      ]);
+      const projMap: Record<string, Project> = {};
+      if (projRes.ok) {
+        const projs: Project[] = await projRes.json();
+        for (const p of projs) projMap[p.id] = p;
+        setProjects(projMap);
+      }
+      if (docsRes.ok) {
+        const docs: any[] = await docsRes.json();
+        const all: Deadline[] = [];
+        for (const doc of docs) {
+          const extractions: any[] = doc.document_extractions || [];
+          for (const ext of extractions) {
+            for (const dl of (ext.deadlines || [])) {
+              all.push({
+                date: dl.date || '',
+                description: dl.description || '',
+                urgency: dl.urgency || 'media',
+                docName: doc.name,
+                projectId: doc.project_id,
+                projectName: projMap[doc.project_id]?.name || 'Projeto'
+              });
+            }
+          }
+        }
+        // Sort: alta first, then media, then baixa; within same urgency sort by date string
+        const urgOrder = { alta: 0, media: 1, baixa: 2 };
+        all.sort((a, b) => (urgOrder[a.urgency] - urgOrder[b.urgency]) || a.date.localeCompare(b.date));
+        setDeadlines(all);
+      }
+    } catch (_) {}
+    setLoading(false);
+  }
 
-  const today = 3; // March 3
+  const urgColor = { alta: '#ef4444', media: '#eab308', baixa: '#22c55e' };
+  const urgLabel = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
+
+  const filtered = deadlines.filter(d => filterUrgency === 'Todos' || d.urgency === filterUrgency);
+  const critCount = deadlines.filter(d => d.urgency === 'alta').length;
+  const medCount = deadlines.filter(d => d.urgency === 'media').length;
 
   return (
     <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
@@ -37,112 +76,100 @@ export default function PrazosPage() {
             <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
               <span style={{ color: 'var(--gold)', marginRight: '8px' }}>◷</span>Prazos
             </h1>
-            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>
-              <span style={{ color: '#ef4444', fontWeight: '600' }}>2 críticos</span> · <span style={{ color: '#eab308' }}>4 esta semana</span> · 4 futuros
-            </p>
+            {!loading && (
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>
+                {critCount > 0 && <span style={{ color: '#ef4444', fontWeight: '600' }}>{critCount} urgente{critCount > 1 ? 's' : ''}</span>}
+                {critCount > 0 && medCount > 0 && <span> · </span>}
+                {medCount > 0 && <span style={{ color: '#eab308', fontWeight: '600' }}>{medCount} médio{medCount > 1 ? 's' : ''}</span>}
+                {critCount === 0 && medCount === 0 && deadlines.length === 0 && 'Nenhum prazo detectado'}
+              </p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setView('list')} className={view === 'list' ? 'btn-gold' : 'btn-ghost'} style={{ padding: '6px 14px', fontSize: '12px' }}>Lista</button>
             <button onClick={() => setView('calendar')} className={view === 'calendar' ? 'btn-gold' : 'btn-ghost'} style={{ padding: '6px 14px', fontSize: '12px' }}>Calendário</button>
-            <button className="btn-ghost" style={{ fontSize: '12px' }}>+ Novo Prazo</button>
           </div>
         </div>
       </div>
 
       <div style={{ padding: '24px 28px' }}>
         {/* Filters */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select value={filterCase} onChange={e => setFilterCase(e.target.value)} style={{ width: '180px' }}>
-            {cases.map(c => <option key={c}>{c}</option>)}
-          </select>
-          <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ width: '180px' }}>
-            {types.map(t => <option key={t}>{t}</option>)}
-          </select>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          {['Todos', 'alta', 'media', 'baixa'].map(u => (
+            <button key={u} onClick={() => setFilterUrgency(u)}
+              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid', fontSize: '12px', cursor: 'pointer', fontWeight: '500',
+                borderColor: filterUrgency === u ? (u === 'alta' ? '#ef4444' : u === 'media' ? '#eab308' : u === 'baixa' ? '#22c55e' : '#C9A84C') : '#2a2a2a',
+                background: filterUrgency === u ? (u === 'alta' ? 'rgba(239,68,68,0.1)' : u === 'media' ? 'rgba(234,179,8,0.1)' : u === 'baixa' ? 'rgba(34,197,94,0.1)' : 'rgba(201,168,76,0.1)') : 'transparent',
+                color: filterUrgency === u ? (u === 'alta' ? '#ef4444' : u === 'media' ? '#eab308' : u === 'baixa' ? '#22c55e' : '#C9A84C') : '#666'
+              }}>
+              {u === 'Todos' ? 'Todos' : urgLabel[u as keyof typeof urgLabel]}
+            </button>
+          ))}
         </div>
 
-        {view === 'list' ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-4)' }}>Carregando...</div>
+        ) : deadlines.length === 0 ? (
+          <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-4)' }}>
+            <div style={{ fontSize: '32px', marginBottom: '16px' }}>◷</div>
+            <p style={{ margin: '0 0 8px', fontSize: '14px' }}>Nenhum prazo encontrado.</p>
+            <p style={{ margin: 0, fontSize: '12px' }}>Faça upload de documentos para a IA detectar prazos automaticamente.</p>
+          </div>
+        ) : view === 'list' ? (
           <div className="card" style={{ overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Data', 'Prazo', 'Caso', 'Tipo', 'Urgência', ''].map(h => (
+                  {['Data', 'Prazo', 'Projeto / Documento', 'Urgência', ''].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d, i) => {
-                  const daysLeft = d.day - today;
-                  return (
-                    <tr key={i} style={{ borderBottom: '1px solid #111' }}>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{
-                          fontWeight: '700', fontSize: '15px',
-                          color: d.urgency === 'red' ? '#ef4444' : d.urgency === 'yellow' ? '#eab308' : '#22c55e'
-                        }}>{d.date}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-5)', marginTop: '2px' }}>
-                          {daysLeft === 0 ? 'Hoje' : daysLeft < 0 ? `${Math.abs(daysLeft)}d atrás` : `em ${daysLeft}d`}
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.name}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}><span className="badge-gray">{d.case}</span></td>
-                      <td style={{ padding: '14px 16px' }}><span className="badge-gray">{d.type}</span></td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span className={`badge-${d.urgency}`}>
-                          {d.urgency === 'red' ? '🔴 Crítico' : d.urgency === 'yellow' ? '🟡 Esta semana' : '🟢 Futuro'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <button className="btn-ghost" style={{ padding: '3px 8px', fontSize: '11px' }}>Ver caso</button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filtered.map((d, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #111' }}>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px', color: urgColor[d.urgency] }}>{d.date || '—'}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.description}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: '500' }}>{d.projectName}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '2px' }}>📄 {d.docName}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: urgColor[d.urgency] }}>{urgLabel[d.urgency]}</span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      {d.projectId && (
+                        <Link href={`/dashboard/projeto/${d.projectId}`}
+                          style={{ fontSize: '11px', padding: '3px 8px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text-3)', textDecoration: 'none' }}>
+                          Ver caso
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         ) : (
-          // Calendar view
           <div className="card" style={{ padding: '24px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>Março 2026</h3>
-            </div>
-            {/* Days header */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '8px' }}>
-              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-                <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', padding: '4px' }}>{d}</div>
-              ))}
-            </div>
-            {/* Calendar grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-              {/* March 2026 starts on Sunday */}
-              {Array.from({length: 31}, (_, i) => i + 1).map(day => {
-                const deadline = DEADLINES.find(d => d.day === day);
-                const isToday = day === today;
-                return (
-                  <div key={day} style={{
-                    minHeight: '64px', padding: '6px', borderRadius: '6px',
-                    background: isToday ? 'rgba(201,168,76,0.1)' : '#0d0d0d',
-                    border: isToday ? '1px solid rgba(201,168,76,0.3)' : '1px solid #1a1a1a',
-                    position: 'relative'
-                  }}>
-                    <div style={{ fontSize: '11px', fontWeight: isToday ? '700' : '400', color: isToday ? '#C9A84C' : '#555', marginBottom: '4px' }}>{day}</div>
-                    {deadline && (
-                      <div style={{
-                        fontSize: '9px', padding: '2px 4px', borderRadius: '3px',
-                        background: deadline.urgency === 'red' ? 'rgba(239,68,68,0.2)' : deadline.urgency === 'yellow' ? 'rgba(234,179,8,0.2)' : 'rgba(34,197,94,0.2)',
-                        color: deadline.urgency === 'red' ? '#ef4444' : deadline.urgency === 'yellow' ? '#eab308' : '#22c55e',
-                        lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box',
-                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const
-                      }}>
-                        {deadline.name}
-                      </div>
-                    )}
+            <p style={{ textAlign: 'center', color: 'var(--text-4)', fontSize: '13px' }}>
+              Visão de calendário — {filtered.length} prazo{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+              {filtered.map((d, i) => (
+                <div key={i} style={{ padding: '12px 16px', background: 'var(--bg-2)', borderRadius: '8px', border: `1px solid ${urgColor[d.urgency]}30`, display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: urgColor[d.urgency], minWidth: '80px' }}>{d.date || '—'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.description}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '3px' }}>{d.projectName} · {d.docName}</div>
                   </div>
-                );
-              })}
+                  <span style={{ fontSize: '12px', color: urgColor[d.urgency], fontWeight: '600' }}>{urgLabel[d.urgency]}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
