@@ -70,6 +70,10 @@ export default function ProjectView() {
   const [fraudFile, setFraudFile] = useState<File | null>(null);
   const [fraudResult, setFraudResult] = useState<any>(null);
   const [fraudLoading, setFraudLoading] = useState(false);
+  const [autoContestacao, setAutoContestacao] = useState("");
+  const [autoContestacaoLoading, setAutoContestacaoLoading] = useState(false);
+  const [autoContestacaoStats, setAutoContestacaoStats] = useState<any>(null);
+  const [autoContestacaoEditable, setAutoContestacaoEditable] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fraudInputRef = useRef<HTMLInputElement>(null);
@@ -111,7 +115,9 @@ export default function ProjectView() {
     for (const file of files) {
       setUploadProgress(10);
       const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'];
-      if (!allowed.includes(file.type) && !file.name.endsWith('.pdf') && !file.name.endsWith('.docx') && !file.name.endsWith('.doc') && !file.name.endsWith('.txt')) {
+      const docExts = ['.pdf', '.docx', '.doc', '.txt'];
+      const isDoc = allowed.includes(file.type) || docExts.some(e => file.name.toLowerCase().endsWith(e));
+      if (!isDoc && !isAudioFile(file)) {
         alert(`Tipo não suportado: ${file.name}`);
         continue;
       }
@@ -141,6 +147,16 @@ export default function ProjectView() {
   }
 
   async function runAIExtraction(docId: string, file: File) {
+    // Route audio files to the transcription endpoint
+    if (isAudioFile(file)) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('docId', docId);
+      const res = await fetch('/api/documents/transcribe-audio', { method: 'POST', body: formData });
+      if (res.ok) { loadProject(); return; }
+      return;
+    }
+
     let text = '';
     try {
       if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
@@ -196,6 +212,31 @@ export default function ProjectView() {
     });
     if (res.ok) { const { draft } = await res.json(); setDraftResult(draft); }
     setDraftLoading(false);
+  }
+
+  function isAudioFile(file: File): boolean {
+    const audioTypes = ['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/ogg', 'audio/webm', 'video/webm', 'video/mp4'];
+    const audioExts = ['.mp3', '.mp4', '.wav', '.m4a', '.ogg', '.webm'];
+    return audioTypes.includes(file.type) || audioExts.some(ext => file.name.toLowerCase().endsWith(ext));
+  }
+
+  async function generateAutoContestacao() {
+    setAutoContestacaoLoading(true);
+    setAutoContestacao("");
+    setAutoContestacaoStats(null);
+    try {
+      const res = await fetch('/api/drafts/auto-contestacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAutoContestacao(data.draft);
+        setAutoContestacaoStats(data.stats);
+      }
+    } catch {}
+    setAutoContestacaoLoading(false);
   }
 
   async function runFraudScan() {
@@ -301,7 +342,7 @@ export default function ProjectView() {
               marginBottom: '24px', transition: 'all 0.15s'
             }}>
             <input ref={fileInputRef} type="file" style={{ display: 'none' }} multiple
-              accept=".pdf,.docx,.doc,.txt"
+              accept=".pdf,.docx,.doc,.txt,.mp3,.mp4,.wav,.m4a,.ogg,.webm"
               onChange={e => e.target.files && uploadFiles(Array.from(e.target.files))} />
             {uploading ? (
               <div>
@@ -317,7 +358,7 @@ export default function ProjectView() {
                 <div style={{ fontSize: '14px', color: dragging ? 'var(--gold)' : 'var(--text-2)', fontWeight: '600', marginBottom: '6px' }}>
                   {dragging ? 'Solte para fazer upload' : 'Arraste documentos aqui'}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>PDF, DOCX, DOC, TXT · A IA analisa automaticamente</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>PDF, DOCX, DOC, TXT · MP3, MP4, WAV, M4A, OGG, WEBM · A IA analisa automaticamente</div>
               </>
             )}
           </div>
@@ -335,7 +376,9 @@ export default function ProjectView() {
                   <div key={doc.id} className="card" style={{ padding: '16px', border: isExpanded ? '1px solid var(--gold-border)' : '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                       onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}>
-                      <span style={{ fontSize: '20px' }}>📄</span>
+                      <span style={{ fontSize: '20px' }}>
+                        {doc.file_type === 'audio' || ['.mp3', '.mp4', '.wav', '.m4a', '.ogg', '.webm'].some(e => doc.name.toLowerCase().endsWith(e)) ? '🎙' : '📄'}
+                      </span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: '500' }}>{doc.name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-4)', marginTop: '2px' }}>
@@ -361,6 +404,36 @@ export default function ProjectView() {
 
                     {isExpanded && ext && (
                       <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                        {/* Transcription section for audio files */}
+                        {((ext as any).raw_extraction?.transcription) && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🎙</span> Transcrição
+                            </div>
+                            <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '12px', fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                              {(ext as any).raw_extraction.transcription}
+                            </div>
+                          </div>
+                        )}
+                        {/* Audio legal intelligence */}
+                        {((ext as any).raw_extraction?.relevant_facts?.length > 0) && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Fatos Relevantes</div>
+                            {((ext as any).raw_extraction.relevant_facts as string[]).map((f, i) => (
+                              <div key={i} style={{ fontSize: '12px', color: 'var(--text-2)', padding: '4px 0', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+                                <span style={{ color: 'var(--text-5)', flexShrink: 0 }}>{i + 1}.</span>{f}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {((ext as any).raw_extraction?.key_statements?.length > 0) && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Declarações Importantes</div>
+                            {((ext as any).raw_extraction.key_statements as string[]).map((s, i) => (
+                              <div key={i} style={{ fontSize: '12px', color: 'var(--text-2)', padding: '6px 10px', background: 'rgba(201,168,76,0.05)', border: '1px solid var(--gold-border)', borderRadius: '4px', marginBottom: '4px' }}>"{s}"</div>
+                            ))}
+                          </div>
+                        )}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                           <div>
                             <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px' }}>Tipo</div>
@@ -528,7 +601,65 @@ export default function ProjectView() {
 
       {/* DRAFT TAB */}
       {tab === 'draft' && (
-        <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: draftResult ? '1fr 1fr' : '1fr', gap: '24px' }}>
+        <div style={{ padding: '24px 28px' }}>
+          {/* Auto-contestação button */}
+          <div className="card" style={{ padding: '20px 24px', marginBottom: '24px', background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.02))', border: '1px solid var(--gold-border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: autoContestacao ? '16px' : '0' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--gold)', marginBottom: '4px' }}>✨ Gerar Contestação Automática</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>A IA lê todos os documentos do caso e elabora uma contestação completa automaticamente</div>
+              </div>
+              <button onClick={generateAutoContestacao} className="btn-gold" disabled={autoContestacaoLoading}
+                style={{ flexShrink: 0, marginLeft: '16px' }}>
+                {autoContestacaoLoading ? '✨ Gerando...' : '✨ Gerar Automático'}
+              </button>
+            </div>
+
+            {autoContestacaoLoading && (
+              <div style={{ padding: '12px 16px', background: 'rgba(201,168,76,0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '16px', height: '16px', border: '2px solid var(--gold-border)', borderTop: '2px solid var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                IA analisando todos os documentos do caso...
+              </div>
+            )}
+
+            {autoContestacao && (
+              <div>
+                {autoContestacaoStats && (
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
+                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.documentsAnalyzed}</span> documentos analisados
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
+                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.partiesIdentified}</span> partes identificadas
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-4)' }}>
+                      <span style={{ color: 'var(--gold)', fontWeight: '600' }}>{autoContestacaoStats.factsExtracted}</span> fatos extraídos
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => navigator.clipboard.writeText(autoContestacao)}>Copiar</button>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => {
+                    const blob = new Blob([autoContestacao], { type: 'text/plain' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                    a.download = `contestacao-${project?.name || 'caso'}.txt`; a.click();
+                  }}>Baixar .txt</button>
+                  <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => setAutoContestacaoEditable(!autoContestacaoEditable)}>
+                    {autoContestacaoEditable ? 'Fechar edição' : 'Editar'}
+                  </button>
+                </div>
+                <textarea
+                  value={autoContestacao}
+                  onChange={e => setAutoContestacao(e.target.value)}
+                  readOnly={!autoContestacaoEditable}
+                  rows={24}
+                  style={{ width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '16px', fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.8', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', cursor: autoContestacaoEditable ? 'text' : 'default', opacity: autoContestacaoEditable ? 1 : 0.9 }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: draftResult ? '1fr 1fr' : '1fr', gap: '24px' }}>
           <div>
             <form onSubmit={generateDraft}>
               <div className="card" style={{ padding: '24px' }}>
@@ -571,6 +702,7 @@ export default function ProjectView() {
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
 
