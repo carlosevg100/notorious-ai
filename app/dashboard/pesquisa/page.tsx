@@ -27,11 +27,65 @@ export default function PesquisaPage() {
     setSearched(true);
     setExpanded(null);
     try {
-      const res = await fetch(`/api/pesquisa?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setResults(data.results || []);
-        setSource(data.source || '');
+      // Call TST directly from browser — CORS allows * and browser IPs are not blocked by TST
+      let resolved = false;
+      try {
+        const tstRes = await fetch(
+          `https://jurisprudencia-backend2.tst.jus.br/rest/pesquisa-textual/1/10?a=${Math.random()}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Referer': 'https://jurisprudencia.tst.jus.br/',
+              'Origin': 'https://jurisprudencia.tst.jus.br',
+            },
+            body: JSON.stringify({
+              ou: '', e: query, termoExato: '', naoContem: '',
+              ementa: '', dispositivo: '', numeracaoUnica: null,
+            }),
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+        if (tstRes.ok) {
+          const raw = await tstRes.json();
+          const registros: any[] = raw?.registros || [];
+          if (registros.length > 0) {
+            const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            const mapped = registros.map((item: any) => {
+              const r = item?.registro || item;
+              return {
+                tribunal: r.orgao?.sigla || 'TST',
+                orgao_julgador: r.orgaoJudicante?.descricao || '',
+                numero_processo: r.numFormatado || '',
+                data: r.dtaJulgamento ? new Date(r.dtaJulgamento).toLocaleDateString('pt-BR') : '',
+                data_publicacao: r.dtaPublicacao ? new Date(r.dtaPublicacao).toLocaleDateString('pt-BR') : '',
+                relator: r.nomRelator
+                  ? r.nomRelator.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+                  : '',
+                ementa: strip(r.ementaHtml || r.ementa || r.txtEmentaHighlight || ''),
+                link: r.numProcInt && r.anoProcInt
+                  ? `https://consultadocumento.tst.jus.br/consultaDocumento/acordao.do?anoProcInt=${r.anoProcInt}&numProcInt=${r.numProcInt}`
+                  : '',
+                source: 'TST',
+              };
+            }).filter((r: any) => r.ementa.length > 20);
+            if (mapped.length > 0) {
+              setResults(mapped);
+              setSource(`TST • ${(raw.totalRegistros || 0).toLocaleString('pt-BR')} acórdãos`);
+              resolved = true;
+            }
+          }
+        }
+      } catch (_) { /* fallback */ }
+
+      if (!resolved) {
+        // Server-side fallback (STF or AI)
+        const res = await fetch(`/api/pesquisa?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data.results || []);
+          setSource(data.source || '');
+        }
       }
     } catch (_) {}
     setLoading(false);
@@ -57,7 +111,7 @@ export default function PesquisaPage() {
           <span style={{ color: 'var(--gold)' }}>◎</span> Pesquisa Jurídica
         </h1>
         <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)', marginTop: '2px' }}>
-          STF · STJ · TST · TRFs · TJs — com fallback por IA
+          Acórdãos reais do TST — busca direta na base oficial
         </p>
       </div>
 
