@@ -1,29 +1,58 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js"
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 interface Extraction {
   doc_type: string; parties: string[]; key_dates: any[];
-  deadlines: any[]; risk_flags: any[]; summary: string;
+  deadlines: any[]; risk_flags: any[]; summary: string; raw_extraction?: any;
 }
 interface Document {
   id: string; name: string; file_path: string; file_type: string;
   ai_status: string; created_at: string;
   document_extractions?: Extraction[];
 }
+interface Contract {
+  id: string; name: string; status: string; value: number | null;
+  end_date: string | null; contract_type: string;
+  contract_extractions?: { risk_level: string; risk_flags: any[] }[];
+}
 interface Project {
   id: string; name: string; area: string; status: string; risk_level: string;
+  client_id: string | null;
+  clients?: { id: string; name: string; type: string } | null;
   documents: Document[];
 }
 interface ChatMsg { id: string; role: string; content: string; created_at: string; }
+
+type Tab = 'docs' | 'chat' | 'draft' | 'extraction' | 'contratos' | 'fraude' | 'prazos';
+
+const riskColor: Record<string, string> = { alto: '#ef4444', medio: '#eab308', baixo: '#22c55e' };
+
+function statusBadge(status: string) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    vigente:               { label: 'Vigente',        color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+    vencido:               { label: 'Vencido',        color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+    renovacao:             { label: 'Renovação',      color: '#eab308', bg: 'rgba(234,179,8,0.1)' },
+    rescindido:            { label: 'Rescindido',     color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+    aguardando_assinatura: { label: 'Ag. Assinatura', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+    rascunho:              { label: 'Rascunho',       color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+  };
+  const s = map[status] || { label: status, color: '#888', bg: 'transparent' };
+  return (
+    <span style={{ fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '12px', background: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  );
+}
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
-  const [tab, setTab] = useState<'docs' | 'chat' | 'draft' | 'extraction'>('docs');
+  const [tab, setTab] = useState<Tab>('docs');
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -37,11 +66,17 @@ export default function ProjectView() {
   const [draftFacts, setDraftFacts] = useState("");
   const [draftResult, setDraftResult] = useState("");
   const [draftLoading, setDraftLoading] = useState(false);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [fraudFile, setFraudFile] = useState<File | null>(null);
+  const [fraudResult, setFraudResult] = useState<any>(null);
+  const [fraudLoading, setFraudLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fraudInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadProject(); }, [id]);
   useEffect(() => { if (tab === 'chat') { loadChat(); } }, [tab, id]);
+  useEffect(() => { if (tab === 'contratos' && project?.client_id) { loadContracts(); } }, [tab, project]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   async function loadProject() {
@@ -54,6 +89,12 @@ export default function ProjectView() {
   async function loadChat() {
     const res = await fetch(`/api/chat?project_id=${id}`);
     if (res.ok) setChatMessages(await res.json());
+  }
+
+  async function loadContracts() {
+    if (!project?.client_id) return;
+    const res = await fetch(`/api/contratos?client_id=${project.client_id}`);
+    if (res.ok) setContracts(await res.json());
   }
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
@@ -75,14 +116,12 @@ export default function ProjectView() {
         continue;
       }
 
-      // Upload to Supabase Storage
       const filePath = `${id}/${Date.now()}_${file.name}`;
       setUploadProgress(30);
       const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, file);
       if (uploadErr) { alert(`Erro ao fazer upload: ${uploadErr.message}`); continue; }
       setUploadProgress(50);
 
-      // Register document in DB
       const docRes = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,7 +131,6 @@ export default function ProjectView() {
       const newDoc = await docRes.json();
       setUploadProgress(60);
 
-      // Extract text and run AI
       await runAIExtraction(newDoc.id, file);
       setUploadProgress(100);
     }
@@ -108,7 +146,6 @@ export default function ProjectView() {
       if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
         text = await file.text();
       } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        // Read as ArrayBuffer and send to extraction API with file
         const formData = new FormData();
         formData.append('file', file);
         formData.append('docId', docId);
@@ -118,9 +155,7 @@ export default function ProjectView() {
       } else {
         text = `[Documento: ${file.name}]`;
       }
-    } catch (e) {
-      text = `[Documento: ${file.name} — erro ao ler]`;
-    }
+    } catch { text = `[Documento: ${file.name} — erro ao ler]`; }
 
     await fetch(`/api/documents/${docId}/extract`, {
       method: 'POST',
@@ -136,16 +171,14 @@ export default function ProjectView() {
     setChatInput("");
     setChatLoading(true);
     setChatMessages(prev => [...prev, { id: 'tmp', role: 'user', content: msg, created_at: new Date().toISOString() }]);
-    
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: msg, project_id: id })
     });
-    
     if (res.ok) {
       const { response } = await res.json();
-      setChatMessages(prev => [...prev.slice(0, -1), 
+      setChatMessages(prev => [...prev.slice(0, -1),
         { id: 'u', role: 'user', content: msg, created_at: new Date().toISOString() },
         { id: 'a', role: 'assistant', content: response, created_at: new Date().toISOString() }
       ]);
@@ -161,31 +194,70 @@ export default function ProjectView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ docType: draftType, area: project?.area, clientPosition: draftPosition, facts: draftFacts })
     });
-    if (res.ok) {
-      const { draft } = await res.json();
-      setDraftResult(draft);
-    }
+    if (res.ok) { const { draft } = await res.json(); setDraftResult(draft); }
     setDraftLoading(false);
+  }
+
+  async function runFraudScan() {
+    if (!fraudFile) return;
+    setFraudLoading(true);
+    setFraudResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', fraudFile);
+      const res = await fetch('/api/contratos/analise-fraude', { method: 'POST', body: formData });
+      if (res.ok) setFraudResult(await res.json());
+      else setFraudResult({ error: 'Análise falhou. Tente novamente.' });
+    } catch { setFraudResult({ error: 'Erro de rede.' }); }
+    setFraudLoading(false);
   }
 
   if (loading || !project) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: '32px', height: '32px', border: '2px solid var(--border)', borderTop: '2px solid var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
-      </div>
+      <div style={{ width: '32px', height: '32px', border: '2px solid var(--border)', borderTop: '2px solid var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
-  const riskColor: Record<string, string> = { alto: '#ef4444', medio: '#eab308', baixo: '#22c55e' };
+  const TABS: [Tab, string][] = [
+    ['docs',       '▦ Documentos'],
+    ['contratos',  '▤ Contratos'],
+    ['chat',       '◈ Chat IA'],
+    ['draft',      '✦ Elaboração'],
+    ['extraction', '⚙ Extração IA'],
+    ['fraude',     '🔍 Fraude'],
+    ['prazos',     '◷ Prazos'],
+  ];
+
+  // Collect all deadlines from documents
+  const allDeadlines = project.documents.flatMap(doc => {
+    const ext = doc.document_extractions?.[0];
+    if (!ext) return [];
+    return (ext.deadlines || []).map((d: any) => ({ ...d, docName: doc.name }));
+  });
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
-      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
+      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '16px 28px' }}>
+        {/* Breadcrumb */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-4)', marginBottom: '10px' }}>
+          <Link href="/dashboard/clientes" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Clientes</Link>
+          {project.clients && (
+            <>
+              <span>›</span>
+              <Link href={`/dashboard/clientes/${project.clients.id}`} style={{ color: 'var(--gold)', textDecoration: 'none' }}>
+                {project.clients.name}
+              </Link>
+            </>
+          )}
+          <span>›</span>
+          <span style={{ color: 'var(--text-3)' }}>{project.name}</span>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => router.push('/dashboard')} className="btn-ghost" style={{ padding: '6px 12px' }}>← Voltar</button>
+            <button onClick={() => project.clients ? router.push(`/dashboard/clientes/${project.clients.id}`) : router.push('/dashboard')} className="btn-ghost" style={{ padding: '6px 12px' }}>← Voltar</button>
             <div>
               <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>{project.name}</h1>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
@@ -198,12 +270,12 @@ export default function ProjectView() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0', marginTop: '16px', borderBottom: '1px solid var(--border)' }}>
-          {([['docs', '▦ Documentos'], ['chat', '◈ Chat IA'], ['draft', '✦ Elaboração'], ['extraction', '⚙ Extração IA']] as const).map(([t, label]) => (
+        <div style={{ display: 'flex', gap: '0', marginTop: '14px', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
+          {TABS.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
-                padding: '8px 20px', border: 'none', cursor: 'pointer',
-                background: 'transparent', fontSize: '13px',
+                padding: '8px 16px', border: 'none', cursor: 'pointer',
+                background: 'transparent', fontSize: '12px', whiteSpace: 'nowrap',
                 color: tab === t ? 'var(--gold)' : 'var(--text-4)',
                 borderBottom: tab === t ? '2px solid var(--gold)' : '2px solid transparent',
                 fontWeight: tab === t ? '600' : '400', transition: 'all 0.15s'
@@ -217,7 +289,6 @@ export default function ProjectView() {
       {/* DOCS TAB */}
       {tab === 'docs' && (
         <div style={{ padding: '24px 28px' }}>
-          {/* Upload Zone */}
           <div
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -251,7 +322,6 @@ export default function ProjectView() {
             )}
           </div>
 
-          {/* Documents List */}
           {project.documents.length === 0 ? (
             <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-4)' }}>
               <p style={{ margin: 0, fontSize: '13px' }}>Nenhum documento ainda. Faça o upload acima.</p>
@@ -271,18 +341,18 @@ export default function ProjectView() {
                         <div style={{ fontSize: '11px', color: 'var(--text-4)', marginTop: '2px' }}>
                           {new Date(doc.created_at).toLocaleDateString('pt-BR')} · {' '}
                           {doc.ai_status === 'complete' ? <span style={{ color: '#22c55e' }}>✓ Análise concluída</span>
-                            : doc.ai_status === 'processing' ? <span style={{ color: '#C9A84C' }}>⟳ Analisando com IA...</span>
-                            : doc.ai_status === 'failed' ? <span style={{ color: '#ef4444' }}>✗ Falha na análise</span>
+                            : doc.ai_status === 'processing' ? <span style={{ color: '#C9A84C' }}>⟳ Analisando...</span>
+                            : doc.ai_status === 'failed' ? <span style={{ color: '#ef4444' }}>✗ Falha</span>
                             : <span style={{ color: '#888' }}>Pendente</span>}
                         </div>
                       </div>
                       {ext && (
                         <div style={{ display: 'flex', gap: '6px' }}>
                           {(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length > 0 && (
-                            <span className="badge-red">{(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length} risco{(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length > 1 ? 's' : ''} alto{(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length > 1 ? 's' : ''}</span>
+                            <span className="badge-red">{(ext.risk_flags || []).filter((r: any) => r.severity === 'alto').length} risco(s) alto</span>
                           )}
                           {(ext.deadlines || []).filter((d: any) => d.urgency === 'alta').length > 0 && (
-                            <span className="badge-red">{(ext.deadlines || []).filter((d: any) => d.urgency === 'alta').length} prazo{(ext.deadlines || []).filter((d: any) => d.urgency === 'alta').length > 1 ? 's' : ''} urgente{(ext.deadlines || []).filter((d: any) => d.urgency === 'alta').length > 1 ? 's' : ''}</span>
+                            <span className="badge-red">{(ext.deadlines || []).filter((d: any) => d.urgency === 'alta').length} prazo(s) urgente</span>
                           )}
                         </div>
                       )}
@@ -293,7 +363,7 @@ export default function ProjectView() {
                       <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                           <div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px' }}>Tipo de Documento</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px' }}>Tipo</div>
                             <div style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: '600' }}>{ext.doc_type}</div>
                           </div>
                           <div>
@@ -301,43 +371,103 @@ export default function ProjectView() {
                             <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>{(ext.parties || []).join(', ')}</div>
                           </div>
                         </div>
-
                         {ext.summary && (
                           <div style={{ marginBottom: '16px' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px' }}>Resumo</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.6' }}>{ext.summary}</div>
                           </div>
                         )}
-
                         {(ext.risk_flags || []).length > 0 && (
                           <div style={{ marginBottom: '12px' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px' }}>Riscos Identificados</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {(ext.risk_flags || []).map((r: any, i: number) => (
-                                <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-3)', borderRadius: '6px', border: `1px solid ${r.severity === 'alto' ? '#ef444430' : r.severity === 'medio' ? '#eab30830' : '#22c55e30'}`, display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '11px', color: r.severity === 'alto' ? '#ef4444' : r.severity === 'medio' ? '#eab308' : '#22c55e', fontWeight: '700', textTransform: 'uppercase', minWidth: '40px' }}>{r.severity}</span>
-                                  <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>{r.description}</span>
-                                </div>
-                              ))}
-                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px' }}>Riscos</div>
+                            {(ext.risk_flags || []).map((r: any, i: number) => (
+                              <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-3)', borderRadius: '6px', border: `1px solid ${r.severity === 'alto' ? '#ef444430' : r.severity === 'medio' ? '#eab30830' : '#22c55e30'}`, display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '11px', color: r.severity === 'alto' ? '#ef4444' : r.severity === 'medio' ? '#eab308' : '#22c55e', fontWeight: '700', textTransform: 'uppercase', minWidth: '40px' }}>{r.severity}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>{r.description}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
-
                         {(ext.deadlines || []).length > 0 && (
                           <div>
                             <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px' }}>Prazos</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {(ext.deadlines || []).map((d: any, i: number) => (
-                                <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-3)', borderRadius: '6px', border: `1px solid ${d.urgency === 'alta' ? '#ef444430' : '#eab30830'}`, display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '13px', fontWeight: '700', color: d.urgency === 'alta' ? '#ef4444' : '#eab308', minWidth: '80px' }}>{d.date}</span>
-                                  <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>{d.description}</span>
-                                </div>
-                              ))}
-                            </div>
+                            {(ext.deadlines || []).map((d: any, i: number) => (
+                              <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-3)', borderRadius: '6px', border: `1px solid ${d.urgency === 'alta' ? '#ef444430' : '#eab30830'}`, display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: '700', color: d.urgency === 'alta' ? '#ef4444' : '#eab308', minWidth: '80px' }}>{d.date}</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>{d.description}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CONTRATOS TAB */}
+      {tab === 'contratos' && (
+        <div style={{ padding: '24px 28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text)' }}>▤ Contratos do Cliente</h2>
+              {!project.client_id && (
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-4)' }}>
+                  Este caso não está vinculado a um cliente. Os contratos são exibidos quando o caso tem um cliente.
+                </p>
+              )}
+            </div>
+            <a href="/dashboard/contratos" className="btn-gold" style={{ fontSize: '12px', padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+              ✦ Adicionar Contrato
+            </a>
+          </div>
+
+          {contracts.length === 0 ? (
+            <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-4)' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>▤</div>
+              <p style={{ margin: '0 0 4px', fontSize: '14px', color: 'var(--text-2)' }}>Nenhum contrato vinculado</p>
+              <p style={{ margin: 0, fontSize: '13px' }}>
+                {project.client_id ? 'Adicione contratos na aba Contratos, vinculando ao cliente.' : 'Vincule este caso a um cliente para ver contratos relacionados.'}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {contracts.map(c => {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const days = c.end_date ? Math.floor((new Date(c.end_date).getTime() - today.getTime()) / 86400000) : null;
+                const isUrgent = days !== null && days >= 0 && days <= 30;
+                const ext = c.contract_extractions?.[0];
+                return (
+                  <div key={c.id} className="card" style={{ padding: '16px', cursor: 'pointer', border: `1px solid ${isUrgent ? '#ef444420' : 'var(--border)'}` }}
+                    onClick={() => router.push(`/dashboard/contratos/${c.id}`)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', marginBottom: '6px' }}>{c.name}</div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {c.contract_type && <span className="badge-gray">{c.contract_type}</span>}
+                          {statusBadge(c.status)}
+                          {ext?.risk_level && (
+                            <span style={{ fontSize: '11px', color: riskColor[ext.risk_level] || '#888' }}>● {ext.risk_level}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {days !== null && (
+                          <div style={{ fontSize: '12px', color: isUrgent ? '#ef4444' : 'var(--text-4)', fontWeight: isUrgent ? '600' : '400' }}>
+                            {days === 0 ? 'Vence hoje' : days < 0 ? `Venceu ${Math.abs(days)}d atrás` : `${days}d restantes`}
+                          </div>
+                        )}
+                        {c.value && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(c.value)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -354,18 +484,18 @@ export default function ProjectView() {
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-4)' }}>
                 <div style={{ fontSize: '32px', marginBottom: '12px', color: 'var(--gold)' }}>◈</div>
                 <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-2)', margin: '0 0 8px' }}>Chat IA — {project.name}</p>
-                <p style={{ fontSize: '12px', margin: 0 }}>A IA conhece todos os documentos deste caso. Pergunte qualquer coisa.</p>
+                <p style={{ fontSize: '12px', margin: 0 }}>A IA conhece todos os documentos deste caso.</p>
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {chatMessages.map((msg, i) => (
                 <div key={msg.id + i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
-                    maxWidth: '70%', padding: '12px 16px', borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                    maxWidth: '70%', padding: '12px 16px',
+                    borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
                     background: msg.role === 'user' ? 'rgba(201,168,76,0.15)' : 'var(--bg-2)',
                     border: `1px solid ${msg.role === 'user' ? '#C9A84C30' : 'var(--border)'}`,
-                    fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6',
-                    whiteSpace: 'pre-wrap'
+                    fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6', whiteSpace: 'pre-wrap'
                   }}>
                     {msg.role === 'assistant' && (
                       <div style={{ fontSize: '11px', color: 'var(--gold)', fontWeight: '600', marginBottom: '6px' }}>◈ Notorious AI</div>
@@ -420,25 +550,21 @@ export default function ProjectView() {
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', textTransform: 'uppercase' }}>Fatos Relevantes</label>
                   <textarea value={draftFacts} onChange={e => setDraftFacts(e.target.value)}
-                    placeholder="Descreva os fatos principais do caso, documentos relevantes, argumentos a serem desenvolvidos..."
+                    placeholder="Descreva os fatos principais do caso..."
                     required rows={6}
                     style={{ width: '100%', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 12px', color: 'var(--text)', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
                 </div>
                 <button type="submit" className="btn-gold" disabled={draftLoading} style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
-                  {draftLoading ? '✦ Gerando documento...' : '✦ Gerar Documento com IA'}
+                  {draftLoading ? '✦ Gerando...' : '✦ Gerar Documento com IA'}
                 </button>
               </div>
             </form>
           </div>
-
           {draftResult && (
             <div className="card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{draftType}</h3>
-                <button className="btn-ghost" style={{ fontSize: '12px' }}
-                  onClick={() => navigator.clipboard.writeText(draftResult)}>
-                  Copiar
-                </button>
+                <button className="btn-ghost" style={{ fontSize: '12px' }} onClick={() => navigator.clipboard.writeText(draftResult)}>Copiar</button>
               </div>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.8', maxHeight: '600px', overflowY: 'auto' }}>
                 {draftResult}
@@ -460,7 +586,7 @@ export default function ProjectView() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {project.documents.map(doc => {
                 const ext = doc.document_extractions?.[0] as any;
-                const fraudRisk = ext?.raw_extraction?.fraud_risk || (ext as any)?.fraud_risk;
+                const fraudRisk = ext?.raw_extraction?.fraud_risk || ext?.fraud_risk;
                 if (!ext) return (
                   <div key={doc.id} className="card" style={{ padding: '16px', opacity: 0.6 }}>
                     <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>📄 {doc.name}</div>
@@ -471,18 +597,16 @@ export default function ProjectView() {
                 );
                 return (
                   <div key={doc.id} className="card" style={{ padding: '20px' }}>
-                    {/* Fraud Warning */}
                     {fraudRisk?.detected && (
                       <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: '8px' }}>
                         <div style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444', marginBottom: '6px' }}>
-                          🚨 Possível Fraude Detectada — Confiança: {fraudRisk.confidence?.toUpperCase()}
+                          🚨 Possível Fraude — Confiança: {fraudRisk.confidence?.toUpperCase()}
                         </div>
                         {(fraudRisk.indicators || []).map((ind: string, i: number) => (
                           <div key={i} style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>• {ind}</div>
                         ))}
                       </div>
                     )}
-
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                       <div>
                         <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gold)', marginBottom: '4px' }}>{ext.doc_type || 'Documento'}</div>
@@ -490,7 +614,6 @@ export default function ProjectView() {
                       </div>
                       <span style={{ fontSize: '11px', color: '#22c55e' }}>✓ Análise completa</span>
                     </div>
-
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                       <div>
                         <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '8px', fontWeight: '600' }}>Partes</div>
@@ -509,14 +632,12 @@ export default function ProjectView() {
                         ))}
                       </div>
                     </div>
-
                     {ext.summary && (
                       <div style={{ marginBottom: '16px' }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: '600' }}>Resumo</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.7' }}>{ext.summary}</div>
                       </div>
                     )}
-
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                       {((ext.risk_flags as any[]) || []).length > 0 && (
                         <div>
@@ -546,6 +667,125 @@ export default function ProjectView() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* FRAUDE TAB */}
+      {tab === 'fraude' && (
+        <div style={{ padding: '24px 28px' }}>
+          <div className="card" style={{ padding: '24px', marginBottom: '20px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600', color: 'var(--gold)' }}>🔍 Análise de Fraude</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'var(--text-4)' }}>
+              Faça upload de qualquer documento deste caso para análise de fraude com IA.
+            </p>
+            <div
+              onClick={() => fraudInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${fraudFile ? '#C9A84C' : 'var(--border)'}`,
+                borderRadius: '10px', padding: '32px', textAlign: 'center', cursor: 'pointer',
+                background: fraudFile ? 'rgba(201,168,76,0.05)' : 'var(--bg-2)', marginBottom: '16px', transition: 'all 0.15s'
+              }}>
+              <input ref={fraudInputRef} type="file" style={{ display: 'none' }} accept=".pdf,.docx,.doc,.txt"
+                onChange={e => e.target.files?.[0] && setFraudFile(e.target.files[0])} />
+              {fraudFile ? (
+                <div>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
+                  <div style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: '600' }}>{fraudFile.name}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-4)', marginTop: '4px' }}>{(fraudFile.size / 1024).toFixed(1)} KB</div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📎</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: '600', marginBottom: '4px' }}>Clique para selecionar um documento</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>PDF, DOCX, DOC, TXT</div>
+                </>
+              )}
+            </div>
+            <button onClick={runFraudScan} className="btn-gold" disabled={!fraudFile || fraudLoading}
+              style={{ width: '100%', justifyContent: 'center', padding: '11px' }}>
+              {fraudLoading ? '🔍 Analisando...' : '🔍 Executar Análise de Fraude'}
+            </button>
+          </div>
+
+          {fraudResult && (
+            <div className="card" style={{ padding: '24px' }}>
+              {fraudResult.error ? (
+                <div style={{ color: '#ef4444', fontSize: '13px' }}>✗ {fraudResult.error}</div>
+              ) : (
+                <>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600' }}>Resultado da Análise</h3>
+                  {fraudResult.fraud_risk?.detected ? (
+                    <div style={{ padding: '16px', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef444440', borderRadius: '8px', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#ef4444', marginBottom: '8px' }}>
+                        🚨 Possível Fraude Detectada
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#fca5a5', marginBottom: '8px' }}>
+                        Nível de confiança: <strong>{fraudResult.fraud_risk.confidence?.toUpperCase()}</strong>
+                      </div>
+                      {(fraudResult.fraud_risk.indicators || []).map((ind: string, i: number) => (
+                        <div key={i} style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>• {ind}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid #22c55e40', borderRadius: '8px', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#22c55e' }}>✓ Nenhuma Fraude Detectada</div>
+                      <div style={{ fontSize: '12px', color: '#86efac', marginTop: '4px' }}>O documento parece legítimo com base na análise de IA.</div>
+                    </div>
+                  )}
+                  {fraudResult.summary && (
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-4)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: '600' }}>Resumo da Análise</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-3)', lineHeight: '1.6' }}>{fraudResult.summary}</div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PRAZOS TAB */}
+      {tab === 'prazos' && (
+        <div style={{ padding: '24px 28px' }}>
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600', color: 'var(--text)' }}>◷ Prazos do Caso</h3>
+            {allDeadlines.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-4)' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>◷</div>
+                <p style={{ margin: '0 0 4px', fontSize: '14px', color: 'var(--text-2)' }}>Nenhum prazo identificado</p>
+                <p style={{ margin: 0, fontSize: '12px' }}>Faça upload de documentos na aba Documentos para a IA identificar prazos automaticamente.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {allDeadlines
+                  .sort((a: any, b: any) => (a.urgency === 'alta' ? -1 : 1))
+                  .map((d: any, i: number) => (
+                    <div key={i} style={{ padding: '12px 16px', background: 'var(--bg-2)', borderRadius: '8px', border: `1px solid ${d.urgency === 'alta' ? '#ef444430' : d.urgency === 'media' ? '#eab30830' : 'var(--border)'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: d.urgency === 'alta' ? '#ef4444' : d.urgency === 'media' ? '#eab308' : 'var(--text-2)', marginBottom: '4px' }}>
+                            {d.date}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{d.description}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '4px' }}>
+                            Documento: {d.docName}
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px',
+                          background: d.urgency === 'alta' ? 'rgba(239,68,68,0.1)' : d.urgency === 'media' ? 'rgba(234,179,8,0.1)' : 'rgba(34,197,94,0.1)',
+                          color: d.urgency === 'alta' ? '#ef4444' : d.urgency === 'media' ? '#eab308' : '#22c55e',
+                          textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0,
+                        }}>
+                          {d.urgency === 'alta' ? 'Urgente' : d.urgency === 'media' ? 'Médio' : 'Normal'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
