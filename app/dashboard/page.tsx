@@ -10,7 +10,7 @@ interface Project {
 }
 interface Alert { id: string; message: string; type: string; is_read: boolean; created_at: string; }
 
-const AREAS = ["Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Outros"];
+const AREAS = ["Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Contencioso", "Societário", "Penal", "Imobiliário", "Outros"];
 
 export default function Dashboard() {
   const { profile, user } = useAuth();

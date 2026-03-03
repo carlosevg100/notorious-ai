@@ -8,8 +8,8 @@ interface Project {
   created_at: string; documents?: any[];
 }
 
-const AREAS = ["Todos", "Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Outros"];
-const AREAS_NEW = ["Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Outros"];
+const AREAS = ["Todos", "Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Contencioso", "Societário", "Penal", "Imobiliário", "Outros"];
+const AREAS_NEW = ["Trabalhista", "Cível", "Tributário", "Contratos", "M&A", "Contencioso", "Societário", "Penal", "Imobiliário", "Outros"];
 
 export default function CasosPage() {
   const router = useRouter();
