@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Processo {
@@ -53,11 +54,13 @@ function RiskBadge({ risco }: { risco: string }) {
 }
 
 export default function ProcessosPage() {
+  const router = useRouter();
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroFase, setFiltroFase] = useState('todos');
   const [filtroRisco, setFiltroRisco] = useState('todos');
   const [busca, setBusca] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -68,6 +71,21 @@ export default function ProcessosPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', files[0])
+      const res = await fetch('/api/intake', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.processo_id) router.push(`/dashboard/processos/${data.processo_id}`)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const filtered = processos.filter(p => {
     if (filtroFase !== 'todos' && p.fase !== filtroFase) return false;
@@ -95,9 +113,10 @@ export default function ProcessosPage() {
             {loading ? '...' : `${processos.length} processo${processos.length !== 1 ? 's' : ''} · ${filtered.length} exibido${filtered.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Link href="/dashboard/processos/new" className="btn-gold" style={{ textDecoration: 'none' }}>
-          + Novo Processo
-        </Link>
+        <label className="btn-gold" style={{ cursor: 'pointer' }}>
+          {uploading ? 'Enviando...' : '+ Upload Documento'}
+          <input type="file" accept=".pdf,.docx,.txt" hidden onChange={handleUpload} disabled={uploading} />
+        </label>
       </div>
 
       <div style={{ padding: '20px 28px' }}>
@@ -133,7 +152,10 @@ export default function ProcessosPage() {
               {processos.length === 0 ? 'Nenhum processo cadastrado' : 'Nenhum resultado para os filtros selecionados'}
             </p>
             {processos.length === 0 && (
-              <Link href="/dashboard/processos/new" className="btn-gold" style={{ textDecoration: 'none' }}>+ Novo Processo</Link>
+              <label className="btn-gold" style={{ cursor: 'pointer' }}>
+                {uploading ? 'Enviando...' : '+ Upload Documento'}
+                <input type="file" accept=".pdf,.docx,.txt" hidden onChange={handleUpload} disabled={uploading} />
+              </label>
             )}
           </div>
         ) : (

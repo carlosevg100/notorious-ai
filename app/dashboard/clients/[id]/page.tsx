@@ -36,9 +36,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params)
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ name: '', numero_processo: '', tipo: 'contencioso', vara: '', comarca: '' })
-  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -48,20 +46,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     })
   }, [id])
 
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, client_id: id })
-    })
-    const data = await res.json()
-    if (!res.ok) { alert(data.error); setSaving(false); return }
-    setClient(prev => prev ? { ...prev, projects: [data, ...(prev.projects || [])] } : prev)
-    setShowModal(false)
-    setForm({ name: '', numero_processo: '', tipo: 'contencioso', vara: '', comarca: '' })
-    setSaving(false)
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', files[0])
+      fd.append('client_id', id)
+      const res = await fetch('/api/intake', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.processo_id) router.push(`/dashboard/processos/${data.processo_id}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (loading) return (
@@ -93,7 +91,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </span>
             </div>
           </div>
-          <button className="btn-gold" onClick={() => setShowModal(true)}>+ Novo Processo</button>
+          <label className="btn-gold" style={{ cursor: 'pointer' }}>
+            {uploading ? 'Enviando...' : '+ Upload Documento'}
+            <input type="file" accept=".pdf,.docx,.txt" hidden onChange={handleUpload} disabled={uploading} />
+          </label>
         </div>
       </div>
 
@@ -105,7 +106,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div className="card" style={{ textAlign: 'center', padding: '48px 32px' }}>
           <div style={{ fontSize: 28, marginBottom: 12 }}>◻</div>
           <p style={{ color: 'var(--text-4)', marginBottom: 20 }}>Nenhum processo cadastrado</p>
-          <button className="btn-gold" onClick={() => setShowModal(true)}>+ Novo Processo</button>
+          <label className="btn-gold" style={{ cursor: 'pointer' }}>
+            {uploading ? 'Enviando...' : '+ Upload Documento'}
+            <input type="file" accept=".pdf,.docx,.txt" hidden onChange={handleUpload} disabled={uploading} />
+          </label>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -130,44 +134,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Modal */}
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
-          onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="card" style={{ width: 480, padding: 32 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 24 }}>Novo Processo</h2>
-            <form onSubmit={handleCreateProject}>
-              {[
-                { key: 'name', label: 'Nome do Processo *', placeholder: 'Ex: Revisão Contratual TechInova', required: true },
-                { key: 'numero_processo', label: 'Número do Processo', placeholder: '0000000-00.0000.0.00.0000', required: false },
-                { key: 'vara', label: 'Vara', placeholder: '1ª Vara Cível', required: false },
-                { key: 'comarca', label: 'Comarca', placeholder: 'São Paulo', required: false },
-              ].map(field => (
-                <div key={field.key} style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{field.label}</label>
-                  <input value={form[field.key as keyof typeof form]} onChange={e => setForm(f => ({...f, [field.key]: e.target.value}))} placeholder={field.placeholder} required={field.required} />
-                </div>
-              ))}
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</label>
-                <select value={form.tipo} onChange={e => setForm(f => ({...f, tipo: e.target.value}))}>
-                  <option value="contencioso">Contencioso</option>
-                  <option value="consultivo">Consultivo</option>
-                  <option value="trabalhista">Trabalhista</option>
-                  <option value="tributario">Tributário</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-gold" style={{ flex: 1 }} disabled={saving}>
-                  {saving ? 'Criando...' : 'Criar Processo'}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>
