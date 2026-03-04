@@ -1,48 +1,40 @@
-import { NextResponse } from 'next/server'
-import { supabaseAdmin, createServerSupabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from '@/lib/supabase-server'
 
-async function getFirmId(): Promise<{ firmId: string | null; error?: string }> {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { firmId: null, error: 'Unauthorized' }
-  const { data: profile } = await supabaseAdmin.from('users').select('firm_id').eq('id', user.id).single()
-  if (!profile) return { firmId: null, error: 'Profile not found' }
-  return { firmId: profile.firm_id }
-}
+const FIRM_ID = '1f430c10-550a-4267-9193-e03c831fc394'
 
 export async function GET() {
-  const { firmId, error } = await getFirmId()
-  if (!firmId) return NextResponse.json({ error }, { status: 401 })
-
-  const { data, error: dbErr } = await supabaseAdmin
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const { data, error } = await supabase
     .from('clients')
-    .select(`
-      *,
-      projects(id, name, status, area),
-      contracts(id, name, status, value)
-    `)
-    .eq('firm_id', firmId)
+    .select('*, projects(id, status)')
+    .eq('firm_id', FIRM_ID)
     .order('created_at', { ascending: false })
 
-  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-  return NextResponse.json(data || [])
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Map document → cnpj
+  const mapped = (data || []).map(c => ({ ...c, cnpj: c.document }))
+  return NextResponse.json(mapped)
 }
 
-export async function POST(request: Request) {
-  const { firmId, error } = await getFirmId()
-  if (!firmId) return NextResponse.json({ error }, { status: 401 })
+export async function POST(req: NextRequest) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const body = await req.json()
 
-  const body = await request.json()
-  const { name, type, document, email, phone, address, notes } = body
-
-  if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
-
-  const { data, error: dbErr } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('clients')
-    .insert({ name, type: type || 'pessoa_juridica', document, email, phone, address, notes, firm_id: firmId })
+    .insert({
+      firm_id: FIRM_ID,
+      name: body.name,
+      document: body.cnpj || body.document || null,
+      email: body.email || null,
+      type: body.type || 'empresa'
+    })
     .select()
     .single()
 
-  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-  return NextResponse.json(data)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ...data, cnpj: data.document })
 }

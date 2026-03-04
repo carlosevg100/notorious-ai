@@ -1,68 +1,48 @@
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { supabaseAdmin, createServerSupabase } from '@/lib/supabase'
+import { SUPABASE_URL, SUPABASE_SERVICE_KEY } from '@/lib/supabase-server'
+
+const FIRM_ID = '1f430c10-550a-4267-9193-e03c831fc394'
 
 export async function GET() {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  const { data: profile } = await supabaseAdmin
-    .from('users').select('firm_id').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
-
-  const firmId = profile.firm_id
-
-  const [
-    { data: clients },
-    { data: projects },
-    { data: contracts },
-    { data: ai_alerts },
-    { data: contract_alerts },
-  ] = await Promise.all([
-    supabaseAdmin
-      .from('clients')
-      .select('*, projects(id, status, risk_level, area), contracts(id, status, value)')
-      .eq('firm_id', firmId)
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('projects')
-      .select('*, clients(id, name), documents(id)')
-      .eq('firm_id', firmId)
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('contracts')
-      .select('id, name, status, value, end_date, start_date, contract_type, created_at, updated_at, client_id, clients(id, name)')
-      .eq('firm_id', firmId)
-      .order('end_date', { ascending: true, nullsFirst: false }),
-    supabaseAdmin
-      .from('ai_alerts')
-      .select('*')
-      .eq('firm_id', firmId)
-      .order('created_at', { ascending: false })
-      .limit(40),
-    supabaseAdmin
-      .from('contract_alerts')
-      .select('*, contracts(id, name, value, client_id, clients(id, name))')
-      .eq('firm_id', firmId)
-      .order('created_at', { ascending: false })
-      .limit(40),
+  const [projectsRes, docsRes] = await Promise.all([
+    supabase.from('projects').select('id, fase, status').eq('firm_id', FIRM_ID),
+    supabase.from('documents').select('id, processing_status').eq('firm_id', FIRM_ID),
   ])
+  const prazosRes = await supabase.from('prazos').select('id, data_prazo, status, descricao, project_id, projects(name)').eq('firm_id', FIRM_ID).order('data_prazo')
+    .then(r => r, () => ({ data: null }))
 
-  const c = clients || []
-  const p = projects || []
-  const ct = contracts || []
-  const aa = ai_alerts || []
-  const ca = contract_alerts || []
+  const projects = projectsRes.data || []
+  const docs = docsRes.data || []
+  const prazos = (prazosRes as any).data || []
 
-  const stats = {
-    clientCount: c.length,
-    casosAtivos: p.filter((x: any) => x.status === 'ativo').length,
-    contratosVigentes: ct.filter((x: any) => x.status === 'vigente').length,
-    alertasUnread: aa.filter((x: any) => !x.is_read).length + ca.filter((x: any) => !x.is_read).length,
-    valorGestao: ct
-      .filter((x: any) => x.status === 'vigente' && x.value)
-      .reduce((sum: number, x: any) => sum + Number(x.value || 0), 0),
+  const pipeline = {
+    analise: projects.filter(p => p.fase === 'analise').length,
+    contestacao: projects.filter(p => p.fase === 'contestacao').length,
+    recurso: projects.filter(p => p.fase === 'recurso').length,
+    execucao: projects.filter(p => p.fase === 'execucao').length,
+    encerrado: projects.filter(p => p.fase === 'encerrado').length,
   }
 
-  return NextResponse.json({ clients: c, projects: p, contracts: ct, ai_alerts: aa, contract_alerts: ca, stats })
+  const today = new Date()
+  const in7days = new Date(today)
+  in7days.setDate(in7days.getDate() + 10)
+
+  const proximosPrazos = prazos.filter((p: any) => {
+    const d = new Date(p.data_prazo)
+    return d >= today && d <= in7days && p.status !== 'cumprido'
+  })
+
+  return NextResponse.json({
+    stats: {
+      totalProcessos: projects.filter(p => p.status === 'ativo').length,
+      documentosPendentes: docs.filter(d => d.processing_status === 'pending' || d.processing_status === 'processing').length,
+      prazosEstaSemana: proximosPrazos.length,
+      prazosVencidos: prazos.filter((p: any) => new Date(p.data_prazo) < today && p.status !== 'cumprido').length,
+    },
+    pipeline,
+    proximosPrazos: proximosPrazos.slice(0, 10)
+  })
 }

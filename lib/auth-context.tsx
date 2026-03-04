@@ -1,79 +1,57 @@
-"use client";
+'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
+import { createSupabaseBrowserClient } from './supabase-client'
+import type { User, Session } from '@supabase/supabase-js'
 
-interface User {
-  id: string
-  email?: string
-  [key: string]: unknown
-}
-
-interface UserProfile {
-  id: string; firm_id: string; email: string; name: string; role: string;
-  firms: { id: string; name: string }
-}
+const FIRM_ID = '1f430c10-550a-4267-9193-e03c831fc394'
 
 interface AuthContextType {
   user: User | null
-  profile: UserProfile | null
+  session: Session | null
+  firmId: string
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
-  refreshProfile: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType)
+const AuthContext = createContext<AuthContextType>({
+  user: null, session: null, firmId: FIRM_ID, loading: true,
+  signIn: async () => {}, signOut: async () => {}
+})
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createSupabaseBrowserClient()
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchProfile() {
-    try {
-      const res = await fetch('/api/auth/me')
-      if (res.ok) {
-        const data = await res.json()
-        setUser(data.user)
-        setProfile(data.profile)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-    } catch {
-      setUser(null)
-      setProfile(null)
-    }
-  }
-
   useEffect(() => {
-    fetchProfile().finally(() => setLoading(false))
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function signIn(email: string, password: string) {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Login failed')
-    setUser(data.user)
-    // Fetch full profile after login
-    await fetchProfile()
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
   }
 
-  async function signOut() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    setUser(null)
-    setProfile(null)
-  }
-
-  async function refreshProfile() {
-    await fetchProfile()
+  const signOut = async () => {
+    await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, firmId: FIRM_ID, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
