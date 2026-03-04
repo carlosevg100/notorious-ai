@@ -1,29 +1,39 @@
+export const maxDuration = 10
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
-import { supabaseAdmin, createServerSupabase } from '@/lib/supabase'
-import { chatWithContext } from '@/lib/openai'
+import { createServerSupabase } from '@/lib/supabase'
+import OpenAI from 'openai'
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { message, project_id } = await request.json()
-  const { data: project } = await supabaseAdmin.from('projects').select('name, area').eq('id', project_id).single()
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-  const { data: docs } = await supabaseAdmin.from('documents').select('name, document_extractions(*)').eq('project_id', project_id).eq('ai_status', 'complete')
-  const docsWithExtraction = (docs || []).map(d => ({ name: d.name, extraction: (d.document_extractions as any[])?.[0] || null }))
-  await supabaseAdmin.from('chat_messages').insert({ project_id, user_id: user.id, role: 'user', content: message })
-  const aiResponse = await chatWithContext(message, project.name, project.area, docsWithExtraction)
-  await supabaseAdmin.from('chat_messages').insert({ project_id, user_id: user.id, role: 'assistant', content: aiResponse })
-  return NextResponse.json({ response: aiResponse })
+
+  const body = await request.json()
+  const messages: Array<{ role: string; content: string }> = body.messages || []
+  const context: string = body.context || ''
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+  const systemPrompt = `Você é um assistente jurídico especializado em direito processual civil e trabalhista brasileiro. Responda de forma clara, objetiva e em português brasileiro.${context ? `\n\nContexto do processo:\n${context}` : ''}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 800,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.slice(-10).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      ],
+    })
+    const content = completion.choices[0]?.message?.content || 'Não foi possível gerar uma resposta.'
+    return NextResponse.json({ content })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'Erro ao chamar IA', content: 'Erro ao conectar com a IA.' }, { status: 500 })
+  }
 }
 
-export async function GET(request: Request) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const url = new URL(request.url)
-  const projectId = url.searchParams.get('project_id')
-  const { data, error } = await supabaseAdmin.from('chat_messages').select('*').eq('project_id', projectId).order('created_at', { ascending: true })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+export async function GET() {
+  return NextResponse.json([])
 }
