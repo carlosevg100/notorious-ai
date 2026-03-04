@@ -123,11 +123,12 @@ export default function NewProcessoContent() {
       const data = await res.json();
       setCompletedSteps(prev => new Set([...prev, "uploading"]));
 
-      const processoId = data.processo_id || data.id;
+      const processoId = data.processoId || data.processo_id || data.id;
 
-      // Step 3: Analyze
+      // Step 3: Analyze (already done in upload route when extracted_text was provided)
       setCurrentStep("analyzing");
-      if (processoId) {
+      // If server didn't extract (no text), trigger now
+      if (processoId && !data.extracted) {
         await fetch(`/api/processos/${processoId}/extrair`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
