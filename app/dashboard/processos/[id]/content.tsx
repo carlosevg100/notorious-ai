@@ -88,9 +88,30 @@ const riscoBg: Record<string, string> = { alto: "rgba(239,68,68,0.15)", medio: "
 const riscoColor: Record<string, string> = { alto: "#ef4444", medio: "#f59e0b", baixo: "#22c55e" };
 const riscoLabel: Record<string, string> = { alto: "Alto", medio: "Médio", baixo: "Baixo" };
 
+// Dias ÚTEIS restantes (CPC art. 219 — exclui sábados, domingos e feriados nacionais)
+const FERIADOS_NACIONAIS = [
+  "01-01","21-04","01-05","07-09","12-10","02-11","15-11","25-12"
+]
+function isUtilDay(d: Date): boolean {
+  const dow = d.getDay()
+  if (dow === 0 || dow === 6) return false
+  const key = String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0")
+  return !FERIADOS_NACIONAIS.includes("0"+key) && !FERIADOS_NACIONAIS.includes(key)
+}
+function diasUteisRestantes(prazo?: string): number | null {
+  if (!prazo) return null
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const fim = new Date(prazo + "T23:59:59"); fim.setHours(23,59,59,0)
+  if (fim < hoje) return Math.ceil((fim.getTime()-hoje.getTime())/86400000) // negative = vencido
+  let count = 0, cur = new Date(hoje)
+  while (cur <= fim) {
+    if (isUtilDay(cur)) count++
+    cur.setDate(cur.getDate()+1)
+  }
+  return count
+}
 function diasRestantes(prazo?: string) {
-  if (!prazo) return null;
-  return Math.ceil((new Date(prazo + "T12:00:00").getTime() - Date.now()) / 86400000);
+  return diasUteisRestantes(prazo)
 }
 
 const fmtMoney = (v?: number) => v ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v) : "—";
@@ -369,7 +390,20 @@ export default function ProcessoContent() {
               )}
               {dias !== null && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: dias <= 0 ? "#ef4444" : dias <= 3 ? "#ef4444" : dias <= 7 ? "#f59e0b" : "var(--text-3)" }}>
-                  Prazo: {fmtDate(processo.prazo_contestacao || "")} — {dias <= 0 ? "Vencido" : `${dias}d`}
+                  Prazo contestação: {fmtDate(processo.prazo_contestacao || "")}
+                    {dias !== null && (
+                      <span style={{
+                        marginLeft: 8,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: dias <= 0 ? "rgba(239,68,68,0.2)" : dias <= 3 ? "rgba(239,68,68,0.15)" : dias <= 7 ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.1)",
+                        color: dias <= 0 ? "#ef4444" : dias <= 3 ? "#ef4444" : dias <= 7 ? "#f59e0b" : "#22c55e"
+                      }}>
+                        {dias <= 0 ? "VENCIDO" : `${dias} dias úteis`}
+                      </span>
+                    )}
                 </span>
               )}
             </div>

@@ -24,9 +24,19 @@ const riscoLabel: Record<string, string> = { alto: "Alto", medio: "Médio", baix
 const fmtDate = (d: string) => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 const fmtMoney = (v?: number) => v ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v) : "—";
 
-function daysUntil(d?: string) {
-  if (!d) return null;
-  return Math.ceil((new Date(d + "T12:00:00").getTime() - Date.now()) / 86400000);
+function daysUntil(d?: string): number | null {
+  if (!d) return null
+  const FERIADOS = ["01-01","21-04","01-05","07-09","12-10","02-11","15-11","25-12"]
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const fim = new Date(d + "T23:59:59")
+  if (fim < hoje) return Math.ceil((fim.getTime()-hoje.getTime())/86400000)
+  let c=0, cur=new Date(hoje)
+  while(cur<=fim){
+    const w=cur.getDay(), k=String(cur.getMonth()+1).padStart(2,"0")+"-"+String(cur.getDate()).padStart(2,"0")
+    if(w!==0&&w!==6&&!FERIADOS.includes(k)) c++
+    cur.setDate(cur.getDate()+1)
+  }
+  return c
 }
 
 function getRisco(r?: string) {
@@ -138,7 +148,7 @@ export default function PrazosPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: "var(--bg-3)" }}>
-                {["Vencimento", "Processo", "Cliente", "Polo Ativo", "Valor", "Risco", "Status"].map(col => (
+                {["Vencimento", "Dias Úteis", "Processo", "Cliente", "Polo Ativo", "Valor", "Risco", "Status"].map(col => (
                   <th key={col} style={{
                     padding: "9px 14px", fontWeight: 600, textAlign: "left", fontSize: 10,
                     color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em",
@@ -162,6 +172,15 @@ export default function PrazosPage() {
                   >
                     <td style={{ padding: "11px 14px", fontWeight: 600, color: status.color }}>
                       {fmtDate(p.prazo_contestacao || "")}
+                    </td>
+                    <td style={{ padding: "11px 14px", fontWeight: 800 }}>
+                      <span style={{
+                        padding: "3px 8px", borderRadius: 4, fontSize: 12,
+                        background: d === null ? "transparent" : d <= 0 ? "rgba(239,68,68,0.2)" : d <= 3 ? "rgba(239,68,68,0.15)" : d <= 7 ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.1)",
+                        color: d === null ? "var(--text-4)" : d <= 0 ? "#ef4444" : d <= 3 ? "#ef4444" : d <= 7 ? "#f59e0b" : "#22c55e"
+                      }}>
+                        {d === null ? "—" : d <= 0 ? "VENCIDO" : `${d} d.u.`}
+                      </span>
                     </td>
                     <td style={{ padding: "11px 14px", fontFamily: "monospace", fontSize: 11, color: "var(--text-2)" }}>
                       {p.numero_processo || "—"}

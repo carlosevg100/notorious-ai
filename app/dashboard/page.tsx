@@ -33,7 +33,20 @@ const riscoColor: Record<string, string> = { alto: "#ef4444", medio: "#f59e0b", 
 const riscoLabel: Record<string, string> = { alto: "Alto", medio: "Médio", baixo: "Baixo" };
 
 const fmtDate = (d: string) => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
-const daysUntil = (d: string) => d ? Math.ceil((new Date(d + "T12:00:00").getTime() - Date.now()) / 86400000) : null;
+function daysUntil(d?: string): number | null {
+  if (!d) return null
+  const FERIADOS = ["01-01","21-04","01-05","07-09","12-10","02-11","15-11","25-12"]
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const fim = new Date(d + "T23:59:59")
+  if (fim < hoje) return Math.ceil((fim.getTime()-hoje.getTime())/86400000)
+  let c=0, cur=new Date(hoje)
+  while(cur<=fim){
+    const w=cur.getDay(), k=String(cur.getMonth()+1).padStart(2,"0")+"-"+String(cur.getDate()).padStart(2,"0")
+    if(w!==0&&w!==6&&!FERIADOS.includes(k)) c++
+    cur.setDate(cur.getDate()+1)
+  }
+  return c
+}
 
 function getRisco(p: Processo) {
   return (p.risco || "").toLowerCase().replace("é", "e");
