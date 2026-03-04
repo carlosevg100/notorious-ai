@@ -6,27 +6,28 @@ import { useEffect, useState } from "react";
 
 const NAV = [
   { href: "/dashboard", icon: "⚡", label: "Dashboard" },
-  { href: "/dashboard/clientes", icon: "🏢", label: "Clientes" },
+  { href: "/dashboard/clientes", icon: "👤", label: "Clientes" },
   { href: "/dashboard/pesquisa", icon: "🔍", label: "Jurisprudência" },
   { href: "/dashboard/prazos", icon: "📅", label: "Prazos" },
   { href: "/dashboard/configuracoes", icon: "⚙", label: "Configurações" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<'dark'|'light'>('dark');
-  
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
   useEffect(() => {
-    const saved = localStorage.getItem('notorious-theme') as 'dark'|'light' || 'dark';
+    const saved = (localStorage.getItem('notorious-theme') as 'dark' | 'light') || 'dark';
     setTheme(saved);
     document.documentElement.setAttribute('data-theme', saved);
   }, []);
-  
+
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     localStorage.setItem('notorious-theme', next);
     document.documentElement.setAttribute('data-theme', next);
   };
+
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuth();
@@ -45,7 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         top: 0, left: 0, bottom: 0, zIndex: 50,
       }}>
         <div style={{ padding: "8px 4px 16px", borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
-          <span style={{ fontWeight: 800, fontSize: 14, color: "var(--gold)", letterSpacing: "0.05em" }}>
+          <span style={{ fontWeight: 800, fontSize: 13, color: "var(--gold)", letterSpacing: "0.1em" }}>
             NOTORIOUS AI
           </span>
         </div>
@@ -71,14 +72,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8, padding: "0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{
+            fontSize: 11, color: "var(--text-3)", marginBottom: 8, padding: "0 4px",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
             {profile?.name || profile?.email || "—"}
           </div>
           <button
             onClick={toggleTheme}
-            style={{ width: "100%", marginBottom: 6, padding: "6px 12px", background: "var(--bg-3)", border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", color: "var(--text-4)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            style={{
+              width: "100%", marginBottom: 6, padding: "6px 12px",
+              background: "var(--bg-3)", border: "1px solid var(--border)",
+              borderRadius: 6, cursor: "pointer", color: "var(--text-4)",
+              fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
           >
-            {theme === "dark" ? "☀️ Modo Claro" : "🌙 Modo Escuro"}
+            {theme === "dark" ? "☀ Claro" : "◐ Escuro"}
           </button>
           <button
             onClick={handleLogout}

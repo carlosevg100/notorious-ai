@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
 
 interface Processo {
   id: string;
@@ -14,58 +12,37 @@ interface Processo {
   prazo_contestacao?: string;
   risco?: string;
   tutela_urgencia?: boolean;
+  valor_causa?: number;
   clients?: { name: string };
   client_id?: string;
   created_at: string;
 }
 
-const FASES = [
-  { key: "recebido", label: "Recebido", color: "#3b82f6" },
-  { key: "extracao", label: "Extração", color: "#8b5cf6" },
-  { key: "docs_solicitados", label: "Docs Solicitados", color: "#f97316" },
-  { key: "docs_recebidos", label: "Docs Recebidos", color: "#10b981" },
-  { key: "contestacao_gerando", label: "Gerando Contestação", color: "#C9A84C" },
-  { key: "contestacao_revisao", label: "Revisão", color: "#ec4899" },
-  { key: "protocolado", label: "Protocolado", color: "#22c55e" },
-  { key: "aguardando_replica", label: "Aguard. Réplica", color: "#06b6d4" },
+const PIPELINE_FASES = [
+  { key: "recebido", label: "Recebido", symbol: "●" },
+  { key: "extracao", label: "Extração", symbol: "◉" },
+  { key: "docs_solicitados", label: "Docs Solicitados", symbol: "○" },
+  { key: "docs_recebidos", label: "Docs Recebidos", symbol: "○" },
+  { key: "gerando_contestacao", label: "Gerando Contestação", symbol: "○" },
+  { key: "revisao", label: "Revisão", symbol: "○" },
+  { key: "protocolado", label: "Protocolado", symbol: "✓" },
 ];
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Bom dia";
-  if (h < 18) return "Boa tarde";
-  return "Boa noite";
-}
+const riscoBg: Record<string, string> = { alto: "rgba(239,68,68,0.15)", medio: "rgba(245,158,11,0.15)", baixo: "rgba(34,197,94,0.15)" };
+const riscoColor: Record<string, string> = { alto: "#ef4444", medio: "#f59e0b", baixo: "#22c55e" };
+const riscoLabel: Record<string, string> = { alto: "Alto", medio: "Médio", baixo: "Baixo" };
 
-function diasRestantes(prazo?: string) {
-  if (!prazo) return null;
-  const diff = Math.ceil((new Date(prazo).getTime() - Date.now()) / 86400000);
-  return diff;
-}
+const fmtDate = (d: string) => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
+const daysUntil = (d: string) => d ? Math.ceil((new Date(d + "T12:00:00").getTime() - Date.now()) / 86400000) : null;
 
-function riscoBadge(risco?: string) {
-  const r = risco?.toLowerCase();
-  if (r === "alto") return { color: "#ef4444", label: "Alto" };
-  if (r === "medio" || r === "médio") return { color: "#f59e0b", label: "Médio" };
-  return { color: "#22c55e", label: "Baixo" };
-}
-
-function faseCor(fase: string) {
-  return FASES.find(f => f.key === fase)?.color || "#888";
-}
-
-function faseLabel(fase: string) {
-  return FASES.find(f => f.key === fase)?.label || fase;
+function getRisco(p: Processo) {
+  return (p.risco || "").toLowerCase().replace("é", "e");
 }
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
   const router = useRouter();
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [faseFilter, setFaseFilter] = useState<string | null>(null);
-  const [riscoFilter, setRiscoFilter] = useState<string>("");
-  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,223 +56,211 @@ export default function DashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Pipeline counters
-  const pipelineCounts = FASES.reduce((acc, f) => {
-    acc[f.key] = processos.filter(p => p.fase === f.key).length;
-    return acc;
-  }, {} as Record<string, number>);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  const dayStr = now.toLocaleDateString("pt-BR", { weekday: "long" });
 
-  // Critical cases: prazo ≤5 days OR tutela_urgencia
-  const criticos = processos.filter(p => {
-    const dias = diasRestantes(p.prazo_contestacao);
-    return (dias !== null && dias <= 5) || p.tutela_urgencia;
-  });
+  // KPI counts
+  const total = processos.length;
+  const riscoAlto = processos.filter(p => getRisco(p) === "alto").length;
+  const tutelaUrgente = processos.filter(p => p.tutela_urgencia).length;
+  const prazo7 = processos.filter(p => {
+    const d = daysUntil(p.prazo_contestacao || "");
+    return d !== null && d >= 0 && d <= 7;
+  }).length;
 
-  // Filtered list
-  const filtered = processos.filter(p => {
-    if (faseFilter && p.fase !== faseFilter) return false;
-    if (riscoFilter && p.risco?.toLowerCase() !== riscoFilter) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      const clientName = p.clients?.name?.toLowerCase() || "";
-      const polo = p.polo_ativo?.nome?.toLowerCase() || "";
-      const num = p.numero_processo?.toLowerCase() || "";
-      if (!clientName.includes(s) && !polo.includes(s) && !num.includes(s)) return false;
-    }
-    return true;
-  });
+  // Upcoming deadlines sorted
+  const upcoming = processos
+    .filter(p => p.prazo_contestacao)
+    .sort((a, b) => new Date(a.prazo_contestacao!).getTime() - new Date(b.prazo_contestacao!).getTime())
+    .slice(0, 8);
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1400 }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-            {getGreeting()}, {profile?.name?.split(" ")[0] || "Advogado"}
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+            NOTORIOUS AI — OPERAÇÕES
           </h1>
-          <p style={{ color: "var(--text-3)", fontSize: 13, margin: "4px 0 0" }}>
-            {processos.length} processo{processos.length !== 1 ? "s" : ""} no sistema
-          </p>
+          <div style={{ color: "var(--text-3)", fontSize: 13, marginTop: 4 }}>B/Luz Advogados</div>
         </div>
-        <Link href="/dashboard/processos/new">
-          <button className="btn-gold">+ Novo Processo</button>
-        </Link>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 500 }}>{dateStr}</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", textTransform: "capitalize" }}>{dayStr}</div>
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        <div className="card" style={{ padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, fontWeight: 600 }}>
+            Total de Casos
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "var(--text)" }}>
+            {loading ? "..." : total}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4 }}>casos ↗</div>
+        </div>
+        <div className="card" style={{ padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, fontWeight: 600 }}>
+            Risco Alto
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#ef4444" }}>
+            {loading ? "..." : riscoAlto}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4 }}>casos ⚠</div>
+        </div>
+        <div className="card" style={{ padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, fontWeight: 600 }}>
+            Tutela Urgente
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#f59e0b" }}>
+            {loading ? "..." : tutelaUrgente}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4 }}>casos ⚡</div>
+        </div>
+        <div className="card" style={{ padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, fontWeight: 600 }}>
+            Prazo — 7 dias
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "var(--gold)" }}>
+            {loading ? "..." : prazo7}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4 }}>vencendo</div>
+        </div>
       </div>
 
       {/* Pipeline */}
-      <div className="card" style={{ padding: 16, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, color: "var(--text-3)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          Pipeline de Processos
-        </h2>
-        <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
-          {FASES.map(f => (
-            <div
-              key={f.key}
-              onClick={() => setFaseFilter(faseFilter === f.key ? null : f.key)}
-              style={{
-                flex: "0 0 auto", minWidth: 100, padding: "10px 12px", borderRadius: 8,
-                background: faseFilter === f.key ? f.color + "22" : "var(--bg-2)",
-                border: `1px solid ${faseFilter === f.key ? f.color : "var(--border)"}`,
-                cursor: "pointer", textAlign: "center", transition: "all 0.15s",
-              }}
-            >
-              <div style={{ fontSize: 22, fontWeight: 700, color: f.color }}>
-                {pipelineCounts[f.key] || 0}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 3, lineHeight: 1.3 }}>
-                {f.label}
-              </div>
-            </div>
-          ))}
+      <div className="card" style={{ marginBottom: 24, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Pipeline de Processos
+          </span>
         </div>
-        {faseFilter && (
-          <div style={{ marginTop: 10, fontSize: 12, color: "var(--text-3)" }}>
-            Filtrando por fase: <strong style={{ color: faseCor(faseFilter) }}>{faseLabel(faseFilter)}</strong>
-            <button onClick={() => setFaseFilter(null)} style={{ marginLeft: 8, color: "var(--text-4)", cursor: "pointer", background: "none", border: "none", fontSize: 11 }}>✕ limpar</button>
-          </div>
-        )}
+        <div style={{ display: "flex", overflowX: "auto", gap: 0 }}>
+          {PIPELINE_FASES.map((fase, fi) => {
+            const casos = processos.filter(p => {
+              // Normalize fase keys (handle both contestacao_gerando and gerando_contestacao)
+              const pf = p.fase;
+              if (fase.key === "gerando_contestacao") return pf === "gerando_contestacao" || pf === "contestacao_gerando";
+              if (fase.key === "revisao") return pf === "revisao" || pf === "contestacao_revisao";
+              return pf === fase.key;
+            });
+            return (
+              <div key={fase.key} style={{
+                minWidth: 200, flex: "0 0 auto",
+                borderRight: fi < PIPELINE_FASES.length - 1 ? "1px solid var(--border)" : "none",
+              }}>
+                <div style={{
+                  padding: "8px 12px", background: "var(--bg-3)",
+                  borderBottom: "1px solid var(--border)", display: "flex",
+                  justifyContent: "space-between", alignItems: "center",
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    {fase.symbol} {fase.label}
+                  </span>
+                  {casos.length > 0 && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
+                      background: "var(--gold-bg)", color: "var(--gold)",
+                    }}>{casos.length}</span>
+                  )}
+                </div>
+                <div style={{ minHeight: 60 }}>
+                  {casos.length === 0 ? (
+                    <div style={{ padding: "16px 12px", fontSize: 11, color: "var(--text-4)", textAlign: "center" }}>—</div>
+                  ) : (
+                    casos.map(p => {
+                      const r = getRisco(p);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => router.push(`/dashboard/processos/${p.id}`)}
+                          style={{
+                            padding: "9px 12px", borderBottom: "1px solid var(--border)",
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "")}
+                        >
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.clients?.name || "—"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.polo_ativo?.nome || "—"}
+                          </div>
+                          {r && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
+                              background: riscoBg[r] || "var(--bg-3)", color: riscoColor[r] || "var(--text-3)",
+                            }}>
+                              {riscoLabel[r] || r}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Casos Críticos */}
-      {criticos.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: "#ef4444", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            ⚠ Casos Críticos ({criticos.length})
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {criticos.map(p => {
-              const dias = diasRestantes(p.prazo_contestacao);
-              const badge = riscoBadge(p.risco);
-              return (
-                <div
-                  key={p.id}
-                  className="card"
-                  onClick={() => router.push(`/dashboard/processos/${p.id}`)}
-                  style={{
-                    padding: "12px 16px", borderColor: "#ef444440", cursor: "pointer",
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    background: "#ef444408",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      {p.clients?.name || "Cliente"} — {p.polo_ativo?.nome || "Sem autor"}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3 }}>
-                      {p.numero_processo || "Sem número"} · {p.tribunal || ""}
-                      {p.tutela_urgencia && <span style={{ color: "#ef4444", marginLeft: 8 }}>⚡ Tutela urgência</span>}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", display: "flex", gap: 12, alignItems: "center" }}>
-                    {dias !== null && (
-                      <span style={{ fontSize: 12, color: dias <= 0 ? "#ef4444" : "#f59e0b", fontWeight: 600 }}>
-                        {dias <= 0 ? "VENCIDO" : `${dias}d`}
-                      </span>
-                    )}
-                    <span style={{ fontSize: 11, background: badge.color + "22", color: badge.color, padding: "2px 8px", borderRadius: 99, fontWeight: 600 }}>
-                      {badge.label}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Upcoming Deadlines */}
+      {!loading && upcoming.length > 0 && (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Prazos Próximos
+            </span>
           </div>
-        </div>
-      )}
-
-      {/* All Processos */}
-      <div className="card">
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, margin: 0, flex: 1 }}>Todos os Processos</h2>
-          <input
-            placeholder="Buscar por cliente, polo ativo, número..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{
-              background: "var(--bg-2)", border: "1px solid var(--border)", color: "var(--text)",
-              borderRadius: 6, padding: "6px 12px", fontSize: 12, width: 260,
-            }}
-          />
-          <select
-            value={faseFilter || ""}
-            onChange={e => setFaseFilter(e.target.value || null)}
-            style={{ background: "var(--bg-2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}
-          >
-            <option value="">Todas as fases</option>
-            {FASES.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
-          <select
-            value={riscoFilter}
-            onChange={e => setRiscoFilter(e.target.value)}
-            style={{ background: "var(--bg-2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}
-          >
-            <option value="">Todos os riscos</option>
-            <option value="alto">Alto</option>
-            <option value="medio">Médio</option>
-            <option value="baixo">Baixo</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>Carregando...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>
-            Nenhum processo encontrado.{" "}
-            <Link href="/dashboard/processos/new" style={{ color: "var(--gold)" }}>+ Criar novo</Link>
-          </div>
-        ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
-                <tr style={{ background: "var(--bg-2)", color: "var(--text-3)", textAlign: "left" }}>
-                  {["Cliente", "Processo", "Polo Ativo", "Fase", "Prazo", "Risco", "Ações"].map(col => (
-                    <th key={col} style={{ padding: "8px 14px", fontWeight: 500, borderBottom: "1px solid var(--border)" }}>{col}</th>
+                <tr style={{ background: "var(--bg-3)" }}>
+                  {["Processo", "Cliente", "Polo Ativo", "Prazo", "Dias restantes", "Risco"].map(col => (
+                    <th key={col} style={{
+                      padding: "8px 14px", fontWeight: 600, textAlign: "left", fontSize: 10,
+                      color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em",
+                      borderBottom: "1px solid var(--border)",
+                    }}>{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => {
-                  const dias = diasRestantes(p.prazo_contestacao);
-                  const badge = riscoBadge(p.risco);
-                  const fColor = faseCor(p.fase);
+                {upcoming.map(p => {
+                  const d = daysUntil(p.prazo_contestacao || "");
+                  const r = getRisco(p);
+                  const diasColor = d !== null && d <= 3 ? "#ef4444" : d !== null && d <= 7 ? "#f59e0b" : "var(--text-2)";
                   return (
                     <tr
                       key={p.id}
                       onClick={() => router.push(`/dashboard/processos/${p.id}`)}
-                      style={{ cursor: "pointer", borderBottom: "1px solid var(--border)", transition: "background 0.1s" }}
+                      style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
                       onMouseLeave={e => (e.currentTarget.style.background = "")}
                     >
+                      <td style={{ padding: "10px 14px", fontFamily: "monospace", color: "var(--text-2)", fontSize: 11 }}>
+                        {p.numero_processo || <span style={{ color: "var(--text-4)" }}>—</span>}
+                      </td>
                       <td style={{ padding: "10px 14px", fontWeight: 600 }}>{p.clients?.name || "—"}</td>
-                      <td style={{ padding: "10px 14px", color: "var(--text-2)", fontFamily: "monospace" }}>
-                        {p.numero_processo || <span style={{ color: "var(--text-4)" }}>Sem número</span>}
-                      </td>
-                      <td style={{ padding: "10px 14px" }}>{p.polo_ativo?.nome || "—"}</td>
-                      <td style={{ padding: "10px 14px" }}>
-                        <span style={{ background: fColor + "20", color: fColor, padding: "2px 8px", borderRadius: 99, fontWeight: 500, fontSize: 11 }}>
-                          {faseLabel(p.fase)}
-                        </span>
+                      <td style={{ padding: "10px 14px", color: "var(--text-2)" }}>{p.polo_ativo?.nome || "—"}</td>
+                      <td style={{ padding: "10px 14px", color: "var(--text-2)" }}>{fmtDate(p.prazo_contestacao || "")}</td>
+                      <td style={{ padding: "10px 14px", fontWeight: 700, color: diasColor }}>
+                        {d === null ? "—" : d <= 0 ? "Vencido" : `${d}d`}
                       </td>
                       <td style={{ padding: "10px 14px" }}>
-                        {dias !== null ? (
-                          <span style={{ color: dias <= 0 ? "#ef4444" : dias <= 5 ? "#f59e0b" : "var(--text-2)", fontWeight: dias <= 5 ? 700 : 400 }}>
-                            {dias <= 0 ? "Vencido" : `${dias}d`}
+                        {r ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
+                            background: riscoBg[r] || "var(--bg-3)", color: riscoColor[r] || "var(--text-3)",
+                          }}>
+                            {riscoLabel[r] || r}
                           </span>
                         ) : "—"}
-                      </td>
-                      <td style={{ padding: "10px 14px" }}>
-                        <span style={{ background: badge.color + "22", color: badge.color, padding: "2px 8px", borderRadius: 99, fontWeight: 600, fontSize: 11 }}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px 14px" }}>
-                        <button
-                          className="btn-ghost"
-                          style={{ fontSize: 11, padding: "4px 10px" }}
-                          onClick={e => { e.stopPropagation(); router.push(`/dashboard/processos/${p.id}`); }}
-                        >
-                          Ver
-                        </button>
                       </td>
                     </tr>
                   );
@@ -303,8 +268,14 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>
+          Carregando...
+        </div>
+      )}
     </div>
   );
 }

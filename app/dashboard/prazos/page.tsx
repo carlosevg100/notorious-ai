@@ -1,177 +1,192 @@
 "use client";
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
-interface Deadline {
-  date: string;
-  description: string;
-  urgency: 'alta' | 'media' | 'baixa';
-  docName: string;
-  projectId: string;
-  projectName: string;
+interface Processo {
+  id: string;
+  numero_processo?: string;
+  polo_ativo?: { nome?: string };
+  polo_passivo?: { nome?: string };
+  valor_causa?: number;
+  risco?: string;
+  prazo_contestacao?: string;
+  clients?: { name: string };
+  client_id?: string;
 }
 
-interface Project { id: string; name: string; area: string; }
+type FilterPeriod = "todos" | "vencidos" | "semana" | "30dias";
+type FilterRisco = "" | "alto" | "medio" | "baixo";
+
+const riscoBg: Record<string, string> = { alto: "rgba(239,68,68,0.15)", medio: "rgba(245,158,11,0.15)", baixo: "rgba(34,197,94,0.15)" };
+const riscoColor: Record<string, string> = { alto: "#ef4444", medio: "#f59e0b", baixo: "#22c55e" };
+const riscoLabel: Record<string, string> = { alto: "Alto", medio: "Médio", baixo: "Baixo" };
+
+const fmtDate = (d: string) => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
+const fmtMoney = (v?: number) => v ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v) : "—";
+
+function daysUntil(d?: string) {
+  if (!d) return null;
+  return Math.ceil((new Date(d + "T12:00:00").getTime() - Date.now()) / 86400000);
+}
+
+function getRisco(r?: string) {
+  return (r || "").toLowerCase().replace("é", "e");
+}
+
+function getStatus(days: number | null): { label: string; color: string } {
+  if (days === null) return { label: "—", color: "var(--text-3)" };
+  if (days < 0) return { label: "Vencido", color: "#ef4444" };
+  if (days <= 3) return { label: "Crítico", color: "#f97316" };
+  if (days <= 7) return { label: "Próximo", color: "#f59e0b" };
+  return { label: "Normal", color: "var(--text-3)" };
+}
 
 export default function PrazosPage() {
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const [projects, setProjects] = useState<Record<string, Project>>({});
+  const router = useRouter();
+  const [processos, setProcessos] = useState<Processo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'calendar'>('list');
-  const [filterUrgency, setFilterUrgency] = useState('Todos');
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("todos");
+  const [filterRisco, setFilterRisco] = useState<FilterRisco>("");
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadData() {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const [docsRes, projRes] = await Promise.all([
-        fetch('/api/documents'),
-        fetch('/api/projects')
-      ]);
-      const projMap: Record<string, Project> = {};
-      if (projRes.ok) {
-        const projs: Project[] = await projRes.json();
-        for (const p of projs) projMap[p.id] = p;
-        setProjects(projMap);
+      const res = await fetch("/api/processos");
+      if (res.ok) {
+        const all: Processo[] = await res.json();
+        // Only processos with prazo set
+        setProcessos(all.filter(p => p.prazo_contestacao));
       }
-      if (docsRes.ok) {
-        const docs: any[] = await docsRes.json();
-        const all: Deadline[] = [];
-        for (const doc of docs) {
-          const extractions: any[] = doc.document_extractions || [];
-          for (const ext of extractions) {
-            for (const dl of (ext.deadlines || [])) {
-              all.push({
-                date: dl.date || '',
-                description: dl.description || '',
-                urgency: dl.urgency || 'media',
-                docName: doc.name,
-                projectId: doc.project_id,
-                projectName: projMap[doc.project_id]?.name || 'Projeto'
-              });
-            }
-          }
-        }
-        // Sort: alta first, then media, then baixa; within same urgency sort by date string
-        const urgOrder = { alta: 0, media: 1, baixa: 2 };
-        all.sort((a, b) => (urgOrder[a.urgency] - urgOrder[b.urgency]) || a.date.localeCompare(b.date));
-        setDeadlines(all);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = processos
+    .filter(p => {
+      const d = daysUntil(p.prazo_contestacao);
+      if (filterPeriod === "vencidos" && (d === null || d >= 0)) return false;
+      if (filterPeriod === "semana" && (d === null || d < 0 || d > 7)) return false;
+      if (filterPeriod === "30dias" && (d === null || d < 0 || d > 30)) return false;
+      if (filterRisco) {
+        const r = getRisco(p.risco);
+        if (r !== filterRisco) return false;
       }
-    } catch (_) {}
-    setLoading(false);
-  }
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.prazo_contestacao! + "T12:00:00").getTime();
+      const db = new Date(b.prazo_contestacao! + "T12:00:00").getTime();
+      return da - db;
+    });
 
-  const urgColor = { alta: '#ef4444', media: '#eab308', baixa: '#22c55e' };
-  const urgLabel = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
-
-  const filtered = deadlines.filter(d => filterUrgency === 'Todos' || d.urgency === filterUrgency);
-  const critCount = deadlines.filter(d => d.urgency === 'alta').length;
-  const medCount = deadlines.filter(d => d.urgency === 'media').length;
+  const PERIOD_FILTERS: { key: FilterPeriod; label: string }[] = [
+    { key: "todos", label: "Todos" },
+    { key: "vencidos", label: "Vencidos" },
+    { key: "semana", label: "Esta semana" },
+    { key: "30dias", label: "Próximos 30 dias" },
+  ];
 
   return (
-    <div style={{ padding: '0', minHeight: '100vh', background: 'var(--bg)' }}>
-      <div style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '18px 28px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-              <span style={{ color: 'var(--gold)', marginRight: '8px' }}>◷</span>Prazos
-            </h1>
-            {!loading && (
-              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-4)' }}>
-                {critCount > 0 && <span style={{ color: '#ef4444', fontWeight: '600' }}>{critCount} urgente{critCount > 1 ? 's' : ''}</span>}
-                {critCount > 0 && medCount > 0 && <span> · </span>}
-                {medCount > 0 && <span style={{ color: '#eab308', fontWeight: '600' }}>{medCount} médio{medCount > 1 ? 's' : ''}</span>}
-                {critCount === 0 && medCount === 0 && deadlines.length === 0 && 'Nenhum prazo detectado'}
-              </p>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setView('list')} className={view === 'list' ? 'btn-gold' : 'btn-ghost'} style={{ padding: '6px 14px', fontSize: '12px' }}>Lista</button>
-            <button onClick={() => setView('calendar')} className={view === 'calendar' ? 'btn-gold' : 'btn-ghost'} style={{ padding: '6px 14px', fontSize: '12px' }}>Calendário</button>
-          </div>
-        </div>
+    <div style={{ padding: "28px 32px", maxWidth: 1200 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>PRAZOS</h1>
       </div>
 
-      <div style={{ padding: '24px 28px' }}>
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-          {['Todos', 'alta', 'media', 'baixa'].map(u => (
-            <button key={u} onClick={() => setFilterUrgency(u)}
-              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid', fontSize: '12px', cursor: 'pointer', fontWeight: '500',
-                borderColor: filterUrgency === u ? (u === 'alta' ? '#ef4444' : u === 'media' ? '#eab308' : u === 'baixa' ? '#22c55e' : '#C9A84C') : '#2a2a2a',
-                background: filterUrgency === u ? (u === 'alta' ? 'rgba(239,68,68,0.1)' : u === 'media' ? 'rgba(234,179,8,0.1)' : u === 'baixa' ? 'rgba(34,197,94,0.1)' : 'rgba(201,168,76,0.1)') : 'transparent',
-                color: filterUrgency === u ? (u === 'alta' ? '#ef4444' : u === 'media' ? '#eab308' : u === 'baixa' ? '#22c55e' : '#C9A84C') : '#666'
-              }}>
-              {u === 'Todos' ? 'Todos' : urgLabel[u as keyof typeof urgLabel]}
-            </button>
-          ))}
-        </div>
+      {/* Filter Row */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+        {PERIOD_FILTERS.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilterPeriod(f.key)}
+            style={{
+              padding: "6px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 500,
+              border: `1px solid ${filterPeriod === f.key ? "var(--gold)" : "var(--border)"}`,
+              background: filterPeriod === f.key ? "var(--gold-bg)" : "transparent",
+              color: filterPeriod === f.key ? "var(--gold)" : "var(--text-3)",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+        <select
+          value={filterRisco}
+          onChange={e => setFilterRisco(e.target.value as FilterRisco)}
+          style={{
+            background: "var(--bg-2)", border: "1px solid var(--border)", color: filterRisco ? riscoColor[filterRisco] : "var(--text-3)",
+            borderRadius: 6, padding: "6px 10px", fontSize: 12,
+          }}
+        >
+          <option value="">Risco: Todos</option>
+          <option value="alto">Alto</option>
+          <option value="medio">Médio</option>
+          <option value="baixo">Baixo</option>
+        </select>
+      </div>
 
+      <div className="card" style={{ overflow: "hidden" }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-4)' }}>Carregando...</div>
-        ) : deadlines.length === 0 ? (
-          <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-4)' }}>
-            <div style={{ fontSize: '32px', marginBottom: '16px' }}>◷</div>
-            <p style={{ margin: '0 0 8px', fontSize: '14px' }}>Nenhum prazo encontrado.</p>
-            <p style={{ margin: 0, fontSize: '12px' }}>Faça upload de documentos para a IA detectar prazos automaticamente.</p>
-          </div>
-        ) : view === 'list' ? (
-          <div className="card" style={{ overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Data', 'Prazo', 'Projeto / Documento', 'Urgência', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-4)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #111' }}>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14px', color: urgColor[d.urgency] }}>{d.date || '—'}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.description}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: '500' }}>{d.projectName}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '2px' }}>📄 {d.docName}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: urgColor[d.urgency] }}>{urgLabel[d.urgency]}</span>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      {d.projectId && (
-                        <Link href={`/dashboard/projeto/${d.projectId}`}
-                          style={{ fontSize: '11px', padding: '3px 8px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text-3)', textDecoration: 'none' }}>
-                          Ver caso
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>Carregando...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 60, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>
+            Nenhum prazo encontrado para o filtro selecionado.
           </div>
         ) : (
-          <div className="card" style={{ padding: '24px' }}>
-            <p style={{ textAlign: 'center', color: 'var(--text-4)', fontSize: '13px' }}>
-              Visão de calendário — {filtered.length} prazo{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
-              {filtered.map((d, i) => (
-                <div key={i} style={{ padding: '12px 16px', background: 'var(--bg-2)', borderRadius: '8px', border: `1px solid ${urgColor[d.urgency]}30`, display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: urgColor[d.urgency], minWidth: '80px' }}>{d.date || '—'}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{d.description}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-5)', marginTop: '3px' }}>{d.projectName} · {d.docName}</div>
-                  </div>
-                  <span style={{ fontSize: '12px', color: urgColor[d.urgency], fontWeight: '600' }}>{urgLabel[d.urgency]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: "var(--bg-3)" }}>
+                {["Vencimento", "Processo", "Cliente", "Polo Ativo", "Valor", "Risco", "Status"].map(col => (
+                  <th key={col} style={{
+                    padding: "9px 14px", fontWeight: 600, textAlign: "left", fontSize: 10,
+                    color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--border)",
+                  }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => {
+                const d = daysUntil(p.prazo_contestacao);
+                const status = getStatus(d);
+                const r = getRisco(p.risco);
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => router.push(`/dashboard/processos/${p.id}`)}
+                    style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                  >
+                    <td style={{ padding: "11px 14px", fontWeight: 600, color: status.color }}>
+                      {fmtDate(p.prazo_contestacao || "")}
+                    </td>
+                    <td style={{ padding: "11px 14px", fontFamily: "monospace", fontSize: 11, color: "var(--text-2)" }}>
+                      {p.numero_processo || "—"}
+                    </td>
+                    <td style={{ padding: "11px 14px", fontWeight: 600 }}>{p.clients?.name || "—"}</td>
+                    <td style={{ padding: "11px 14px", color: "var(--text-2)" }}>{p.polo_ativo?.nome || "—"}</td>
+                    <td style={{ padding: "11px 14px", color: "var(--text-2)" }}>{fmtMoney(p.valor_causa)}</td>
+                    <td style={{ padding: "11px 14px" }}>
+                      {r ? (
+                        <span style={{ background: riscoBg[r], color: riscoColor[r], padding: "2px 8px", borderRadius: 99, fontWeight: 600, fontSize: 11 }}>
+                          {riscoLabel[r] || r}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td style={{ padding: "11px 14px" }}>
+                      <span style={{ fontWeight: 700, fontSize: 11, color: status.color }}>
+                        {status.label}
+                        {d !== null && d >= 0 && ` (${d}d)`}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
