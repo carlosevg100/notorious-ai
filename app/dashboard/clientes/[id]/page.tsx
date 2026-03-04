@@ -3,6 +3,18 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+const goldButtonStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #C9A84C, #e8c96a)",
+  color: "#1a1206",
+  border: "none",
+  borderRadius: 8,
+  padding: "8px 16px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+  display: "inline-block",
+};
+
 interface Client {
   id: string;
   name: string;
@@ -56,6 +68,7 @@ export default function ClienteDetailPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +88,29 @@ export default function ClienteDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('client_id', id);
+        const res = await fetch('/api/intake', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.processo_id) {
+          router.push(`/dashboard/processos/${data.processo_id}`);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) return <div style={{ padding: 40, color: "var(--text-3)", textAlign: "center" }}>Carregando...</div>;
   if (!client) return <div style={{ padding: 40, color: "#ef4444", textAlign: "center" }}>Cliente não encontrado.</div>;
@@ -105,9 +141,25 @@ export default function ClienteDetailPage() {
             <div style={{ fontSize: 12, color: "var(--text-3)" }}>{client.cnpj}</div>
           )}
         </div>
-        <Link href={`/dashboard/processos/new?client_id=${id}`}>
-          <button className="btn-gold">+ Novo Processo</button>
-        </Link>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <label style={{ ...goldButtonStyle, opacity: uploading ? 0.7 : 1 }}>
+            {uploading ? 'Enviando...' : '+ Upload Documento'}
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt"
+              multiple
+              hidden
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+          </label>
+          <Link
+            href={`/dashboard/processos/new?client_id=${id}`}
+            style={{ fontSize: 11, color: "var(--text-3)", textDecoration: "underline" }}
+          >
+            ou criar manualmente
+          </Link>
+        </div>
       </div>
 
       {/* Processos Table */}
@@ -120,7 +172,7 @@ export default function ClienteDetailPage() {
       <div className="card" style={{ overflow: "hidden" }}>
         {processos.length === 0 ? (
           <div style={{ padding: "48px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>
-            Nenhum processo. Clique em + Novo Processo para iniciar.
+            Nenhum processo. Clique em + Upload Documento para iniciar.
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

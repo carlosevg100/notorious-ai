@@ -118,6 +118,31 @@ DOCUMENTO:\n${extractedText.substring(0, 15000)}`
       ai_status: 'complete'
     }).eq('id', document_id)
 
+    // Update linked processo with extracted fields
+    const { data: linkedDoc } = await supabase
+      .from('documents')
+      .select('project_id')
+      .eq('id', document_id)
+      .single()
+    if (linkedDoc?.project_id) {
+      const ext = extractedData
+      await supabase.from('processos').update({
+        numero_processo: ext.numero_processo || null,
+        vara: ext.vara || null,
+        comarca: ext.comarca || null,
+        tribunal: ext.tribunal || null,
+        polo_ativo: ext.partes?.autor ? { nome: ext.partes.autor } : undefined,
+        polo_passivo: ext.partes?.reu ? { nome: ext.partes.reu } : undefined,
+        pedidos: ext.pedidos || [],
+        causa_pedir: ext.causa_pedir || null,
+        resumo_executivo: ext.resumo_executivo || null,
+        fatos_resumidos: ext.fatos_relevantes?.join('\n') || null,
+        risco: ext.risco_estimado || 'medio',
+        tutela_urgencia: ext.tutela_antecipada?.requerida || false,
+        fase: 'extracao',
+      }).eq('id', linkedDoc.project_id)
+    }
+
     // Insert prazos if table exists (best effort)
     if (extractedData.prazos_identificados?.length > 0) {
       const prazosInsert = extractedData.prazos_identificados
