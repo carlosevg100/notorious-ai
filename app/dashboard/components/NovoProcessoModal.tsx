@@ -29,6 +29,7 @@ interface TaggedFile {
   id: string
   file: File
   category: DocumentCategory
+  suggested?: boolean   // filename hints it might be the Petição Inicial
 }
 
 interface Client {
@@ -188,11 +189,12 @@ function FileStatusIcon({ status, C }: { status: FileExtractionResult['status'];
 
 /* ─── Category dropdown ──────────────────────────────────────── */
 function CategoryDropdown({
-  value, onChange, disabled, C,
+  value, onChange, disabled, highlighted, C,
 }: {
   value: DocumentCategory
   onChange: (v: DocumentCategory) => void
   disabled?: boolean
+  highlighted?: boolean
   C: ReturnType<typeof getColors>
 }) {
   return (
@@ -205,14 +207,16 @@ function CategoryDropdown({
           appearance: 'none',
           padding: '5px 28px 5px 10px',
           borderRadius: '6px',
-          background: C.bg2,
-          border: `1px solid ${C.border2}`,
+          background: highlighted ? C.amberBg : C.bg2,
+          border: `1px solid ${highlighted ? C.amber : C.border2}`,
           color: disabled ? C.text3 : C.text1,
           fontSize: '11px',
           fontFamily: 'IBM Plex Mono, monospace',
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           minWidth: '140px',
+          boxShadow: highlighted ? `0 0 0 2px ${C.amber}33` : 'none',
+          transition: 'all 150ms ease',
         }}
       >
         {DOCUMENT_CATEGORIES.map(cat => (
@@ -223,7 +227,7 @@ function CategoryDropdown({
         size={12}
         style={{
           position: 'absolute', right: '8px', pointerEvents: 'none',
-          color: disabled ? C.text4 : C.text3,
+          color: disabled ? C.text4 : highlighted ? C.amber : C.text3,
         }}
       />
     </div>
@@ -475,16 +479,19 @@ export default function NovoProcessoModal({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  function isSuggestedPeticao(filename: string): boolean {
+    const lower = filename.toLowerCase()
+    return lower.includes('peti') || lower.includes('inicial')
+  }
+
   function addFiles(files: File[]) {
     setTaggedFiles(prev => {
       const existing = [...prev]
-      const hasPeticao = existing.some(f => f.category === 'Petição Inicial')
-      const newTagged = files.map((file, i) => ({
+      const newTagged = files.map((file) => ({
         id: genId(),
         file,
-        category: (!hasPeticao && i === 0)
-          ? ('Petição Inicial' as DocumentCategory)
-          : ('Outro' as DocumentCategory),
+        category: 'Outro' as DocumentCategory,
+        suggested: isSuggestedPeticao(file.name),
       }))
       return [...existing, ...newTagged]
     })
@@ -496,7 +503,8 @@ export default function NovoProcessoModal({
 
   function handleCategoryChange(id: string, newCategory: DocumentCategory) {
     setTaggedFiles(prev => prev.map(f => {
-      if (f.id === id) return { ...f, category: newCategory }
+      if (f.id === id) return { ...f, category: newCategory, suggested: false }
+      // Swap: if another file was already tagged as Petição Inicial, demote it to Outro
       if (newCategory === 'Petição Inicial' && f.category === 'Petição Inicial') {
         return { ...f, category: 'Outro' as DocumentCategory }
       }
@@ -1204,53 +1212,99 @@ export default function NovoProcessoModal({
                 </div>
 
                 {taggedFiles.length > 0 && (
-                  <div style={{
-                    marginTop: '12px',
-                    display: 'flex', flexDirection: 'column', gap: '6px',
-                    maxHeight: '240px', overflowY: 'auto',
-                  }}>
-                    {taggedFiles.map(tf => (
-                      <div key={tf.id} style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        padding: '9px 12px',
-                        borderRadius: '8px',
-                        background: tf.category === 'Petição Inicial' ? C.amberBg : C.bg2,
-                        border: `1px solid ${tf.category === 'Petição Inicial' ? C.amberBorder : C.border1}`,
-                        transition: 'all 150ms ease',
-                      }}>
-                        <FileText size={14} style={{ color: tf.category === 'Petição Inicial' ? C.amber : C.text3, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '12px', fontWeight: 500, color: C.text1,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                    {/* ── Visual hint ── */}
+                    <div style={{
+                      padding: '9px 14px', borderRadius: '8px',
+                      background: C.amberBg, border: `1px solid ${C.amberBorder}`,
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      fontSize: '12px', color: C.amber, fontWeight: 600,
+                    }}>
+                      <span style={{ fontSize: '14px' }}>⚖️</span>
+                      Selecione qual documento é a{' '}
+                      <strong style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Petição Inicial</strong>
+                      {hasPeticao && (
+                        <span style={{
+                          marginLeft: 'auto', fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace',
+                          color: C.green, display: 'flex', alignItems: 'center', gap: '4px',
+                        }}>
+                          <CheckCircle2 size={12} /> Marcada
+                        </span>
+                      )}
+                    </div>
+
+                    {/* ── File list ── */}
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', gap: '6px',
+                      maxHeight: '240px', overflowY: 'auto',
+                    }}>
+                      {taggedFiles.map(tf => {
+                        const showSuggestion = tf.suggested && tf.category !== 'Petição Inicial'
+                        return (
+                          <div key={tf.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: tf.category === 'Petição Inicial' ? C.amberBg : C.bg2,
+                            border: `1px solid ${tf.category === 'Petição Inicial' ? C.amberBorder : showSuggestion ? C.amberBorder + '80' : C.border1}`,
+                            transition: 'all 150ms ease',
                           }}>
-                            {tf.file.name}
+                            <FileText size={14} style={{ color: tf.category === 'Petição Inicial' ? C.amber : C.text3, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: '12px', fontWeight: 500, color: C.text1,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>
+                                {tf.file.name}
+                              </div>
+                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                                {(tf.file.size / 1024).toFixed(0)} KB
+                              </div>
+                            </div>
+                            {/* BONUS: suggestion badge */}
+                            {showSuggestion && (
+                              <button
+                                onClick={() => handleCategoryChange(tf.id, 'Petição Inicial')}
+                                title="Clique para marcar como Petição Inicial"
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '4px',
+                                  padding: '3px 8px', borderRadius: '12px',
+                                  background: C.amberBg, border: `1px solid ${C.amber}`,
+                                  color: C.amber, fontSize: '10px',
+                                  fontFamily: 'IBM Plex Mono, monospace',
+                                  cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                                  fontWeight: 600, letterSpacing: '0.02em',
+                                  animation: 'pulse 2s ease-in-out infinite',
+                                }}
+                              >
+                                ✦ Sugestão: Petição Inicial?
+                              </button>
+                            )}
+                            <CategoryDropdown
+                              value={tf.category}
+                              onChange={v => handleCategoryChange(tf.id, v)}
+                              highlighted={showSuggestion}
+                              C={C}
+                            />
+                            <button
+                              onClick={() => removeFile(tf.id)}
+                              style={{
+                                width: '28px', height: '28px', borderRadius: '6px',
+                                background: 'transparent', border: `1px solid ${C.border2}`,
+                                color: C.text3, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 150ms ease', flexShrink: 0,
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
-                          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
-                            {(tf.file.size / 1024).toFixed(0)} KB
-                          </div>
-                        </div>
-                        <CategoryDropdown
-                          value={tf.category}
-                          onChange={v => handleCategoryChange(tf.id, v)}
-                          C={C}
-                        />
-                        <button
-                          onClick={() => removeFile(tf.id)}
-                          style={{
-                            width: '28px', height: '28px', borderRadius: '6px',
-                            background: 'transparent', border: `1px solid ${C.border2}`,
-                            color: C.text3, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 150ms ease', flexShrink: 0,
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
 
