@@ -309,7 +309,7 @@ export default function DashboardPage() {
       {/* ═══ 1. GREETING ═══════════════════════════════════════ */}
       <div style={{ padding: '4px 0' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-          {getGreeting()}, {userName ? `Dr. ${userName.split(' ')[0]}` : 'Doutor(a)'}
+          {getGreeting()}, {userName ? (userName.toLowerCase().startsWith('dr') ? userName.split(' ').slice(0,2).join(' ') : `Dr. ${userName.split(' ')[0]}`) : 'Doutor(a)'}
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
           {formatDateBR()}
