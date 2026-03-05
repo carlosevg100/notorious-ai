@@ -740,14 +740,13 @@ export default function NovoProcessoModal({
     setResearchLogLines([])
     setResearchDone(false)
 
-    const RESEARCH_LOG_STEPS = [
+    // Loading animation steps (shown while API is running)
+    const RESEARCH_LOADING_STEPS = [
       'Analisando contexto do caso...',
-      'Identificando teses de defesa...',
-      'Pesquisando jurisprudência no STJ...',
-      'Pesquisando jurisprudência nos TJs estaduais...',
-      'Analisando precedentes favoráveis...',
-      'Identificando riscos e precedentes desfavoráveis...',
-      'Calculando probabilidade de êxito...',
+      'Consultando STJ — Superior Tribunal de Justiça...',
+      'Consultando STF — Supremo Tribunal Federal...',
+      'Pesquisando jurisprudência complementar...',
+      'Aguardando resultados das fontes oficiais...',
     ]
 
     // Build supporting summaries
@@ -760,10 +759,11 @@ export default function NovoProcessoModal({
       .filter(Boolean) as string[]
 
     // Start animated log in background while API runs
+    // Use longer interval since the real API takes 20-40s
     const logPromise = (async () => {
-      for (const step_text of RESEARCH_LOG_STEPS) {
+      for (const step_text of RESEARCH_LOADING_STEPS) {
         addResearchLog(step_text)
-        await new Promise(r => setTimeout(r, 800))
+        await new Promise(r => setTimeout(r, 2500))
       }
     })()
 
@@ -800,6 +800,14 @@ export default function NovoProcessoModal({
 
     const results = researchJson.results as ResearchResults
     setResearchResults(results)
+
+    // Show per-source logs returned by the API (with actual counts)
+    if (Array.isArray(researchJson.source_logs)) {
+      for (const logLine of researchJson.source_logs as string[]) {
+        addResearchLog(logLine)
+        await new Promise(r => setTimeout(r, 300))
+      }
+    }
 
     addResearchLog('Elaborando estratégia de defesa...')
     await new Promise(r => setTimeout(r, 600))
