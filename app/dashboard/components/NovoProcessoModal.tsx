@@ -351,6 +351,197 @@ function RiskBadge({ risco, C }: { risco: string; C: ReturnType<typeof getColors
   )
 }
 
+/* ─── Detail field ───────────────────────────────────────────── */
+function DetailField({ label, value, C, span }: { label: string; value: string | null | undefined; C: ReturnType<typeof getColors>; span?: boolean }) {
+  const empty = !value || value.trim() === ''
+  return (
+    <div style={{ marginBottom: '8px', gridColumn: span ? '1 / -1' : undefined }}>
+      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      <div style={{ fontSize: '12px', fontWeight: empty ? 400 : 500, marginTop: '2px', lineHeight: 1.4, color: empty ? C.text4 : C.text1, fontStyle: empty ? 'italic' : 'normal' }}>
+        {empty ? 'Não informado' : value}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Expandable party card ──────────────────────────────────── */
+import type { ParteDetalhada } from '@/app/api/analyze-case/route'
+
+function ExpandablePartyCard({
+  label, party, accent, icon, C,
+}: {
+  label: string
+  party: ParteDetalhada | undefined | null
+  accent: string
+  icon: React.ReactNode
+  C: ReturnType<typeof getColors>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [expandedAdvs, setExpandedAdvs] = useState<Set<number>>(new Set())
+
+  const p = party || ({} as ParteDetalhada)
+
+  // Build formatted address string
+  const addr = p.endereco
+  const addrParts = addr ? [
+    addr.rua && addr.numero ? `${addr.rua}, ${addr.numero}` : (addr.rua || addr.numero || ''),
+    addr.bairro,
+    addr.cidade && addr.estado ? `${addr.cidade}/${addr.estado}` : (addr.cidade || addr.estado || ''),
+    addr.cep,
+  ].filter(Boolean) : []
+  const addrStr = addrParts.length > 0 ? addrParts.join(' — ') : null
+
+  // Calculate age from data_nascimento (DD/MM/AAAA)
+  let idadeStr = ''
+  if (p.data_nascimento) {
+    const parts = p.data_nascimento.split('/')
+    if (parts.length === 3) {
+      const birth = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+      if (!isNaN(birth.getTime())) {
+        const now = new Date()
+        let age = now.getFullYear() - birth.getFullYear()
+        const m = now.getMonth() - birth.getMonth()
+        if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+        idadeStr = ` (${age} anos)`
+      }
+    }
+  }
+  const dataNascDisplay = p.data_nascimento ? `${p.data_nascimento}${idadeStr}` : null
+
+  const toggleAdv = (i: number) => setExpandedAdvs(prev => {
+    const next = new Set(prev)
+    next.has(i) ? next.delete(i) : next.add(i)
+    return next
+  })
+
+  return (
+    <div style={{ borderRadius: '10px', background: C.bg2, border: `1px solid ${accent}`, overflow: 'hidden' }}>
+      {/* Clickable header */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+          padding: '11px 14px', background: C.bg3, cursor: 'pointer', border: 'none',
+          borderBottom: `1px solid ${expanded ? accent + '60' : C.border2}`,
+          textAlign: 'left', transition: 'background 150ms ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = C.bg2 }}
+        onMouseLeave={e => { e.currentTarget.style.background = C.bg3 }}
+      >
+        {icon}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+          <div style={{ fontSize: '13px', color: C.text1, fontWeight: 600, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {p.nome || <span style={{ color: C.text4, fontStyle: 'italic', fontWeight: 400 }}>Não identificado</span>}
+          </div>
+        </div>
+        {p.cpf_cnpj && (
+          <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{p.cpf_cnpj}</span>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '4px' }}>
+          {!expanded && (
+            <span style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>detalhes</span>
+          )}
+          <ChevronRight size={12} style={{ color: C.text4, transform: expanded ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
+        </div>
+      </button>
+
+      {/* Collapsed: quick summary row */}
+      {!expanded && (
+        <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {p.estado_civil && (
+            <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{p.estado_civil}</span>
+          )}
+          {p.profissao && (
+            <span style={{ fontSize: '11px', color: C.text3 }}>{p.profissao}</span>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+            {(p.advogados || []).length > 0 ? `${p.advogados.length} adv.` : 'sem advogado'}
+          </span>
+        </div>
+      )}
+
+      {/* Expanded: full details */}
+      {expanded && (
+        <div style={{ padding: '14px 16px' }}>
+          {/* Personal data 2-col grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+            <DetailField label="CPF / CNPJ" value={p.cpf_cnpj} C={C} />
+            <DetailField label="RG" value={p.rg} C={C} />
+            <DetailField label="Nacionalidade" value={p.nacionalidade} C={C} />
+            <DetailField label="Estado Civil" value={p.estado_civil} C={C} />
+            <DetailField label="Profissão" value={p.profissao} C={C} />
+            <DetailField label="Data de Nascimento" value={dataNascDisplay} C={C} />
+            <DetailField label="Email" value={p.email} C={C} />
+            <DetailField label="Telefone" value={p.telefone} C={C} />
+          </div>
+
+          {/* Address full span */}
+          {addrStr ? (
+            <DetailField label="Endereço" value={addrStr} C={C} span />
+          ) : (
+            <DetailField label="Endereço" value={null} C={C} span />
+          )}
+
+          {/* Outras info */}
+          {p.outras_info && p.outras_info.trim() !== '' && (
+            <div style={{ marginTop: '4px', marginBottom: '8px', padding: '8px 10px', borderRadius: '6px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Outras Informações</div>
+              <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{p.outras_info}</div>
+            </div>
+          )}
+
+          {/* Advogados */}
+          <div style={{ marginTop: '12px', borderTop: `1px solid ${C.border1}`, paddingTop: '12px' }}>
+            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>
+              Advogados {(p.advogados || []).length > 0 ? `(${p.advogados.length})` : ''}
+            </div>
+
+            {(!p.advogados || p.advogados.length === 0) && (
+              <div style={{ fontSize: '11px', color: C.text4, fontStyle: 'italic' }}>Advogado não identificado</div>
+            )}
+
+            {(p.advogados || []).map((adv, i) => {
+              const advExp = expandedAdvs.has(i)
+              const oabLabel = adv.oab ? `OAB ${adv.seccional ? adv.seccional + '/' : ''}${adv.oab}` : null
+              return (
+                <div key={i} style={{ borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}`, marginBottom: '6px', overflow: 'hidden' }}>
+                  <button
+                    onClick={() => toggleAdv(i)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background 150ms ease' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.bg2 }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adv.nome || '—'}</div>
+                      {oabLabel && (
+                        <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{oabLabel}</div>
+                      )}
+                    </div>
+                    <ChevronRight size={11} style={{ color: C.text4, flexShrink: 0, transform: advExp ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
+                  </button>
+
+                  {advExp && (
+                    <div style={{ padding: '10px 12px 12px', borderTop: `1px solid ${C.border1}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+                      <DetailField label="OAB" value={oabLabel} C={C} />
+                      <DetailField label="Escritório" value={adv.escritorio} C={C} />
+                      <DetailField label="Email" value={adv.email} C={C} />
+                      <DetailField label="Telefone" value={adv.telefone} C={C} />
+                      {adv.endereco && adv.endereco.trim() !== '' && (
+                        <DetailField label="Endereço do Escritório" value={adv.endereco} C={C} span />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Main Component ─────────────────────────────────────────── */
 
 export default function NovoProcessoModal({
@@ -1571,36 +1762,23 @@ export default function NovoProcessoModal({
 
                     {/* ── PARTES ── */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      {/* Autor */}
-                      <Card accent={C.redBorder}>
-                        <SectionHeader icon={<User size={13} style={{ color: C.red, flexShrink: 0 }} />} label="Parte Autora" />
-                        <div style={{ padding: '14px 16px' }}>
-                          <LabelValue label="Nome" value={caseAnalysis.partes?.autor?.nome} />
-                          <LabelValue label="CPF / CNPJ" value={caseAnalysis.partes?.autor?.cpf_cnpj} />
-                          {(caseAnalysis.partes?.autor?.advogados || []).map((adv, i) => (
-                            <div key={i} style={{ marginBottom: '8px' }}>
-                              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Advogado(a) {i + 1}</div>
-                              <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500, marginTop: '2px' }}>{adv.nome || '—'}</div>
-                              {adv.oab && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>OAB {adv.oab}</div>}
-                            </div>
-                          ))}
-                          {(!caseAnalysis.partes?.autor?.advogados || caseAnalysis.partes.autor.advogados.length === 0) && (
-                            <div style={{ fontSize: '11px', color: C.text4, fontStyle: 'italic' }}>Advogado não identificado</div>
-                          )}
-                        </div>
-                      </Card>
-
-                      {/* Réu */}
-                      <Card accent={C.greenBorder}>
-                        <SectionHeader icon={<ShieldCheck size={13} style={{ color: C.green, flexShrink: 0 }} />} label="Réu — Nosso Cliente" />
-                        <div style={{ padding: '14px 16px' }}>
-                          <LabelValue label="Nome" value={caseAnalysis.partes?.reu?.nome || selectedClientName} />
-                          <LabelValue label="CPF / CNPJ" value={caseAnalysis.partes?.reu?.cpf_cnpj} />
-                          <div style={{ marginTop: '8px', padding: '8px 10px', borderRadius: '6px', background: C.greenBg, border: `1px solid ${C.greenBorder}`, fontSize: '10px', color: C.green }}>
-                            Advogados do réu a definir
-                          </div>
-                        </div>
-                      </Card>
+                      <ExpandablePartyCard
+                        label="Parte Autora"
+                        party={caseAnalysis.partes?.autor}
+                        accent={C.redBorder}
+                        icon={<User size={13} style={{ color: C.red, flexShrink: 0 }} />}
+                        C={C}
+                      />
+                      <ExpandablePartyCard
+                        label="Réu — Nosso Cliente"
+                        party={caseAnalysis.partes?.reu
+                          ? { ...caseAnalysis.partes.reu, nome: caseAnalysis.partes.reu.nome || selectedClientName }
+                          : { nome: selectedClientName, cpf_cnpj: '', rg: '', nacionalidade: '', estado_civil: '', profissao: '', data_nascimento: '', email: '', endereco: { rua: '', numero: '', bairro: '', cidade: '', estado: '', cep: '' }, telefone: '', outras_info: '', advogados: [] }
+                        }
+                        accent={C.greenBorder}
+                        icon={<ShieldCheck size={13} style={{ color: C.green, flexShrink: 0 }} />}
+                        C={C}
+                      />
                     </div>
 
                     {/* ── VALORES ── */}

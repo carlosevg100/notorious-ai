@@ -14,6 +14,38 @@ export interface DocumentoNecessario {
   prioridade: 'alta' | 'media' | 'baixa'
 }
 
+export interface AdvogadoDetalhado {
+  nome: string
+  oab: string
+  seccional: string
+  escritorio: string
+  endereco: string
+  email: string
+  telefone: string
+}
+
+export interface ParteDetalhada {
+  nome: string
+  cpf_cnpj: string
+  rg: string
+  nacionalidade: string
+  estado_civil: string
+  profissao: string
+  data_nascimento: string
+  email: string
+  endereco: {
+    rua: string
+    numero: string
+    bairro: string
+    cidade: string
+    estado: string
+    cep: string
+  }
+  telefone: string
+  outras_info: string
+  advogados: AdvogadoDetalhado[]
+}
+
 export interface CaseAnalysis {
   dados_processo: {
     numero_cnj: string
@@ -24,15 +56,8 @@ export interface CaseAnalysis {
     data_distribuicao: string
   }
   partes: {
-    autor: {
-      nome: string
-      cpf_cnpj: string
-      advogados: Array<{ nome: string; oab: string }>
-    }
-    reu: {
-      nome: string
-      cpf_cnpj: string
-    }
+    autor: ParteDetalhada
+    reu: ParteDetalhada
   }
   valores: {
     valor_causa: string
@@ -80,6 +105,8 @@ function buildPrompt(peticao: Record<string, unknown>, docs: SupportingDoc[]): s
 
   return `Você é um advogado sênior brasileiro especializado em direito processual civil. Analise os documentos da parte autora abaixo e produza uma extração completa e estruturada para orientar a defesa do réu.
 
+Extraia TODAS as informações pessoais e de qualificação das partes que constarem na petição inicial e documentos anexos. Petições iniciais brasileiras geralmente contêm a qualificação completa das partes no início do documento — nome, CPF/CNPJ, RG, nacionalidade, estado civil, profissão, data de nascimento, email, endereço completo e telefone.
+
 PETIÇÃO INICIAL EXTRAÍDA:
 ${JSON.stringify(peticao, null, 2)}
 
@@ -100,11 +127,54 @@ Com base em TODOS os documentos acima, retorne APENAS um JSON válido (sem markd
     "autor": {
       "nome": "nome completo da parte autora",
       "cpf_cnpj": "CPF ou CNPJ se mencionado, ou vazio",
-      "advogados": [{"nome": "nome do advogado", "oab": "número OAB se mencionado"}]
+      "rg": "número do RG se mencionado, ou vazio",
+      "nacionalidade": "nacionalidade se mencionada (ex: brasileiro(a)), ou vazio",
+      "estado_civil": "estado civil se mencionado (ex: solteiro, casado, divorciado), ou vazio",
+      "profissao": "profissão se mencionada, ou vazio",
+      "data_nascimento": "data de nascimento no formato DD/MM/AAAA se mencionada, ou vazio",
+      "email": "endereço de email se mencionado, ou vazio",
+      "endereco": {
+        "rua": "nome da rua ou avenida, ou vazio",
+        "numero": "número do imóvel, ou vazio",
+        "bairro": "bairro, ou vazio",
+        "cidade": "cidade, ou vazio",
+        "estado": "estado (UF de 2 letras), ou vazio",
+        "cep": "CEP no formato NNNNN-NNN, ou vazio"
+      },
+      "telefone": "telefone se mencionado, ou vazio",
+      "outras_info": "quaisquer outras informações de qualificação encontradas nos documentos, ou vazio",
+      "advogados": [
+        {
+          "nome": "nome completo do advogado",
+          "oab": "número da OAB (apenas o número)",
+          "seccional": "estado da seccional da OAB (ex: SP, RJ), ou vazio",
+          "escritorio": "nome do escritório de advocacia se mencionado, ou vazio",
+          "endereco": "endereço completo do escritório se mencionado, ou vazio",
+          "email": "email profissional do advogado se mencionado, ou vazio",
+          "telefone": "telefone profissional do advogado se mencionado, ou vazio"
+        }
+      ]
     },
     "reu": {
       "nome": "nome completo do réu",
-      "cpf_cnpj": "CPF ou CNPJ se mencionado, ou vazio"
+      "cpf_cnpj": "CPF ou CNPJ se mencionado, ou vazio",
+      "rg": "número do RG se mencionado, ou vazio",
+      "nacionalidade": "nacionalidade se mencionada, ou vazio",
+      "estado_civil": "estado civil se mencionado, ou vazio",
+      "profissao": "profissão se mencionada, ou vazio",
+      "data_nascimento": "data de nascimento no formato DD/MM/AAAA se mencionada, ou vazio",
+      "email": "endereço de email se mencionado, ou vazio",
+      "endereco": {
+        "rua": "nome da rua ou avenida, ou vazio",
+        "numero": "número do imóvel, ou vazio",
+        "bairro": "bairro, ou vazio",
+        "cidade": "cidade, ou vazio",
+        "estado": "estado (UF), ou vazio",
+        "cep": "CEP, ou vazio"
+      },
+      "telefone": "telefone se mencionado, ou vazio",
+      "outras_info": "outras informações de qualificação do réu encontradas nos documentos, ou vazio",
+      "advogados": []
     }
   },
   "valores": {
