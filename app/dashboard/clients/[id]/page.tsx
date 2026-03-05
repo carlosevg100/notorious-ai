@@ -12,6 +12,7 @@ import {
   AlertTriangle, Search, Clock, Shield, DollarSign, MapPin, Activity,
   Download, ChevronRight
 } from 'lucide-react'
+import NovoProcessoModal from '@/app/dashboard/components/NovoProcessoModal'
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const FASE_LABELS: Record<string, string> = {
@@ -60,6 +61,7 @@ export default function ClientDetailPage() {
   const [pecas,    setPecas]    = useState<{id:string;tipo:string;created_at:string;project_id:string}[]>([])
   const [loading,  setLoading]  = useState(true)
   const [showNew,  setShowNew]  = useState(false)
+  const [novoProcessoOpen, setNovoProcessoOpen] = useState(false)
   const [form,     setForm]     = useState({ name: '', numero_processo: '', tipo: 'contencioso', vara: '', comarca: '' })
   const [saving,   setSaving]   = useState(false)
   const [search,   setSearch]   = useState('')
@@ -258,7 +260,7 @@ export default function ClientDetailPage() {
           }}>
             <Download size={14} /> Exportar
           </button>
-          <button onClick={() => setShowNew(true)} style={{
+          <button onClick={() => setNovoProcessoOpen(true)} style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '7px 14px', borderRadius: '6px',
             background: 'var(--accent)', color: '#000', fontWeight: 600, fontSize: '13px', border: 'none', cursor: 'pointer',
@@ -663,6 +665,16 @@ export default function ClientDetailPage() {
           </div>
         </div>
       )}
+
+      <NovoProcessoModal
+        open={novoProcessoOpen}
+        onClose={() => setNovoProcessoOpen(false)}
+        onSuccess={() => {
+          setNovoProcessoOpen(false)
+          loadData()
+        }}
+        preSelectedClientId={clientId}
+      />
     </div>
   )
 }

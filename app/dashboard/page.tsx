@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 import { getColors } from '@/lib/theme-colors'
+import NovoProcessoModal from './components/NovoProcessoModal'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 interface Stats {
@@ -158,6 +159,7 @@ export default function DashboardPage() {
   const [clientSearch,   setClientSearch]   = useState('')
   const [loading,        setLoading]        = useState(true)
   const [briefingAberto, setBriefingAberto] = useState(true)
+  const [novoProcessoOpen, setNovoProcessoOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -416,20 +418,20 @@ export default function DashboardPage() {
             >
               + CLIENTE
             </Link>
-            <Link
-              href="/dashboard/clients?action=new-process"
+            <button
+              onClick={() => setNovoProcessoOpen(true)}
               className="action-btn-muted"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                 padding: '8px 16px', borderRadius: '7px',
                 background: C.bg2, border: `1px solid ${C.border2}`,
                 color: C.text2, fontSize: '11px', fontWeight: 500,
-                textDecoration: 'none', transition: 'all 150ms ease',
+                cursor: 'pointer', transition: 'all 150ms ease',
                 fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
               }}
             >
               + PROCESSO
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -1051,6 +1053,17 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      <NovoProcessoModal
+        open={novoProcessoOpen}
+        onClose={() => setNovoProcessoOpen(false)}
+        onSuccess={() => {
+          setNovoProcessoOpen(false)
+          // Reload data
+          setLoading(true)
+          window.location.reload()
+        }}
+      />
     </>
   )
 }
