@@ -34,46 +34,78 @@ export default function ProjectHubPage() {
       })
   }, [projectId])
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px' }}>
+      <div className="spinner" />
+    </div>
+  )
   if (!project) return <p style={{ color: 'var(--text-muted)' }}>Processo não encontrado.</p>
+
+  const FASE_LABELS: Record<string, string> = {
+    analise: 'Análise', contestacao: 'Contestação', recurso: 'Recurso',
+    execucao: 'Execução', encerrado: 'Encerrado',
+  }
+  const FASE_COLORS: Record<string, string> = {
+    analise: '#60A5FA', contestacao: '#F59E0B', recurso: '#F87171',
+    execucao: '#34D399', encerrado: '#4B5563',
+  }
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'documentos', label: 'Documentos', icon: FileText },
-    { key: 'analise', label: 'Análise', icon: BarChart3 },
-    { key: 'prazos', label: 'Prazos', icon: CalendarClock },
-    { key: 'pecas', label: 'Peças', icon: FileText },
-    { key: 'chat', label: 'Chat', icon: MessageSquare },
+    { key: 'analise',    label: 'Análise',    icon: BarChart3 },
+    { key: 'prazos',     label: 'Prazos',     icon: CalendarClock },
+    { key: 'pecas',      label: 'Peças',      icon: FileText },
+    { key: 'chat',       label: 'Chat',       icon: MessageSquare },
   ]
 
+  const faseColor = FASE_COLORS[project.fase] || '#4B5563'
+
   return (
-    <div className="space-y-6">
-      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm hover:underline" style={{ color: 'var(--text-muted)' }}>
-        <ArrowLeft size={16} /> Voltar
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <button
+        onClick={() => router.back()}
+        style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        <ArrowLeft size={14} /> Voltar
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold">{project.name}</h1>
-        <div className="flex gap-4 mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{project.name}</h1>
+          <span style={{
+            padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+            background: `${faseColor}18`, color: faseColor, border: `1px solid ${faseColor}30`,
+            fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>
+            {FASE_LABELS[project.fase] || project.fase}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           {project.client?.name && <span>{project.client.name}</span>}
-          {project.numero_processo && <span>{project.numero_processo}</span>}
-          <span className="capitalize">{project.tipo}</span>
-          <span className="capitalize">{project.fase}</span>
+          {project.numero_processo && <span className="font-mono">{project.numero_processo}</span>}
+          {project.vara && <span>{project.vara}</span>}
+          {project.comarca && <span>{project.comarca}</span>}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--bg-secondary)' }}>
+      {/* Tabs — border-bottom style, NOT filled amber */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', gap: '0' }}>
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style={{
-              background: tab === t.key ? 'var(--color-gold)' : 'transparent',
-              color: tab === t.key ? '#000' : 'var(--text-secondary)',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '10px 16px',
+              fontSize: '14px', fontWeight: 500,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
+              color: tab === t.key ? 'var(--accent)' : 'var(--text-secondary)',
+              marginBottom: '-1px',
+              transition: 'color 150ms ease',
             }}
           >
-            <t.icon size={16} />
+            <t.icon size={15} strokeWidth={1.5} />
             {t.label}
           </button>
         ))}
@@ -117,9 +149,9 @@ function DocumentosTab({ projectId, firmId }: { projectId: string; firmId: strin
   const statusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock size={16} className="text-zinc-400" />
-      case 'processing': return <Loader2 size={16} className="text-blue-400 animate-spin" />
-      case 'completed': return <CheckCircle2 size={16} className="text-emerald-400" />
-      case 'error': return <XCircle size={16} className="text-red-400" />
+      case 'processing': return <Loader2 size={16} style={{ color: "var(--info)" }} className="animate-spin" />
+      case 'completed': return <CheckCircle2 size={16} style={{ color: "var(--success)" }} />
+      case 'error': return <XCircle size={16} style={{ color: "var(--error)" }} />
       default: return <Clock size={16} />
     }
   }
@@ -135,7 +167,7 @@ function DocumentosTab({ projectId, firmId }: { projectId: string; firmId: strin
         className="p-8 rounded-xl text-center cursor-pointer transition-colors"
         style={{
           background: dragOver ? 'var(--bg-tertiary)' : 'var(--bg-card)',
-          border: `2px dashed ${dragOver ? 'var(--color-gold)' : 'var(--border-color)'}`,
+          border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
         }}
       >
         <Upload size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
@@ -159,13 +191,13 @@ function DocumentosTab({ projectId, firmId }: { projectId: string; firmId: strin
       ) : (
         <div className="space-y-2">
           {documents.map(doc => (
-            <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               {statusIcon(doc.processing_status)}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{doc.name}</p>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {doc.file_size_bytes ? formatFileSize(doc.file_size_bytes) : ''} · {statusLabel(doc.processing_status)}
-                  {doc.processing_error && <span className="text-red-400"> — {doc.processing_error}</span>}
+                  {doc.processing_error && <span style={{ color: "var(--error)" }}> — {doc.processing_error}</span>}
                 </p>
               </div>
               <span className={`text-xs font-medium ${statusColor(doc.processing_status)}`}>
@@ -211,7 +243,7 @@ function AnaliseTab({ projectId }: { projectId: string }) {
 
   if (!data) return <p style={{ color: 'var(--text-muted)' }}>Dados não disponíveis.</p>
 
-  const riskColor = data.risco_estimado === 'alto' ? 'text-red-400' : data.risco_estimado === 'medio' ? 'text-amber-400' : 'text-emerald-400'
+  const riskColor = data.risco_estimado === 'alto' ? 'var(--error)' : data.risco_estimado === 'medio' ? 'var(--warning)' : 'var(--success)'
 
   return (
     <div className="space-y-4">
@@ -220,7 +252,7 @@ function AnaliseTab({ projectId }: { projectId: string }) {
           value={selectedDoc}
           onChange={e => setSelectedDoc(e.target.value)}
           className="px-3 py-2 rounded-lg text-sm outline-none"
-          style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+          style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         >
           {docs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
@@ -291,8 +323,8 @@ function AnaliseTab({ projectId }: { projectId: string }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-gold)' }}>{title}</h3>
+    <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--accent)' }}>{title}</h3>
       {children}
     </div>
   )
@@ -344,31 +376,31 @@ function PrazosTab({ projectId, firmId }: { projectId: string; firmId: string })
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold text-black" style={{ background: 'var(--color-gold)' }}>
+        <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold text-black" style={{ background: 'var(--accent)' }}>
           <Plus size={14} /> Adicionar Prazo
         </button>
       </div>
 
       {showNew && (
-        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <form onSubmit={handleCreate} className="flex gap-3 items-end flex-wrap">
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Descrição</label>
-              <input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} required className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <input value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} required className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Data</label>
-              <input type="date" value={form.data_prazo} onChange={e => setForm({ ...form, data_prazo: e.target.value })} required className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <input type="date" value={form.data_prazo} onChange={e => setForm({ ...form, data_prazo: e.target.value })} required className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Tipo</label>
-              <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+              <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} className="px-3 py-2 rounded-lg text-sm outline-none" style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                 <option value="processual">Processual</option>
                 <option value="contratual">Contratual</option>
                 <option value="administrativo">Administrativo</option>
               </select>
             </div>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50" style={{ background: 'var(--color-gold)' }}>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50" style={{ background: 'var(--accent)' }}>
               {saving ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" onClick={() => setShowNew(false)} className="px-3 py-2 rounded-lg text-sm" style={{ color: 'var(--text-muted)' }}>Cancelar</button>
@@ -379,10 +411,10 @@ function PrazosTab({ projectId, firmId }: { projectId: string; firmId: string })
       {prazos.length === 0 ? (
         <p className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Nenhum prazo cadastrado para este processo.</p>
       ) : (
-        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)' }}>
+              <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
                 <th className="text-left py-3 px-4">Descrição</th>
                 <th className="text-left py-3 px-4">Data</th>
                 <th className="text-left py-3 px-4">Tipo</th>
@@ -453,7 +485,7 @@ function PecasTab({ projectId, firmId }: { projectId: string; firmId: string }) 
             onClick={() => generate(tipo)}
             disabled={generating !== null}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50"
-            style={{ background: 'var(--color-gold)' }}
+            style={{ background: 'var(--accent)' }}
           >
             {generating === tipo ? 'Gerando...' : `Gerar ${tipoLabel[tipo]}`}
           </button>
@@ -462,8 +494,8 @@ function PecasTab({ projectId, firmId }: { projectId: string; firmId: string }) 
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--border)' }}>
               <h2 className="text-lg font-semibold">{tipoLabel[selected.tipo] || selected.tipo} — v{selected.versao}</h2>
               <button onClick={() => setSelected(null)}><X size={20} style={{ color: 'var(--text-muted)' }} /></button>
             </div>
@@ -477,7 +509,7 @@ function PecasTab({ projectId, firmId }: { projectId: string; firmId: string }) 
       ) : (
         <div className="space-y-2">
           {pecas.map(peca => (
-            <button key={peca.id} onClick={() => setSelected(peca)} className="w-full text-left p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <button key={peca.id} onClick={() => setSelected(peca)} className="w-full text-left p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div className="flex items-center justify-between">
                 <span className="font-medium text-sm">{tipoLabel[peca.tipo] || peca.tipo} — v{peca.versao}</span>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(peca.created_at)}</span>
@@ -533,7 +565,7 @@ function ChatTab({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-col rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', height: '500px' }}>
+    <div className="flex flex-col rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', height: '500px' }}>
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
@@ -546,7 +578,7 @@ function ChatTab({ projectId }: { projectId: string }) {
             <div
               className="max-w-[70%] px-4 py-2.5 rounded-xl text-sm leading-relaxed"
               style={{
-                background: msg.role === 'user' ? 'var(--color-gold)' : 'var(--bg-secondary)',
+                background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-secondary)',
                 color: msg.role === 'user' ? '#000' : 'var(--text-primary)',
               }}
             >
@@ -558,19 +590,19 @@ function ChatTab({ projectId }: { projectId: string }) {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-3 flex gap-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+      <form onSubmit={handleSend} className="p-3 flex gap-2" style={{ borderTop: '1px solid var(--border)' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Pergunte sobre o processo..."
           className="flex-1 px-4 py-2.5 rounded-lg text-sm outline-none"
-          style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+          style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
         />
         <button
           type="submit"
           disabled={sending || !input.trim()}
           className="px-5 py-2.5 rounded-lg text-sm font-semibold text-black disabled:opacity-50"
-          style={{ background: 'var(--color-gold)' }}
+          style={{ background: 'var(--accent)' }}
         >
           {sending ? '...' : 'Enviar'}
         </button>

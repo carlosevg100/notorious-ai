@@ -7,17 +7,28 @@ import type { Client } from '@/lib/types'
 import Link from 'next/link'
 import { Plus, Building2, X } from 'lucide-react'
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '40px',
+  padding: '0 12px',
+  borderRadius: '6px',
+  background: 'var(--bg-input)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-primary)',
+  fontSize: '14px',
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+
 export default function ClientsPage() {
   const { firmId } = useAuth()
   const [clients, setClients] = useState<(Client & { _project_count?: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
-  const [form, setForm] = useState({ name: '', cnpj: '', email: '', type: 'empresa' })
-  const [saving, setSaving] = useState(false)
+  const [form, setForm]       = useState({ name: '', cnpj: '', email: '', type: 'empresa' })
+  const [saving, setSaving]   = useState(false)
 
-  useEffect(() => {
-    loadClients()
-  }, [firmId])
+  useEffect(() => { loadClients() }, [firmId])
 
   async function loadClients() {
     const { data } = await supabase
@@ -50,98 +61,190 @@ export default function ClientsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px' }}>
+        <div className="spinner" />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Clientes</h1>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Clientes</h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {clients.length} cliente{clients.length !== 1 ? 's' : ''} cadastrado{clients.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         <button
           onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-black"
-          style={{ background: 'var(--color-gold)' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '8px 16px', borderRadius: '6px',
+            background: 'var(--accent)', color: '#000000',
+            fontWeight: 600, fontSize: '14px', border: 'none', cursor: 'pointer',
+          }}
         >
-          <Plus size={16} /> Novo Cliente
+          <Plus size={16} strokeWidth={2} />
+          Novo Cliente
         </button>
       </div>
 
-      {/* New Client Modal */}
+      {/* ── Modal: Novo Cliente ───────────────────────────── */}
       {showNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md p-6 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Novo Cliente</h2>
-              <button onClick={() => setShowNew(false)}><X size={20} style={{ color: 'var(--text-muted)' }} /></button>
-            </div>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <input
-                placeholder="Nome do cliente *"
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                required
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-              />
-              <input
-                placeholder="CNPJ"
-                value={form.cnpj}
-                onChange={e => setForm({ ...form, cnpj: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-              />
-              <input
-                placeholder="Email"
-                type="email"
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-              />
-              <select
-                value={form.type}
-                onChange={e => setForm({ ...form, type: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-              >
-                <option value="empresa">Empresa</option>
-                <option value="pessoa_fisica">Pessoa Física</option>
-                <option value="orgao_publico">Órgão Público</option>
-              </select>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '440px',
+            padding: '28px', borderRadius: '12px',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Novo Cliente</h2>
               <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-2 rounded-lg font-semibold text-black text-sm disabled:opacity-50"
-                style={{ background: 'var(--color-gold)' }}
+                onClick={() => setShowNew(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}
               >
-                {saving ? 'Salvando...' : 'Criar Cliente'}
+                <X size={18} />
               </button>
+            </div>
+
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Nome / Razão Social *
+                </label>
+                <input
+                  placeholder="Empresa Ltda."
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  required
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  CNPJ
+                </label>
+                <input
+                  placeholder="00.000.000/0000-00"
+                  value={form.cnpj}
+                  onChange={e => setForm({ ...form, cnpj: e.target.value })}
+                  style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Email de contato
+                </label>
+                <input
+                  type="email"
+                  placeholder="contato@empresa.com.br"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Tipo
+                </label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm({ ...form, type: e.target.value })}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  <option value="empresa">Empresa / PJ</option>
+                  <option value="pessoa_fisica">Pessoa Física</option>
+                  <option value="orgao_publico">Órgão Público</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowNew(false)}
+                  style={{
+                    flex: 1, height: '40px', borderRadius: '6px',
+                    background: 'transparent', border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)', fontWeight: 500, fontSize: '14px', cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    flex: 1, height: '40px', borderRadius: '6px',
+                    background: 'var(--accent)', color: '#000000',
+                    fontWeight: 600, fontSize: '14px', border: 'none',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  {saving ? 'Salvando...' : 'Criar Cliente'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Client Grid */}
+      {/* ── Client Grid ───────────────────────────────────── */}
       {clients.length === 0 ? (
-        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
-          <Building2 size={48} className="mx-auto mb-3 opacity-40" />
-          <p>Nenhum cliente cadastrado.</p>
-          <p className="text-sm mt-1">Clique em "Novo Cliente" para começar.</p>
+        <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-muted)' }}>
+          <Building2 size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+          <p style={{ fontSize: '14px' }}>Nenhum cliente cadastrado.</p>
+          <p style={{ fontSize: '13px', marginTop: '4px' }}>Clique em &quot;Novo Cliente&quot; para começar.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {clients.map(client => (
             <Link
               key={client.id}
               href={`/dashboard/clients/${client.id}`}
-              className="block p-5 rounded-xl transition-all hover:scale-[1.01]"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              style={{
+                display: 'block',
+                padding: '20px',
+                borderRadius: '8px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+                transition: 'border-color 150ms ease',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
             >
-              <h3 className="font-semibold text-lg">{client.name}</h3>
-              {client.cnpj && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{client.cnpj}</p>}
-              <div className="mt-3 flex items-center gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                <span>{client._project_count || 0} processos</span>
-                <span className="capitalize">{client.type.replace('_', ' ')}</span>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                {client.name}
+              </h3>
+              {client.cnpj && (
+                <p className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {client.cnpj}
+                </p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                <span style={{
+                  padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                  background: 'var(--accent-subtle)', color: 'var(--accent)',
+                  border: '1px solid var(--accent-border)',
+                  fontFamily: 'var(--font-mono)',
+                }}>
+                  {client._project_count || 0} processo{(client._project_count || 0) !== 1 ? 's' : ''}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                  {client.type?.replace('_', ' ')}
+                </span>
               </div>
             </Link>
           ))}

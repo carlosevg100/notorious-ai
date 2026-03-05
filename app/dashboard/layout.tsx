@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
-import { LayoutDashboard, Users, CalendarClock, FileText, LogOut, Sun, Moon, Scale } from 'lucide-react'
+import { LayoutDashboard, Users, CalendarClock, FileText, LogOut, Sun, Moon } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/clients', label: 'Clientes', icon: Users },
-  { href: '/dashboard/prazos', label: 'Prazos', icon: CalendarClock },
-  { href: '/dashboard/pecas', label: 'Peças', icon: FileText },
+  { href: '/dashboard',         label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/clients', label: 'Clientes',  icon: Users },
+  { href: '/dashboard/prazos',  label: 'Prazos',    icon: CalendarClock },
+  { href: '/dashboard/pecas',   label: 'Peças',     icon: FileText },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -19,62 +19,156 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg-primary)' }}>
-      {/* Sidebar */}
-      <aside className="w-64 flex flex-col shrink-0" style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-color)' }}>
-        <div className="p-5 flex items-center gap-2.5">
-          <Scale size={24} style={{ color: 'var(--color-gold)' }} />
-          <span className="text-lg font-bold" style={{ color: 'var(--color-gold)' }}>Litigator AI</span>
+    <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-primary)' }}>
+
+      {/* ── Sidebar ─────────────────────────────────────────── */}
+      <aside style={{
+        width: '240px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-secondary)',
+        borderRight: '1px solid var(--border)',
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        overflow: 'hidden',
+      }}>
+
+        {/* Logo */}
+        <div style={{
+          padding: '20px 20px 16px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <span style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: 'var(--text-primary)',
+            userSelect: 'none',
+          }}>
+            Litigator<span style={{ color: 'var(--accent)' }}>AI</span>
+          </span>
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        {/* Nav */}
+        <nav style={{
+          flex: 1,
+          padding: '12px 8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+          overflowY: 'auto',
+        }}>
           {NAV_ITEMS.map(item => {
-            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const active = item.exact
+              ? pathname === item.href
+              : pathname.startsWith(item.href)
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                 style={{
-                  background: active ? 'var(--color-gold)' : 'transparent',
-                  color: active ? '#000' : 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: active ? '8px 12px 8px 10px' : '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                  transition: 'all 150ms ease',
+                  borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  background: active ? 'var(--accent-subtle)' : 'transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-secondary)',
                 }}
               >
-                <item.icon size={18} />
+                <item.icon size={16} strokeWidth={1.5} />
                 {item.label}
               </Link>
             )
           })}
         </nav>
 
-        <div className="p-3 space-y-1" style={{ borderTop: '1px solid var(--border-color)' }}>
+        {/* Bottom controls */}
+        <div style={{
+          padding: '8px',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+        }}>
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full transition-colors hover:opacity-80"
-            style={{ color: 'var(--text-secondary)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+              transition: 'color 150ms ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === 'dark'
+              ? <Sun size={16} strokeWidth={1.5} />
+              : <Moon size={16} strokeWidth={1.5} />
+            }
             {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
           </button>
-          <div className="px-3 py-1 text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+
+          <div style={{
+            padding: '4px 12px',
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontFamily: 'var(--font-mono)',
+          }}>
             {user?.email}
           </div>
+
           <button
             onClick={signOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full transition-colors hover:opacity-80"
-            style={{ color: 'var(--text-secondary)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+              transition: 'color 150ms ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
           >
-            <LogOut size={18} />
+            <LogOut size={16} strokeWidth={1.5} />
             Sair
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-6">
-          {children}
-        </div>
+      {/* ── Main ────────────────────────────────────────────── */}
+      <main style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+        {children}
       </main>
     </div>
   )

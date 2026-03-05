@@ -43,8 +43,8 @@ export default function PecasPage() {
       {/* Detail Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--border)' }}>
               <h2 className="text-lg font-semibold">{tipoLabel[selected.tipo] || selected.tipo} — v{selected.versao}</h2>
               <button onClick={() => setSelected(null)}><X size={20} style={{ color: 'var(--text-muted)' }} /></button>
             </div>
@@ -68,7 +68,7 @@ export default function PecasPage() {
               key={peca.id}
               onClick={() => setSelected(peca)}
               className="w-full text-left p-4 rounded-xl transition-all hover:scale-[1.005]"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -79,7 +79,7 @@ export default function PecasPage() {
                     <span>{formatDate(peca.created_at)}</span>
                   </div>
                 </div>
-                <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--color-gold)' }}>
+                <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--accent)' }}>
                   {peca.modelo_ia}
                 </span>
               </div>

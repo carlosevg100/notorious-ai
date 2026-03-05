@@ -43,10 +43,10 @@ export default function PrazosPage() {
           <p>Nenhum prazo cadastrado.</p>
         </div>
       ) : (
-        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)' }}>
+              <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
                 <th className="text-left py-3 px-4">Descrição</th>
                 <th className="text-left py-3 px-4">Processo</th>
                 <th className="text-left py-3 px-4">Data</th>
@@ -60,7 +60,7 @@ export default function PrazosPage() {
                 <tr key={p.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <td className="py-3 px-4">{p.descricao}</td>
                   <td className="py-3 px-4">
-                    <Link href={`/dashboard/projects/${p.project_id}`} className="hover:underline" style={{ color: 'var(--color-gold)' }}>
+                    <Link href={`/dashboard/projects/${p.project_id}`} className="hover:underline" style={{ color: 'var(--accent)' }}>
                       {p.project_name || '—'}
                     </Link>
                   </td>

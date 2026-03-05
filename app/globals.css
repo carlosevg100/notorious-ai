@@ -1,62 +1,97 @@
 @import "tailwindcss";
 
-@theme {
-  --color-gold: #C9A84C;
-  --color-gold-light: #E0C86E;
-  --color-gold-dark: #A68A3C;
+/* ─── Design Tokens ──────────────────────────────────────────── */
+:root {
+  /* Dark mode is DEFAULT */
+  --bg-primary: #08080A;
+  --bg-secondary: #111113;
+  --bg-card: #18181B;
+  --bg-input: #1E1E22;
+  --accent: #F0A500;
+  --accent-hover: #D4940A;
+  --accent-subtle: rgba(240, 165, 0, 0.10);
+  --accent-border: rgba(240, 165, 0, 0.25);
+  --text-primary: #FAFAFA;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --border: #27272A;
+  --border-subtle: #1E1E22;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  color-scheme: dark;
 }
 
-:root,
 [data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f4f5f7;
-  --bg-tertiary: #e8eaed;
-  --bg-card: #ffffff;
-  --bg-sidebar: #f8f9fa;
-  --bg-input: #ffffff;
-  --border-color: #d1d5db;
-  --border-subtle: #e5e7eb;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
-  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F4F4F5;
+  --bg-card: #FFFFFF;
+  --bg-input: #F4F4F5;
+  --accent: #D4940A;
+  --accent-hover: #B87D08;
+  --accent-subtle: rgba(212, 148, 10, 0.10);
+  --accent-border: rgba(212, 148, 10, 0.25);
+  --text-primary: #18181B;
+  --text-secondary: #52525B;
+  --text-muted: #A1A1AA;
+  --border: #E4E4E7;
+  --border-subtle: #F4F4F5;
+  --success: #16A34A;
+  --warning: #D97706;
+  --error: #DC2626;
+  --info: #2563EB;
   color-scheme: light;
 }
 
-[data-theme="dark"] {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --bg-tertiary: #1e1e1e;
-  --bg-card: #181818;
-  --bg-sidebar: #111111;
-  --bg-input: #1a1a1a;
-  --border-color: #2a2a2a;
-  --border-subtle: #222222;
-  --text-primary: #f0f0f0;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666666;
-  --shadow: 0 1px 3px rgba(0,0,0,0.4);
-  color-scheme: dark;
-}
+/* ─── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-geist), system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
+.font-mono {
+  font-family: var(--font-mono), 'Courier New', monospace;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Spinner */
+/* ─── Utilities ──────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner {
-  border: 2px solid var(--border-color);
-  border-top-color: var(--color-gold);
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   width: 20px;
   height: 20px;
   animation: spin 0.6s linear infinite;
 }
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--border) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* Amber pulse for AI processing */
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.pulse-amber { animation: pulse-amber 1.4s ease-in-out infinite; color: var(--accent); }
