@@ -70,8 +70,22 @@ function riskBadgeStyle(risk: string | null): React.CSSProperties {
 }
 
 /* ─── Component ──────────────────────────────────────────────── */
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function formatDateBR(): string {
+  const d = new Date()
+  const dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+  return `${dias[d.getDay()]}, ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()}`
+}
+
 export default function DashboardPage() {
-  const { firmId } = useAuth()
+  const { firmId, userName } = useAuth()
 
   const [stats,          setStats]          = useState<Stats>({ totalProcessos: 0, docsPendentes: 0, prazosEstaSemana: 0, prazosVencidos: 0, totalClientes: 0 })
   const [pipeline,       setPipeline]       = useState<Pipeline>({ analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 })
@@ -202,14 +216,48 @@ export default function DashboardPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-      {/* Page title */}
-      <div>
+      {/* Greeting + Executive Summary */}
+      <div style={{
+        padding: '20px 24px',
+        borderRadius: '10px',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+      }}>
         <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-          Dashboard
+          {getGreeting()}, {userName || 'Doutor(a)'}
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-          Visão geral da operação
+          {formatDateBR()}
         </p>
+        <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {stats.prazosVencidos > 0 && (
+            <div style={{ fontSize: '13px', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={14} />
+              <span><strong>{stats.prazosVencidos} prazo{stats.prazosVencidos > 1 ? 's' : ''} vencido{stats.prazosVencidos > 1 ? 's' : ''}</strong> — atenção imediata necessária</span>
+            </div>
+          )}
+          {stats.prazosEstaSemana > 0 && (
+            <div style={{ fontSize: '13px', color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CalendarClock size={14} />
+              <span><strong>{stats.prazosEstaSemana} prazo{stats.prazosEstaSemana > 1 ? 's' : ''}</strong> vence{stats.prazosEstaSemana > 1 ? 'm' : ''} esta semana</span>
+            </div>
+          )}
+          {stats.docsPendentes > 0 && (
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={14} />
+              <span><strong>{stats.docsPendentes} documento{stats.docsPendentes > 1 ? 's' : ''}</strong> aguardando processamento</span>
+            </div>
+          )}
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TrendingUp size={14} />
+            <span><strong>{stats.totalProcessos} processo{stats.totalProcessos !== 1 ? 's' : ''} ativo{stats.totalProcessos !== 1 ? 's' : ''}</strong> em {stats.totalClientes} cliente{stats.totalClientes !== 1 ? 's' : ''}</span>
+          </div>
+          {stats.prazosVencidos === 0 && stats.prazosEstaSemana === 0 && stats.docsPendentes === 0 && (
+            <div style={{ fontSize: '13px', color: '#22C55E', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>✓ Tudo em dia — nenhuma pendência urgente</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── KPI Cards ─────────────────────────────────────── */}
