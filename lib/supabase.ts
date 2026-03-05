@@ -1,25 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY } from './supabase-server'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fbgqzouxbagmmlzibyhl.supabase.co'
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZ3F6b3V4YmFnbW1semlieWhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NzYxNTEsImV4cCI6MjA4ODA1MjE1MX0.sVAMl7I5MWaN7NByHCiKQJLMqr-lNBR_control_test'
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // Server-side admin client (bypasses RLS)
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
-
-// Server-side user client (uses cookies for session)
-export async function createServerSupabase() {
-  const cookieStore = await cookies()
-  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      get(name: string) { return cookieStore.get(name)?.value },
-      set(name: string, value: string, options: CookieOptions) {
-        try { cookieStore.set({ name, value, ...options }) } catch {}
-      },
-      remove(name: string, options: CookieOptions) {
-        try { cookieStore.set({ name, value: '', ...options }) } catch {}
-      }
-    }
-  })
+export function createAdminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  return createClient(SUPABASE_URL, serviceKey)
 }
+
+export { SUPABASE_URL, SUPABASE_ANON_KEY }

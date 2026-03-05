@@ -1,100 +1,90 @@
 'use client'
-import { useEffect, useState } from 'react'
 
-interface Peca {
-  id: string
-  tipo: string
-  conteudo: string
-  modelo_ia: string
-  versao: number
-  created_at: string
-  project_id: string
-}
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import type { Peca } from '@/lib/types'
+import { formatDate } from '@/lib/utils'
+import { FileText, X } from 'lucide-react'
 
 export default function PecasPage() {
-  const [pecas, setPecas] = useState<Peca[]>([])
+  const { firmId } = useAuth()
+  const [pecas, setPecas] = useState<(Peca & { project_name?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Peca | null>(null)
 
   useEffect(() => {
-    fetch('/api/pecas').then(r => r.json()).then(data => {
-      setPecas(Array.isArray(data) ? data : [])
-      setLoading(false)
-    })
-  }, [])
+    supabase
+      .from('pecas')
+      .select('*, projects(name)')
+      .eq('firm_id', firmId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setPecas((data || []).map((p: Record<string, unknown>) => ({
+          ...p as unknown as Peca,
+          project_name: p.projects ? (p.projects as { name: string }).name : undefined,
+        })))
+        setLoading(false)
+      })
+  }, [firmId])
 
-  if (loading) return (
-    <div style={{ padding: 32, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div className="spinner" style={{ borderTopColor: 'var(--gold)' }} />
-      <span style={{ color: 'var(--text-4)' }}>Carregando peças...</span>
-    </div>
-  )
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+  }
 
-  const TIPO_LABELS: Record<string, string> = {
-    contestacao: 'Contestação', recurso: 'Recurso', peticao: 'Petição'
+  const tipoLabel: Record<string, string> = {
+    contestacao: 'Contestação', recurso: 'Recurso', peticao: 'Petição', parecer: 'Parecer',
   }
 
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Peças</h1>
-        <p style={{ color: 'var(--text-4)', fontSize: 13 }}>Documentos gerados por IA</p>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Peças Geradas</h1>
 
-      {!pecas.length ? (
-        <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
-          <div style={{ fontSize: 32, marginBottom: 16 }}>◻</div>
-          <h3 style={{ color: 'var(--text)', marginBottom: 8 }}>Nenhuma peça gerada</h3>
-          <p style={{ color: 'var(--text-4)' }}>
-            Acesse um processo e use a aba Peças para gerar contestações, recursos e petições.
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
-          <div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {pecas.map(p => (
-                <button key={p.id} onClick={() => setSelected(p)} className="btn"
-                  style={{
-                    justifyContent: 'space-between', padding: '12px 14px',
-                    background: selected?.id === p.id ? 'var(--gold-light)' : 'var(--bg-3)',
-                    borderColor: selected?.id === p.id ? 'var(--gold-border)' : 'var(--border)',
-                    color: selected?.id === p.id ? 'var(--gold)' : 'var(--text-3)',
-                    width: '100%'
-                  }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{TIPO_LABELS[p.tipo] || p.tipo}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-4)' }}>
-                      {new Date(p.created_at).toLocaleDateString('pt-BR')} — v{p.versao}
-                    </span>
-                  </div>
-                </button>
-              ))}
+      {/* Detail Modal */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <h2 className="text-lg font-semibold">{tipoLabel[selected.tipo] || selected.tipo} — v{selected.versao}</h2>
+              <button onClick={() => setSelected(null)}><X size={20} style={{ color: 'var(--text-muted)' }} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 whitespace-pre-wrap text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+              {selected.conteudo}
             </div>
           </div>
+        </div>
+      )}
 
-          <div>
-            {selected ? (
-              <div className="card" style={{ height: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                    {TIPO_LABELS[selected.tipo] || selected.tipo}
-                  </h3>
-                  <button className="btn" style={{ padding: '6px 14px', fontSize: 12 }}
-                    onClick={() => navigator.clipboard.writeText(selected.conteudo)}>
-                    Copiar texto
-                  </button>
+      {pecas.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+          <FileText size={48} className="mx-auto mb-3 opacity-40" />
+          <p>Nenhuma peça gerada ainda.</p>
+          <p className="text-sm mt-1">Acesse um processo e use a aba Peças para gerar.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pecas.map(peca => (
+            <button
+              key={peca.id}
+              onClick={() => setSelected(peca)}
+              className="w-full text-left p-4 rounded-xl transition-all hover:scale-[1.005]"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">{tipoLabel[peca.tipo] || peca.tipo}</h3>
+                  <div className="flex gap-3 mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    <span>{peca.project_name || '—'}</span>
+                    <span>v{peca.versao}</span>
+                    <span>{formatDate(peca.created_at)}</span>
+                  </div>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', fontSize: 13, lineHeight: 1.8, color: 'var(--text-2)', whiteSpace: 'pre-wrap' }}>
-                  {selected.conteudo}
-                </div>
+                <span className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-secondary)', color: 'var(--color-gold)' }}>
+                  {peca.modelo_ia}
+                </span>
               </div>
-            ) : (
-              <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-                <p style={{ color: 'var(--text-4)' }}>Selecione uma peça para visualizar</p>
-              </div>
-            )}
-          </div>
+            </button>
+          ))}
         </div>
       )}
     </div>

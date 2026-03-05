@@ -1,26 +1,23 @@
 'use client'
-import { createContext, useContext, useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from './supabase-client'
-import type { User, Session } from '@supabase/supabase-js'
 
-const FIRM_ID = '1f430c10-550a-4267-9193-e03c831fc394'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { supabase } from './supabase'
+import type { Session, User } from '@supabase/supabase-js'
+import { FIRM_ID } from './utils'
 
-interface AuthContextType {
+interface AuthContextValue {
   user: User | null
   session: Session | null
   firmId: string
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null, session: null, firmId: FIRM_ID, loading: true,
-  signIn: async () => {}, signOut: async () => {}
-})
+const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createSupabaseBrowserClient()
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,7 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    return { error: error?.message ?? null }
+  }
+
+  const signUp = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password })
+    return { error: error?.message ?? null }
   }
 
   const signOut = async () => {
@@ -51,10 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, firmId: FIRM_ID, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, firmId: FIRM_ID, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  return ctx
+}

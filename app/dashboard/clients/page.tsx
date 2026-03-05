@@ -1,143 +1,150 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
-interface Client {
-  id: string
-  name: string
-  cnpj?: string
-  email?: string
-  type: string
-  created_at: string
-  projects?: Array<{ id: string; status: string }>
-}
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import type { Client } from '@/lib/types'
+import Link from 'next/link'
+import { Plus, Building2, X } from 'lucide-react'
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([])
+  const { firmId } = useAuth()
+  const [clients, setClients] = useState<(Client & { _project_count?: number })[]>([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+  const [showNew, setShowNew] = useState(false)
   const [form, setForm] = useState({ name: '', cnpj: '', email: '', type: 'empresa' })
   const [saving, setSaving] = useState(false)
-  const router = useRouter()
 
   useEffect(() => {
-    fetch('/api/clients').then(r => r.json()).then(data => {
-      setClients(Array.isArray(data) ? data : [])
-      setLoading(false)
-    })
-  }, [])
+    loadClients()
+  }, [firmId])
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const res = await fetch('/api/clients', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form)
-    })
-    const data = await res.json()
-    if (!res.ok) { alert(data.error); setSaving(false); return }
-    setClients(prev => [data, ...prev])
-    setShowModal(false)
-    setForm({ name: '', cnpj: '', email: '', type: 'empresa' })
-    setSaving(false)
+  async function loadClients() {
+    const { data } = await supabase
+      .from('clients')
+      .select('*, projects(id)')
+      .eq('firm_id', firmId)
+      .order('name')
+
+    setClients((data || []).map((c: Record<string, unknown>) => ({
+      ...c as unknown as Client,
+      _project_count: Array.isArray(c.projects) ? c.projects.length : 0,
+    })))
+    setLoading(false)
   }
 
-  if (loading) return (
-    <div style={{ padding: 32, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div className="spinner" style={{ borderTopColor: 'var(--gold)' }} />
-      <span style={{ color: 'var(--text-4)' }}>Carregando clientes...</span>
-    </div>
-  )
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    await supabase.from('clients').insert({
+      firm_id: firmId,
+      name: form.name,
+      cnpj: form.cnpj || null,
+      email: form.email || null,
+      type: form.type,
+    })
+    setForm({ name: '', cnpj: '', email: '', type: 'empresa' })
+    setShowNew(false)
+    setSaving(false)
+    loadClients()
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+  }
 
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Clientes</h1>
-          <p style={{ color: 'var(--text-4)', fontSize: 13 }}>{clients.length} cliente{clients.length !== 1 ? 's' : ''}</p>
-        </div>
-        <button className="btn-gold" onClick={() => setShowModal(true)}>+ Novo Cliente</button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Clientes</h1>
+        <button
+          onClick={() => setShowNew(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-black"
+          style={{ background: 'var(--color-gold)' }}
+        >
+          <Plus size={16} /> Novo Cliente
+        </button>
       </div>
 
-      {clients.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
-          <div style={{ fontSize: 32, marginBottom: 16 }}>◈</div>
-          <h3 style={{ color: 'var(--text)', marginBottom: 8 }}>Nenhum cliente cadastrado</h3>
-          <p style={{ color: 'var(--text-4)', marginBottom: 24 }}>Adicione seu primeiro cliente para começar</p>
-          <button className="btn-gold" onClick={() => setShowModal(true)}>+ Novo Cliente</button>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {clients.map(c => {
-            const activeProjects = c.projects?.filter(p => p.status === 'ativo').length || 0
-            return (
-              <div key={c.id} className="card" style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
-                onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold-border)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: 'var(--gold-light)', border: '1px solid var(--gold-border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, color: 'var(--gold)', fontWeight: 700
-                  }}>
-                    {c.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="badge" style={{ background: 'var(--bg-3)', color: 'var(--text-4)', border: '1px solid var(--border)' }}>
-                    {c.type}
-                  </span>
-                </div>
-                <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{c.name}</h3>
-                {c.cnpj && <p style={{ fontSize: 12, color: 'var(--text-4)', marginBottom: 2 }}>CNPJ: {c.cnpj}</p>}
-                {c.email && <p style={{ fontSize: 12, color: 'var(--text-4)', marginBottom: 8 }}>{c.email}</p>}
-                <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-4)' }}>
-                    {activeProjects} processo{activeProjects !== 1 ? 's' : ''} ativo{activeProjects !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
+      {/* New Client Modal */}
+      {showNew && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md p-6 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Novo Cliente</h2>
+              <button onClick={() => setShowNew(false)}><X size={20} style={{ color: 'var(--text-muted)' }} /></button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <input
+                placeholder="Nome do cliente *"
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                required
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              />
+              <input
+                placeholder="CNPJ"
+                value={form.cnpj}
+                onChange={e => setForm({ ...form, cnpj: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              />
+              <input
+                placeholder="Email"
+                type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              />
+              <select
+                value={form.type}
+                onChange={e => setForm({ ...form, type: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              >
+                <option value="empresa">Empresa</option>
+                <option value="pessoa_fisica">Pessoa Física</option>
+                <option value="orgao_publico">Órgão Público</option>
+              </select>
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-2 rounded-lg font-semibold text-black text-sm disabled:opacity-50"
+                style={{ background: 'var(--color-gold)' }}
+              >
+                {saving ? 'Salvando...' : 'Criar Cliente'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Modal */}
-      {showModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 100
-        }} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="card" style={{ width: 440, padding: 32 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 24 }}>Novo Cliente</h2>
-            <form onSubmit={handleCreate}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome *</label>
-                <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="TechInova Ltda" required />
+      {/* Client Grid */}
+      {clients.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+          <Building2 size={48} className="mx-auto mb-3 opacity-40" />
+          <p>Nenhum cliente cadastrado.</p>
+          <p className="text-sm mt-1">Clique em "Novo Cliente" para começar.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {clients.map(client => (
+            <Link
+              key={client.id}
+              href={`/dashboard/clients/${client.id}`}
+              className="block p-5 rounded-xl transition-all hover:scale-[1.01]"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+            >
+              <h3 className="font-semibold text-lg">{client.name}</h3>
+              {client.cnpj && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{client.cnpj}</p>}
+              <div className="mt-3 flex items-center gap-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <span>{client._project_count || 0} processos</span>
+                <span className="capitalize">{client.type.replace('_', ' ')}</span>
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>CNPJ</label>
-                <input value={form.cnpj} onChange={e => setForm(f => ({...f, cnpj: e.target.value}))} placeholder="00.000.000/0001-00" />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>E-mail</label>
-                <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} placeholder="contato@empresa.com.br" />
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-4)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</label>
-                <select value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))}>
-                  <option value="empresa">Empresa</option>
-                  <option value="pessoa_fisica">Pessoa Física</option>
-                  <option value="orgao_publico">Órgão Público</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-gold" style={{ flex: 1 }} disabled={saving}>
-                  {saving ? 'Salvando...' : 'Criar Cliente'}
-                </button>
-              </div>
-            </form>
-          </div>
+            </Link>
+          ))}
         </div>
       )}
     </div>

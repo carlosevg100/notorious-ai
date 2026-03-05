@@ -1,99 +1,83 @@
 'use client'
+
 import { useEffect, useState } from 'react'
-import { diasUteisRestantes } from '@/lib/utils'
-
-interface Prazo {
-  id: string
-  descricao: string
-  data_prazo: string
-  tipo: string
-  status: string
-  dias_uteis_restantes?: number
-  project_id: string
-  projects?: { name: string }
-}
-
-function PrazoBadge({ du }: { du: number }) {
-  if (du < 0) return <span className="badge" style={{ background: '#ef444420', color: 'var(--error)', border: '1px solid #ef444440' }}>VENCIDO</span>
-  if (du <= 3) return <span className="badge" style={{ background: '#ef444420', color: 'var(--error)', border: '1px solid #ef444440' }}>{du} d.u.</span>
-  if (du <= 7) return <span className="badge" style={{ background: '#f59e0b20', color: 'var(--warning)', border: '1px solid #f59e0b40' }}>{du} d.u.</span>
-  return <span className="badge" style={{ background: '#22c55e20', color: 'var(--success)', border: '1px solid #22c55e40' }}>{du} d.u.</span>
-}
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import { diasUteisRestantes, formatDate, prazoBadgeColor } from '@/lib/utils'
+import type { Prazo } from '@/lib/types'
+import Link from 'next/link'
+import { CalendarClock } from 'lucide-react'
 
 export default function PrazosPage() {
-  const [prazos, setPrazos] = useState<Prazo[]>([])
+  const { firmId } = useAuth()
+  const [prazos, setPrazos] = useState<(Prazo & { project_name?: string })[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/prazos').then(r => r.json()).then(data => {
-      setPrazos(Array.isArray(data) ? data : [])
-      setLoading(false)
-    })
-  }, [])
+    supabase
+      .from('prazos')
+      .select('*, projects(name)')
+      .eq('firm_id', firmId)
+      .order('data_prazo', { ascending: true })
+      .then(({ data }) => {
+        setPrazos((data || []).map((p: Record<string, unknown>) => ({
+          ...p as unknown as Prazo,
+          project_name: p.projects ? (p.projects as { name: string }).name : undefined,
+          dias_uteis_restantes: diasUteisRestantes((p as unknown as Prazo).data_prazo),
+        })))
+        setLoading(false)
+      })
+  }, [firmId])
 
-  if (loading) return (
-    <div style={{ padding: 32, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div className="spinner" style={{ borderTopColor: 'var(--gold)' }} />
-      <span style={{ color: 'var(--text-4)' }}>Carregando prazos...</span>
-    </div>
-  )
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+  }
 
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Prazos</h1>
-        <p style={{ color: 'var(--text-4)', fontSize: 13 }}>Todos os prazos — em dias úteis (CPC art. 219)</p>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Prazos</h1>
 
-      <div className="card">
-        {!prazos.length ? (
-          <div style={{ textAlign: 'center', padding: '48px 32px', color: 'var(--text-4)' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>◷</div>
-            <p>Nenhum prazo cadastrado. Os prazos são extraídos automaticamente dos documentos processados.</p>
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {prazos.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+          <CalendarClock size={48} className="mx-auto mb-3 opacity-40" />
+          <p>Nenhum prazo cadastrado.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['Descrição', 'Processo', 'Data', 'Tipo', 'Dias Úteis', 'Status'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
-                ))}
+              <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)' }}>
+                <th className="text-left py-3 px-4">Descrição</th>
+                <th className="text-left py-3 px-4">Processo</th>
+                <th className="text-left py-3 px-4">Data</th>
+                <th className="text-left py-3 px-4">Tipo</th>
+                <th className="text-left py-3 px-4">Dias Úteis</th>
+                <th className="text-left py-3 px-4">Status</th>
               </tr>
             </thead>
             <tbody>
-              {prazos.map(p => {
-                const du = diasUteisRestantes(p.data_prazo)
-                return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 12px', fontSize: 13 }}>{p.descricao}</td>
-                    <td style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-3)' }}>
-                      {p.projects?.name || '—'}
-                    </td>
-                    <td style={{ padding: '10px 12px', fontSize: 13 }}>
-                      {new Date(p.data_prazo).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-4)' }}>
-                      {p.tipo}
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <PrazoBadge du={du} />
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span className="badge" style={{
-                        background: p.status === 'cumprido' ? '#22c55e20' : 'var(--bg-3)',
-                        color: p.status === 'cumprido' ? 'var(--success)' : 'var(--text-4)',
-                        border: `1px solid ${p.status === 'cumprido' ? '#22c55e40' : 'var(--border)'}`
-                      }}>
-                        {p.status}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
+              {prazos.map(p => (
+                <tr key={p.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <td className="py-3 px-4">{p.descricao}</td>
+                  <td className="py-3 px-4">
+                    <Link href={`/dashboard/projects/${p.project_id}`} className="hover:underline" style={{ color: 'var(--color-gold)' }}>
+                      {p.project_name || '—'}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-4">{formatDate(p.data_prazo)}</td>
+                  <td className="py-3 px-4 capitalize">{p.tipo}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${prazoBadgeColor(p.dias_uteis_restantes ?? 0)}`}>
+                      {(p.dias_uteis_restantes ?? 0) < 0 ? 'VENCIDO' : `${p.dias_uteis_restantes} d.u.`}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 capitalize">{p.status}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

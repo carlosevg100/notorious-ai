@@ -1,48 +1,91 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
-interface DashboardData {
-  stats: {
-    totalProcessos: number
-    documentosPendentes: number
-    prazosEstaSemana: number
-    prazosVencidos: number
-  }
-  pipeline: {
-    analise: number
-    contestacao: number
-    recurso: number
-    execucao: number
-    encerrado: number
-  }
-  proximosPrazos: Array<{
-    id: string
-    descricao: string
-    data_prazo: string
-    project_id: string
-    projects?: { name: string }
-  }>
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
+import { diasUteisRestantes, formatDate, prazoBadgeColor } from '@/lib/utils'
+import type { Project, Prazo } from '@/lib/types'
+import Link from 'next/link'
+import { FileText, Clock, AlertTriangle, Briefcase } from 'lucide-react'
+
+interface Stats {
+  totalProcessos: number
+  docsPendentes: number
+  prazosEstaSemana: number
+  prazosVencidos: number
+}
+
+interface Pipeline {
+  analise: number
+  contestacao: number
+  recurso: number
+  execucao: number
+  encerrado: number
 }
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
-  const router = useRouter()
+  const { firmId } = useAuth()
+  const [stats, setStats] = useState<Stats>({ totalProcessos: 0, docsPendentes: 0, prazosEstaSemana: 0, prazosVencidos: 0 })
+  const [pipeline, setPipeline] = useState<Pipeline>({ analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 })
+  const [prazosProximos, setPrazosProximos] = useState<(Prazo & { project_name?: string })[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard').then(r => r.json()).then(setData)
-  }, [])
+    async function load() {
+      const [projRes, docRes, prazoRes] = await Promise.all([
+        supabase.from('projects').select('id, fase, status').eq('firm_id', firmId),
+        supabase.from('documents').select('id, processing_status').eq('firm_id', firmId),
+        supabase.from('prazos').select('*, projects(name)').eq('firm_id', firmId).order('data_prazo', { ascending: true }),
+      ])
 
-  const stats = data?.stats
+      const projects = projRes.data || []
+      const docs = docRes.data || []
+      const prazos = prazoRes.data || []
 
-  const StatCard = ({ label, value, color }: { label: string; value: number; color: string }) => (
-    <div className="card" style={{ flex: 1 }}>
-      <div style={{ fontSize: 28, fontWeight: 700, color, marginBottom: 4 }}>{value ?? '—'}</div>
-      <div style={{ fontSize: 12, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-    </div>
-  )
+      const activeProjects = projects.filter(p => p.status === 'ativo')
+      const pendingDocs = docs.filter(d => d.processing_status === 'pending' || d.processing_status === 'processing')
 
-  const FASES = [
+      const now = new Date()
+      const prazosWithDias = prazos.map(p => ({
+        ...p,
+        project_name: (p as Record<string, unknown>).projects ? ((p as Record<string, unknown>).projects as { name: string }).name : undefined,
+        dias_uteis_restantes: diasUteisRestantes(p.data_prazo),
+      }))
+
+      const prazosVencidos = prazosWithDias.filter(p => p.dias_uteis_restantes < 0 && p.status === 'pendente')
+      const prazosEstaSemana = prazosWithDias.filter(p => p.dias_uteis_restantes >= 0 && p.dias_uteis_restantes <= 5 && p.status === 'pendente')
+
+      setStats({
+        totalProcessos: activeProjects.length,
+        docsPendentes: pendingDocs.length,
+        prazosEstaSemana: prazosEstaSemana.length,
+        prazosVencidos: prazosVencidos.length,
+      })
+
+      const pip: Pipeline = { analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 }
+      activeProjects.forEach(p => {
+        if (p.fase in pip) pip[p.fase as keyof Pipeline]++
+      })
+      setPipeline(pip)
+
+      setPrazosProximos(prazosWithDias.filter(p => p.status === 'pendente').slice(0, 10))
+      setLoading(false)
+    }
+    load()
+  }, [firmId])
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="spinner" /></div>
+  }
+
+  const statCards = [
+    { label: 'Processos Ativos', value: stats.totalProcessos, icon: Briefcase, color: 'text-blue-400' },
+    { label: 'Docs Pendentes', value: stats.docsPendentes, icon: FileText, color: 'text-amber-400' },
+    { label: 'Prazos Esta Semana', value: stats.prazosEstaSemana, icon: Clock, color: 'text-emerald-400' },
+    { label: 'Prazos Vencidos', value: stats.prazosVencidos, icon: AlertTriangle, color: 'text-red-400' },
+  ]
+
+  const pipelineStages = [
     { key: 'analise', label: 'Análise' },
     { key: 'contestacao', label: 'Contestação' },
     { key: 'recurso', label: 'Recurso' },
@@ -51,79 +94,75 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Dashboard</h1>
-        <p style={{ color: 'var(--text-4)', fontSize: 13 }}>Visão geral das operações</p>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
       {/* Stats */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
-        <StatCard label="Processos Ativos" value={stats?.totalProcessos ?? 0} color="var(--text)" />
-        <StatCard label="Docs Pendentes" value={stats?.documentosPendentes ?? 0} color="var(--warning)" />
-        <StatCard label="Prazos Esta Semana" value={stats?.prazosEstaSemana ?? 0} color="var(--gold)" />
-        <StatCard label="Prazos Vencidos" value={stats?.prazosVencidos ?? 0} color="var(--error)" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map(card => (
+          <div key={card.label} className="p-5 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{card.label}</p>
+                <p className="text-3xl font-bold mt-1">{card.value}</p>
+              </div>
+              <card.icon size={28} className={card.color} />
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Pipeline */}
-      <div className="card" style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 20 }}>Pipeline de Processos</h2>
-        <div style={{ display: 'flex', gap: 0 }}>
-          {FASES.map((fase, i) => {
-            const count = data?.pipeline[fase.key as keyof typeof data.pipeline] ?? 0
-            const isLast = i === FASES.length - 1
-            return (
-              <div key={fase.key} style={{
-                flex: 1, padding: '16px 20px', background: 'var(--bg-3)',
-                borderRight: isLast ? 'none' : '1px solid var(--border)',
-                borderRadius: i === 0 ? '8px 0 0 8px' : isLast ? '0 8px 8px 0' : 0,
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: count > 0 ? 'var(--gold)' : 'var(--text-4)', marginBottom: 4 }}>
-                  {count}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {fase.label}
-                </div>
-              </div>
-            )
-          })}
+      <div className="p-5 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <h2 className="text-lg font-semibold mb-4">Pipeline de Processos</h2>
+        <div className="flex gap-2">
+          {pipelineStages.map(stage => (
+            <div key={stage.key} className="flex-1 text-center p-4 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+              <p className="text-2xl font-bold" style={{ color: 'var(--color-gold)' }}>
+                {pipeline[stage.key as keyof Pipeline]}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{stage.label}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Próximos prazos */}
-      <div className="card">
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 20 }}>
-          Prazos Próximos (10 dias)
-        </h2>
-        {!data?.proximosPrazos?.length ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-4)' }}>
-            Nenhum prazo próximo
-          </div>
+      {/* Prazos próximos */}
+      <div className="p-5 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <h2 className="text-lg font-semibold mb-4">Prazos Próximos</h2>
+        {prazosProximos.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>Nenhum prazo cadastrado.</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['Descrição', 'Processo', 'Data'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, color: 'var(--text-4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.proximosPrazos.map(p => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                  onClick={() => router.push(`/dashboard/projects/${p.project_id}`)}>
-                  <td style={{ padding: '10px 12px', fontSize: 13 }}>{p.descricao}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-3)' }}>
-                    {p.projects?.name || '—'}
-                  </td>
-                  <td style={{ padding: '10px 12px', fontSize: 13, color: 'var(--gold)' }}>
-                    {new Date(p.data_prazo).toLocaleDateString('pt-BR')}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: 'var(--text-muted)' }}>
+                  <th className="text-left py-2 px-3">Descrição</th>
+                  <th className="text-left py-2 px-3">Processo</th>
+                  <th className="text-left py-2 px-3">Data</th>
+                  <th className="text-left py-2 px-3">Dias Úteis</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {prazosProximos.map(p => (
+                  <tr key={p.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <td className="py-2.5 px-3">{p.descricao}</td>
+                    <td className="py-2.5 px-3">
+                      <Link href={`/dashboard/projects/${p.project_id}`} className="hover:underline" style={{ color: 'var(--color-gold)' }}>
+                        {p.project_name || '—'}
+                      </Link>
+                    </td>
+                    <td className="py-2.5 px-3">{formatDate(p.data_prazo)}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium border ${prazoBadgeColor(p.dias_uteis_restantes ?? 0)}`}>
+                        {(p.dias_uteis_restantes ?? 0) < 0 ? 'VENCIDO' : `${p.dias_uteis_restantes} d.u.`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

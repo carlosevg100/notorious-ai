@@ -1,147 +1,79 @@
-"use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { signIn } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [name, setName] = useState("");
-  const [firmName, setFirmName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { signIn } = useAuth()
+  const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      await signIn(email, pass);
-      router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Erro ao entrar");
-    } finally {
-      setLoading(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const { error } = await signIn(email, password)
+    if (error) {
+      setError(error)
+      setLoading(false)
+    } else {
+      router.push('/dashboard')
     }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass, name, firmName })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      await signIn(email, pass);
-      router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Erro ao criar conta");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   return (
-    <div style={{
-      minHeight: '100vh', background: 'var(--bg)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden'
-    }}>
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(rgba(201,168,76,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.03) 1px, transparent 1px)',
-        backgroundSize: '40px 40px'
-      }} />
-      <div style={{
-        position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
-        width: '600px', height: '400px',
-        background: 'radial-gradient(ellipse, rgba(201,168,76,0.06) 0%, transparent 70%)',
-        pointerEvents: 'none'
-      }} />
-
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '420px', padding: '0 24px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '10px',
-              background: 'linear-gradient(135deg, #C9A84C, #8B6914)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '20px', fontWeight: '800', color: '#000'
-            }}>N</div>
-            <span style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', letterSpacing: '-0.5px' }}>
-              Notorious <span style={{ color: 'var(--gold)' }}>AI</span>
-            </span>
-          </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-4)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: '500' }}>
-            O Sistema Operacional do Advogado Brasileiro
-          </p>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+      <div className="w-full max-w-md p-8 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold)' }}>Litigator AI</h1>
+          <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>Plataforma de IA Jurídica</p>
         </div>
 
-        <div style={{
-          background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '36px'
-        }}>
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: 'var(--bg-3)', borderRadius: '8px', padding: '4px' }}>
-            {(['login', 'signup'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                style={{
-                  flex: 1, padding: '8px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                  background: mode === m ? 'var(--bg-2)' : 'transparent',
-                  color: mode === m ? 'var(--text)' : 'var(--text-4)',
-                  fontSize: '13px', fontWeight: mode === m ? '600' : '400',
-                  transition: 'all 0.15s'
-                }}>
-                {m === 'login' ? 'Entrar' : 'Criar conta'}
-              </button>
-            ))}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-colors"
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              placeholder="seu@email.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Senha</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-colors"
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              placeholder="••••••••"
+            />
           </div>
 
           {error && (
-            <div style={{ background: '#ef444415', border: '1px solid #ef444440', borderRadius: '6px', padding: '10px 12px', marginBottom: '16px', fontSize: '13px', color: '#ef4444' }}>
-              {error}
-            </div>
+            <p className="text-red-400 text-sm">{error}</p>
           )}
 
-          <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
-            {mode === 'signup' && (
-              <>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome completo</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Dr. João Silva" required />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome do escritório</label>
-                  <input type="text" value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Silva & Associados" required />
-                </div>
-              </>
-            )}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>E-mail</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@escritorio.adv.br" required />
-            </div>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Senha</label>
-              <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" required minLength={6} />
-            </div>
-            <button type="submit" className="btn-gold" disabled={loading}
-              style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-              {loading ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                  <span style={{ width: '14px', height: '14px', border: '2px solid #00000040', borderTop: '2px solid #000', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
-                  {mode === 'login' ? 'Entrando...' : 'Criando conta...'}
-                </span>
-              ) : (mode === 'login' ? 'Entrar' : 'Criar conta')}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-lg font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: 'var(--color-gold)' }}
+          >
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-  );
+  )
 }
