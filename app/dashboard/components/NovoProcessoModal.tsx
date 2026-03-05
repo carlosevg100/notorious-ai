@@ -166,6 +166,17 @@ function FieldRow({
   )
 }
 
+/* ─── Extraction Log Steps ───────────────────────────────────── */
+const LOG_STEPS = [
+  'Convertendo PDF para texto...',
+  'Identificando tipo de documento...',
+  'Extraindo partes e advogados...',
+  'Localizando número CNJ e comarca...',
+  'Analisando pedidos e fundamentos...',
+  'Calculando prazo de contestação...',
+  'Gerando ficha de risco inicial...',
+]
+
 /* ─── Main Component ─────────────────────────────────────────── */
 export default function NovoProcessoModal({
   open,
@@ -177,17 +188,23 @@ export default function NovoProcessoModal({
   const { theme } = useTheme()
   const C = getColors(theme)
 
-  const [step,           setStep]           = useState(1)
-  const [clients,        setClients]        = useState<Client[]>([])
-  const [selectedClient, setSelectedClient] = useState<string | null>(null)
-  const [file,           setFile]           = useState<File | null>(null)
-  const [dragOver,       setDragOver]       = useState(false)
-  const [extracting,     setExtracting]     = useState(false)
-  const [extracted,      setExtracted]      = useState<ExtractedData | null>(null)
-  const [extractError,   setExtractError]   = useState<string | null>(null)
-  const [editedData,     setEditedData]     = useState<ExtractedData | null>(null)
-  const [creating,       setCreating]       = useState(false)
-  const [toast,          setToast]          = useState<string | null>(null)
+  const [step,            setStep]            = useState(1)
+  const [clients,         setClients]         = useState<Client[]>([])
+  const [selectedClient,  setSelectedClient]  = useState<string | null>(null)
+  const [file,            setFile]            = useState<File | null>(null)
+  const [dragOver,        setDragOver]        = useState(false)
+  const [extracting,      setExtracting]      = useState(false)
+  const [extracted,       setExtracted]       = useState<ExtractedData | null>(null)
+  const [extractError,    setExtractError]    = useState<string | null>(null)
+  const [editedData,      setEditedData]      = useState<ExtractedData | null>(null)
+  const [creating,        setCreating]        = useState(false)
+  const [toast,           setToast]           = useState<string | null>(null)
+
+  /* Extraction log state */
+  const [logProgress,     setLogProgress]     = useState(0)      // 0–100
+  const [logStepsDone,    setLogStepsDone]    = useState(0)      // how many steps shown
+  const [logDone,         setLogDone]         = useState(false)  // extraction finished
+  const logTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -201,6 +218,7 @@ export default function NovoProcessoModal({
       setEditedData(null)
       setCreating(false)
       setSelectedClient(preSelectedClientId || null)
+      resetLog()
     }
   }, [open, preSelectedClientId])
 
@@ -217,12 +235,51 @@ export default function NovoProcessoModal({
 
   const canProceed = selectedClient && file
 
+  /* ── Reset log state ─────────────────────────────────────── */
+  function resetLog() {
+    logTimersRef.current.forEach(t => clearTimeout(t))
+    logTimersRef.current = []
+    setLogProgress(0)
+    setLogStepsDone(0)
+    setLogDone(false)
+  }
+
+  /* ── Start animated log sequence ─────────────────────────── */
+  function startLogAnimation(onApiComplete: Promise<void>) {
+    const totalSteps = LOG_STEPS.length
+    // Spread 7 steps over ~3.5 s (500ms each) → reaches ~70% of bar
+    const stepDelay = 500
+
+    for (let i = 0; i < totalSteps; i++) {
+      const t = setTimeout(() => {
+        setLogStepsDone(i + 1)
+        // Progress: each step advances ~10%, capped at 70%
+        setLogProgress(Math.round(((i + 1) / totalSteps) * 70))
+      }, (i + 1) * stepDelay)
+      logTimersRef.current.push(t)
+    }
+
+    // When API resolves, jump to 100% and mark done
+    onApiComplete.then(() => {
+      logTimersRef.current.forEach(t => clearTimeout(t))
+      setLogStepsDone(totalSteps)
+      setLogProgress(100)
+      setLogDone(true)
+    })
+  }
+
   /* ── Step 2: extraction ──────────────────────────────────── */
   const runExtraction = useCallback(async () => {
     if (!file) return
     setStep(2)
     setExtracting(true)
     setExtractError(null)
+    resetLog()
+
+    let resolveApi!: () => void
+    const apiPromise = new Promise<void>(res => { resolveApi = res })
+
+    startLogAnimation(apiPromise)
 
     try {
       const fd = new FormData()
@@ -231,14 +288,21 @@ export default function NovoProcessoModal({
       const res = await fetch('/api/extract-pdf', { method: 'POST', body: fd })
       const data = await res.json()
 
+      // Signal animation to finish
+      resolveApi()
+
       if (!res.ok || !data.extracted) {
         throw new Error(data.error || 'Falha na extração')
       }
 
       setExtracted(data.extracted)
       setEditedData(data.extracted)
+
+      // Wait 1s after "Extração concluída" then advance
+      await new Promise(r => setTimeout(r, 1000))
       setStep(3)
     } catch (err) {
+      resolveApi() // always resolve so animation stops
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
       setExtractError(msg)
     } finally {
@@ -252,25 +316,29 @@ export default function NovoProcessoModal({
     setCreating(true)
 
     try {
-      const projectName = editedData.nome_processo
-        || editedData.tipo_acao
-        || `Processo ${editedData.numero_processo || 'Novo'}`
+      /* Build name from extracted data — map to existing schema columns only */
+      const autor = editedData.autor?.trim()
+      const reu   = editedData.reu?.trim()
+      const projectName =
+        editedData.nome_processo?.trim() ||
+        editedData.tipo_acao?.trim() ||
+        (autor && reu
+          ? `${editedData.tipo_acao || 'Processo'} — ${autor} vs ${reu}`
+          : `Processo ${editedData.numero_processo || 'Novo'}`)
 
+      /* Insert ONLY columns that exist in the projects table */
       const { error } = await supabase.from('projects').insert({
-        firm_id:          firmId,
-        client_id:        selectedClient,
-        name:             projectName,
-        numero_processo:  editedData.numero_processo || null,
-        tipo:             editedData.tipo || 'contencioso',
-        area:             editedData.area || 'Cível',
-        fase:             'analise',
-        status:           'ativo',
-        vara:             editedData.vara || null,
-        comarca:          editedData.comarca || null,
-        valor_causa:      editedData.valor_causa || null,
-        autor:            editedData.autor || null,
-        reu:              editedData.reu || null,
-        pedidos:          editedData.pedidos || null,
+        firm_id:         firmId,
+        client_id:       selectedClient,
+        name:            projectName,
+        numero_processo: editedData.numero_processo  || null,
+        tipo:            editedData.tipo             || 'contencioso',
+        area:            editedData.area             || 'civel',
+        fase:            'analise',
+        status:          'ativo',
+        risk_level:      'medio',
+        vara:            editedData.vara             || null,
+        comarca:         editedData.comarca          || null,
       })
 
       if (error) throw new Error(error.message)
@@ -307,6 +375,9 @@ export default function NovoProcessoModal({
   function updateField(field: keyof ExtractedData, value: string) {
     setEditedData(prev => prev ? { ...prev, [field]: value } : prev)
   }
+
+  /* Resolve client name for display */
+  const selectedClientName = clients.find(c => c.id === selectedClient)?.name || ''
 
   if (!open) return null
 
@@ -562,51 +633,14 @@ export default function NovoProcessoModal({
 
           {/* ══ STEP 2: Extraction ════════════════════════════ */}
           {step === 2 && (
-            <div style={{
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: '24px', padding: '20px 0 10px',
-            }}>
-              {extracting ? (
-                <>
-                  {/* Spinner */}
-                  <div style={{ position: 'relative', width: '72px', height: '72px' }}>
-                    <Loader2
-                      size={72}
-                      style={{ color: C.amber, animation: 'spin 1s linear infinite' }}
-                    />
-                    <span style={{
-                      position: 'absolute', top: '50%', left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      fontSize: '20px',
-                    }}>🤖</span>
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px 0 8px' }}>
 
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.text1, marginBottom: '8px' }}>
-                      Analisando documento...
-                    </div>
-                    <div style={{ fontSize: '12px', color: C.text3, lineHeight: '1.6' }}>
-                      A AI está lendo a petição e extraindo automaticamente:<br />
-                      <span style={{ color: C.amber }}>
-                        CNJ · partes · vara · comarca · valor · pedidos · prazos
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Animated dots */}
-                  <div style={{
-                    width: '100%', height: '4px', borderRadius: '2px',
-                    background: C.bg3, overflow: 'hidden',
-                  }}>
-                    <div style={{
-                      height: '100%', width: '40%', borderRadius: '2px',
-                      background: C.amber,
-                      animation: 'slideProgress 1.4s ease-in-out infinite',
-                    }} />
-                  </div>
-                </>
-              ) : extractError ? (
-                <>
+              {extractError ? (
+                /* Error state */
+                <div style={{
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', gap: '16px', padding: '20px 0',
+                }}>
                   <AlertCircle size={48} style={{ color: C.red }} />
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>
@@ -615,7 +649,7 @@ export default function NovoProcessoModal({
                     <div style={{ fontSize: '12px', color: C.text3 }}>{extractError}</div>
                   </div>
                   <button
-                    onClick={() => setStep(1)}
+                    onClick={() => { setStep(1); setExtractError(null); resetLog() }}
                     style={{
                       padding: '10px 24px', borderRadius: '7px',
                       background: C.bg3, border: `1px solid ${C.border2}`,
@@ -624,8 +658,171 @@ export default function NovoProcessoModal({
                   >
                     ← Voltar
                   </button>
+                </div>
+              ) : (
+                /* Rich extraction log */
+                <>
+                  {/* File + client header */}
+                  <div>
+                    <div style={{ fontSize: '14px', color: C.text1, lineHeight: 1.5 }}>
+                      Analisando{' '}
+                      <strong style={{ color: C.text1, fontWeight: 700 }}>
+                        {file?.name || 'documento.pdf'}
+                      </strong>
+                    </div>
+                    {selectedClientName && (
+                      <div style={{
+                        fontSize: '11px', color: C.text3,
+                        fontFamily: 'IBM Plex Mono, monospace',
+                        marginTop: '3px',
+                      }}>
+                        {selectedClientName}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div>
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      alignItems: 'center', marginBottom: '6px',
+                    }}>
+                      <span style={{
+                        fontSize: '10px', color: C.text3,
+                        fontFamily: 'IBM Plex Mono, monospace',
+                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                      }}>
+                        Extração em andamento
+                      </span>
+                      <span style={{
+                        fontSize: '11px', color: C.amber,
+                        fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
+                      }}>
+                        {logProgress}%
+                      </span>
+                    </div>
+                    <div style={{
+                      width: '100%', height: '6px',
+                      borderRadius: '3px', background: C.bg3,
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${logProgress}%`,
+                        borderRadius: '3px',
+                        background: `linear-gradient(90deg, ${C.amber}cc, ${C.amber})`,
+                        transition: 'width 400ms ease',
+                        boxShadow: `0 0 8px ${C.amber}66`,
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* LOG DE EXTRAÇÃO card */}
+                  <div style={{
+                    borderRadius: '8px',
+                    background: C.bg0,
+                    border: `1px solid ${C.border1}`,
+                    padding: '14px 16px',
+                    display: 'flex', flexDirection: 'column', gap: '0',
+                  }}>
+                    {/* Card header */}
+                    <div style={{
+                      fontSize: '9px', color: C.text3,
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      textTransform: 'uppercase', letterSpacing: '0.12em',
+                      marginBottom: '10px',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                    }}>
+                      <span style={{
+                        display: 'inline-block', width: '6px', height: '6px',
+                        borderRadius: '50%',
+                        background: logDone ? C.green : C.amber,
+                        boxShadow: logDone
+                          ? `0 0 6px ${C.green}`
+                          : `0 0 6px ${C.amber}`,
+                        animation: logDone ? 'none' : 'pulse 1.2s ease-in-out infinite',
+                      }} />
+                      Log de Extração
+                    </div>
+
+                    {/* Steps */}
+                    {LOG_STEPS.map((stepText, i) => {
+                      const isVisible = i < logStepsDone
+                      const isDoneStep = isVisible
+                      if (!isVisible) return null
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: '8px',
+                            padding: '3px 0',
+                            animation: 'fadeInRow 300ms ease',
+                          }}
+                        >
+                          <span style={{
+                            color: C.green, fontFamily: 'IBM Plex Mono, monospace',
+                            fontSize: '12px', lineHeight: '18px', flexShrink: 0,
+                          }}>✓</span>
+                          <span style={{
+                            fontSize: '12px', color: C.text2,
+                            fontFamily: 'IBM Plex Mono, monospace',
+                            lineHeight: '18px',
+                          }}>
+                            {stepText}
+                          </span>
+                        </div>
+                      )
+                    })}
+
+                    {/* Final "Extração concluída" line */}
+                    {logDone && (
+                      <div
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '8px',
+                          padding: '3px 0',
+                          animation: 'fadeInRow 300ms ease',
+                        }}
+                      >
+                        <span style={{
+                          color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
+                          fontSize: '12px', lineHeight: '18px', flexShrink: 0,
+                        }}>▸</span>
+                        <span style={{
+                          fontSize: '12px', color: C.amber,
+                          fontFamily: 'IBM Plex Mono, monospace',
+                          fontWeight: 700, lineHeight: '18px',
+                        }}>
+                          Extração concluída.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Blinking cursor while running */}
+                    {!logDone && logStepsDone > 0 && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '3px 0',
+                      }}>
+                        <Loader2
+                          size={12}
+                          style={{
+                            color: C.amber,
+                            animation: 'spin 1s linear infinite',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '12px', color: C.text3,
+                          fontFamily: 'IBM Plex Mono, monospace',
+                          lineHeight: '18px',
+                        }}>
+                          Processando...
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </>
-              ) : null}
+              )}
             </div>
           )}
 
@@ -668,6 +865,19 @@ export default function NovoProcessoModal({
 
               <FieldRow label="Pedidos" field="pedidos" value={editedData.pedidos || ''} onChange={updateField} C={C} multiline />
               <FieldRow label="Prazos Identificados" field="prazos" value={editedData.prazos || ''} onChange={updateField} C={C} multiline />
+
+              {/* Info banner: extra fields shown here, not persisted to schema */}
+              {(editedData.autor || editedData.reu || editedData.valor_causa) && (
+                <div style={{
+                  fontSize: '11px', color: C.text3,
+                  padding: '8px 12px', borderRadius: '6px',
+                  background: C.bg2, border: `1px solid ${C.border1}`,
+                  fontFamily: 'IBM Plex Mono, monospace',
+                }}>
+                  ℹ Campos de partes, valor e pedidos são exibidos para referência.
+                  Serão incluídos no nome do processo automaticamente.
+                </div>
+              )}
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
@@ -730,9 +940,13 @@ export default function NovoProcessoModal({
           to   { opacity: 1; transform: translate(-50%, -50%); }
         }
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-        @keyframes slideProgress {
-          0%   { margin-left: -40%; }
-          100% { margin-left: 100%; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.3; }
+        }
+        @keyframes fadeInRow {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </>
