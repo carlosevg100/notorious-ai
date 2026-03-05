@@ -34,6 +34,12 @@ Retorne APENAS um JSON válido (sem markdown, sem explicações) com a seguinte 
 {
   "doc_type": "tipo confirmado do documento (ex: Contrato, Procuração, Laudo Pericial, etc.)",
   "summary": "resumo do conteúdo principal do documento em até 300 caracteres",
+  "resumo_executivo": "resumo executivo em 2-3 frases objetivas descrevendo o conteúdo principal, partes envolvidas e aspectos mais relevantes do documento",
+  "pontos_principais": [
+    "ponto principal 1 — fato, cláusula, data ou valor relevante",
+    "ponto principal 2",
+    "ponto principal 3"
+  ],
   "parties": [
     { "name": "nome da parte", "role": "papel no documento (ex: Contratante, Contratado, Outorgante, Procurador)" }
   ],
@@ -135,6 +141,8 @@ export async function POST(req: NextRequest) {
         extracted = {
           doc_type: documentCategory,
           summary: 'Não foi possível extrair o conteúdo do documento.',
+          resumo_executivo: null,
+          pontos_principais: [],
           parties: [],
           key_dates: [],
           deadlines: [],

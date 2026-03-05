@@ -55,6 +55,8 @@ interface PeticaoExtracted {
 interface SupportingExtracted {
   doc_type: string | null
   summary: string | null
+  resumo_executivo?: string | null
+  pontos_principais?: string[] | null
   parties: { name: string; role: string }[]
   key_dates: { date: string | null; description: string }[]
   deadlines: { date: string | null; description: string; urgency: string }[]
@@ -411,6 +413,7 @@ export default function NovoProcessoModal({
   const [adjustFeedback,    setAdjustFeedback]    = useState('')
   const [isSaving,          setIsSaving]          = useState(false)
   const [expandedTese,      setExpandedTese]      = useState<number | null>(null)
+  const [expandedDocCards,  setExpandedDocCards]  = useState<Set<string>>(new Set())
 
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const researchLogRef = useRef<HTMLDivElement>(null)
@@ -438,6 +441,7 @@ export default function NovoProcessoModal({
       setShowAdjustInput(false)
       setAdjustFeedback('')
       setIsSaving(false)
+      setExpandedDocCards(new Set())
       setSelectedClient(preSelectedClientId || null)
     }
   }, [open, preSelectedClientId])
@@ -1550,38 +1554,132 @@ export default function NovoProcessoModal({
                 }}>
                   Documentos processados ({allExtractions.length || extractions.length})
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {(allExtractions.length > 0 ? allExtractions : extractions).map(e => {
                     const sup = e.extracted as SupportingExtracted | undefined
+                    const isSupporting = e.category !== 'Petição Inicial'
+                    const hasDetails = isSupporting && sup && (sup.resumo_executivo || (sup.pontos_principais && sup.pontos_principais.length > 0))
+                    const isExpanded = expandedDocCards.has(e.taggedFileId)
+
                     return (
                       <div key={e.taggedFileId} style={{
-                        padding: '10px 12px', borderRadius: '8px',
-                        background: C.bg2, border: `1px solid ${e.status === 'error' ? C.redBorder : C.border1}`,
+                        borderRadius: '10px',
+                        background: C.bg2,
+                        border: `1px solid ${e.status === 'error' ? C.redBorder : isExpanded ? C.border3 : C.border1}`,
+                        overflow: 'hidden',
+                        transition: 'border-color 200ms ease',
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: sup?.summary ? '6px' : 0 }}>
-                          <FileStatusIcon status={e.status} C={C} />
+                        {/* Card header — always visible */}
+                        <div
+                          onClick={() => {
+                            if (!hasDetails) return
+                            setExpandedDocCards(prev => {
+                              const next = new Set(prev)
+                              next.has(e.taggedFileId) ? next.delete(e.taggedFileId) : next.add(e.taggedFileId)
+                              return next
+                            })
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '10px 14px',
+                            cursor: hasDetails ? 'pointer' : 'default',
+                          }}
+                        >
+                          <span style={{ fontSize: '16px', flexShrink: 0 }}>📄</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{
+                            <div style={{
                               fontSize: '12px', fontWeight: 600, color: C.text1,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                               {e.fileName}
-                            </span>
+                            </div>
+                            <div style={{
+                              fontSize: '10px', color: C.text3,
+                              fontFamily: 'IBM Plex Mono, monospace',
+                              textTransform: 'uppercase', letterSpacing: '0.05em',
+                              marginTop: '2px',
+                            }}>
+                              {e.category}
+                            </div>
                           </div>
-                          <span style={{
-                            fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
-                            color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
-                          }}>
-                            {e.category}
-                          </span>
+                          <FileStatusIcon status={e.status} C={C} />
+                          {hasDetails && (
+                            <ChevronRight
+                              size={14}
+                              style={{
+                                color: C.text3, flexShrink: 0,
+                                transform: isExpanded ? 'rotate(90deg)' : 'none',
+                                transition: '200ms',
+                              }}
+                            />
+                          )}
                         </div>
-                        {sup?.summary && (
-                          <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.5, paddingLeft: '22px' }}>
+
+                        {/* Petição Inicial: show pedidos summary if available */}
+                        {!isSupporting && sup && (sup as unknown as PeticaoExtracted).pedidos && (
+                          <div style={{
+                            padding: '0 14px 10px 40px',
+                            fontSize: '11px', color: C.text2, lineHeight: 1.5,
+                          }}>
+                            {(sup as unknown as PeticaoExtracted).pedidos}
+                          </div>
+                        )}
+
+                        {/* Supporting doc: inline resumo_executivo (always visible if present) */}
+                        {isSupporting && sup?.resumo_executivo && (
+                          <div style={{
+                            padding: '0 14px 10px 40px',
+                            fontSize: '11px', color: C.text2, lineHeight: 1.6,
+                            borderTop: `1px solid ${C.border1}`,
+                            paddingTop: '8px',
+                          }}>
+                            {sup.resumo_executivo}
+                          </div>
+                        )}
+
+                        {/* Fallback to old summary if no resumo_executivo */}
+                        {isSupporting && !sup?.resumo_executivo && sup?.summary && !isExpanded && (
+                          <div style={{
+                            padding: '0 14px 10px 40px',
+                            fontSize: '11px', color: C.text2, lineHeight: 1.5,
+                            borderTop: `1px solid ${C.border1}`,
+                            paddingTop: '8px',
+                          }}>
                             {sup.summary}
                           </div>
                         )}
+
+                        {/* Expanded: pontos_principais */}
+                        {isExpanded && hasDetails && sup?.pontos_principais && sup.pontos_principais.length > 0 && (
+                          <div style={{
+                            padding: '8px 14px 12px 40px',
+                            borderTop: `1px solid ${C.border1}`,
+                          }}>
+                            <div style={{
+                              fontSize: '9px', color: C.text3,
+                              fontFamily: 'IBM Plex Mono, monospace',
+                              textTransform: 'uppercase', letterSpacing: '0.08em',
+                              marginBottom: '6px', fontWeight: 700,
+                            }}>
+                              Pontos principais
+                            </div>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {sup.pontos_principais.map((pt, i) => (
+                                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11px', color: C.text2, lineHeight: 1.5 }}>
+                                  <span style={{ color: C.amber, flexShrink: 0, marginTop: '1px' }}>•</span>
+                                  <span>{pt}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Error */}
                         {e.error && (
-                          <div style={{ fontSize: '11px', color: C.red, paddingLeft: '22px', marginTop: '4px' }}>
+                          <div style={{
+                            padding: '6px 14px 10px 40px',
+                            fontSize: '11px', color: C.red,
+                          }}>
                             {e.error}
                           </div>
                         )}

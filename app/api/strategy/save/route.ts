@@ -23,9 +23,26 @@ interface SavePayload {
   jurisprudencia_desfavoravel: JurisprudenciaItem[]
   probabilidade_exito: number
   risco_estimado: string
-  valor_risco_estimado: string
+  valor_risco_estimado: string | number | null
   recomendacao: string
   draft: string
+}
+
+/**
+ * Parse a Brazilian currency string (e.g. "R$ 34.500,00") into a numeric value.
+ * Returns null if the value is absent or cannot be parsed.
+ */
+function parseBRCurrency(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number') return isNaN(value) ? null : value
+  // Strip "R$", spaces, thousand-separator dots; replace decimal comma with dot
+  const cleaned = String(value)
+    .replace(/R\$\s*/g, '')
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+  const num = parseFloat(cleaned)
+  return isNaN(num) ? null : num
 }
 
 export async function POST(req: NextRequest) {
@@ -45,6 +62,9 @@ export async function POST(req: NextRequest) {
 
     const adminSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
+    // Parse monetary value from AI-formatted Brazilian currency string → numeric
+    const valorRiscoNumeric = parseBRCurrency(valor_risco_estimado)
+
     // Save to case_strategies
     const { error: stratError } = await adminSupabase
       .from('case_strategies')
@@ -56,7 +76,7 @@ export async function POST(req: NextRequest) {
         jurisprudencia_favoravel,
         jurisprudencia_desfavoravel,
         risco_estimado,
-        valor_risco_estimado,
+        valor_risco_estimado: valorRiscoNumeric,
         recomendacao,
         draft_peca: draft,
         draft_tipo: 'contestacao',
