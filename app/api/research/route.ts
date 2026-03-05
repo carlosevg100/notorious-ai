@@ -472,7 +472,7 @@ function buildSourceLog(result: SourceResult, isLabor: boolean): string {
       ? `⚠ ${tribunal}: API indisponível — usando fontes alternativas`
       : `⚠ ${tribunal}: ${result.error.slice(0, 60)}`
   }
-  const tribunal = result.source === 'perplexity' ? 'Jurisprudência complementar (Perplexity)' : result.source.toUpperCase()
+  const tribunal = result.source === 'perplexity' ? 'Jurisprudência complementar' : result.source.toUpperCase()
   const unit = result.source === 'perplexity' ? 'resultados' : result.source === 'stf' ? 'decisões' : 'acórdãos'
   return `✓ ${tribunal}: ${result.count} ${unit} encontrados`
 }

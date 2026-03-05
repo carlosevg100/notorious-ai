@@ -1491,7 +1491,7 @@ export default function NovoProcessoModal({
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: C.text1, marginBottom: '6px' }}>Extraindo dados do processo...</div>
-                    <div style={{ fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>GPT-4o analisando todos os documentos em profundidade</div>
+                    <div style={{ fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Litigator AI analisando todos os documentos em profundidade</div>
                   </div>
                 </div>
               )}
@@ -1540,7 +1540,7 @@ export default function NovoProcessoModal({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: C.text1 }}>Ficha do Processo</div>
-                        <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>Extração estruturada via GPT-4o</div>
+                        <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>Extração estruturada por IA Jurídica</div>
                       </div>
                       <RiskBadge risco={caseAnalysis.risco_preliminar} C={C} />
                       <button
