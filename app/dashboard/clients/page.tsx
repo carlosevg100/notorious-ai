@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { diasUteisRestantes, formatDate } from '@/lib/utils'
@@ -34,8 +35,10 @@ function riskBadgeStyle(risk: string | null): React.CSSProperties {
   return {}
 }
 
-export default function ClientsPage() {
+function ClientsPageInner() {
   const { firmId } = useAuth()
+  const searchParams = useSearchParams()
+  const action = searchParams.get('action')
   const [clients, setClients] = useState<ClientWithMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
@@ -43,6 +46,13 @@ export default function ClientsPage() {
   const [saving, setSaving]   = useState(false)
   const [search, setSearch]   = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+
+  // Auto-open "Novo Cliente" modal when navigated with ?action=new
+  useEffect(() => {
+    if (action === 'new') {
+      setShowNew(true)
+    }
+  }, [action])
 
   useEffect(() => { loadClients() }, [firmId])
 
@@ -128,6 +138,19 @@ export default function ClientsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Banner: new-process guidance */}
+      {action === 'new-process' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '12px 16px', borderRadius: '8px',
+          background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+          color: 'var(--text-primary)', fontSize: '13px',
+        }}>
+          <span style={{ fontSize: '18px' }}>⚖️</span>
+          <span><strong>Novo Processo:</strong> selecione um cliente abaixo para abrir a ficha e criar o processo.</span>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
@@ -324,4 +347,12 @@ function riskPriority(risk: string): number {
   if (risk === 'medio') return 2
   if (risk === 'baixo') return 1
   return 0
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px' }}><div className="spinner" /></div>}>
+      <ClientsPageInner />
+    </Suspense>
+  )
 }

@@ -403,7 +403,7 @@ export default function DashboardPage() {
               </div>
             )}
             <Link
-              href="/dashboard/clients"
+              href="/dashboard/clients?action=new"
               className="action-btn-amber"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -417,7 +417,7 @@ export default function DashboardPage() {
               + CLIENTE
             </Link>
             <Link
-              href="/dashboard/projects/new"
+              href="/dashboard/clients?action=new-process"
               className="action-btn-muted"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
