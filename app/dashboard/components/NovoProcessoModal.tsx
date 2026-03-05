@@ -1,19 +1,41 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { X, Upload, CheckCircle2, Loader2, FileText, AlertCircle } from 'lucide-react'
+import {
+  X, Upload, CheckCircle2, Loader2, FileText,
+  AlertCircle, Trash2, ChevronDown,
+} from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/theme-context'
 import { getColors } from '@/lib/theme-colors'
 
 /* ─── Types ──────────────────────────────────────────────────── */
+
+const DOCUMENT_CATEGORIES = [
+  'Petição Inicial',
+  'Procuração',
+  'Contrato',
+  'Laudo / Parecer',
+  'Comprovante',
+  'Notificação',
+  'Outro',
+] as const
+
+type DocumentCategory = typeof DOCUMENT_CATEGORIES[number]
+
+interface TaggedFile {
+  id: string
+  file: File
+  category: DocumentCategory
+}
+
 interface Client {
   id: string
   name: string
 }
 
-interface ExtractedData {
+interface PeticaoExtracted {
   numero_processo: string | null
   nome_processo: string | null
   tipo_acao: string | null
@@ -26,6 +48,27 @@ interface ExtractedData {
   prazos: string | null
   tipo: string | null
   area: string | null
+}
+
+interface SupportingExtracted {
+  doc_type: string | null
+  summary: string | null
+  parties: { name: string; role: string }[]
+  key_dates: { date: string | null; description: string }[]
+  deadlines: { date: string | null; description: string; urgency: string }[]
+  risk_flags: { severity: string; description: string }[]
+  relevant_clauses: string | null
+  connection_to_case: string | null
+}
+
+interface FileExtractionResult {
+  taggedFileId: string
+  fileName: string
+  category: DocumentCategory
+  status: 'pending' | 'processing' | 'done' | 'error'
+  error?: string
+  extracted?: PeticaoExtracted | SupportingExtracted
+  documentId?: string
 }
 
 interface NovoProcessoModalProps {
@@ -56,38 +99,27 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
   const steps = [
     { n: 1, label: 'Upload' },
     { n: 2, label: 'Extração AI' },
-    { n: 3, label: 'Confirmação' },
+    { n: 3, label: 'Resumo' },
   ]
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      gap: 0, marginBottom: '24px',
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: '24px' }}>
       {steps.map((s, idx) => {
         const isActive   = s.n === step
         const isDone     = s.n < step
         const isInactive = s.n > step
-
+        void isInactive
         return (
           <div key={s.n} style={{ display: 'flex', alignItems: 'center' }}>
-            {/* Circle */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
               <div style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '13px', fontWeight: 700,
                 fontFamily: 'IBM Plex Mono, monospace',
-                background: isDone    ? C.green
-                          : isActive  ? C.amber
-                          : C.bg3,
-                color:  isDone    ? '#fff'
-                      : isActive  ? '#fff'
-                      : C.text3,
-                border: `2px solid ${
-                  isDone   ? C.green
-                : isActive ? C.amber
-                : C.border2}`,
+                background: isDone ? C.green : isActive ? C.amber : C.bg3,
+                color: isDone ? '#fff' : isActive ? '#fff' : C.text3,
+                border: `2px solid ${isDone ? C.green : isActive ? C.amber : C.border2}`,
                 transition: 'all 300ms ease',
               }}>
                 {isDone ? '✓' : s.n}
@@ -101,8 +133,6 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
                 {s.label}
               </span>
             </div>
-
-            {/* Connector line */}
             {idx < steps.length - 1 && (
               <div style={{
                 width: '60px', height: '2px', margin: '-14px 0 0',
@@ -117,67 +147,60 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
   )
 }
 
-/* ─── Field row for step 3 ───────────────────────────────────── */
-function FieldRow({
-  label, field, value, onChange, C, multiline,
-}: {
-  label: string
-  field: keyof ExtractedData
-  value: string
-  onChange: (f: keyof ExtractedData, v: string) => void
-  C: ReturnType<typeof getColors>
-  multiline?: boolean
-}) {
-  const base: React.CSSProperties = {
-    width: '100%', padding: '8px 10px',
-    borderRadius: '6px', background: C.bg3,
-    border: `1px solid ${C.border2}`,
-    color: C.text1, fontSize: '12px', outline: 'none',
-    fontFamily: 'inherit', boxSizing: 'border-box' as const,
-    resize: 'vertical' as const,
-  }
+/* ─── File status icon ───────────────────────────────────────── */
+function FileStatusIcon({ status, C }: { status: FileExtractionResult['status']; C: ReturnType<typeof getColors> }) {
+  if (status === 'done') return <CheckCircle2 size={14} style={{ color: C.green, flexShrink: 0 }} />
+  if (status === 'error') return <AlertCircle size={14} style={{ color: C.red, flexShrink: 0 }} />
+  if (status === 'processing') return <Loader2 size={14} style={{ color: C.amber, flexShrink: 0, animation: 'spin 1s linear infinite' }} />
+  return <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${C.border2}`, flexShrink: 0 }} />
+}
 
+/* ─── Category dropdown ──────────────────────────────────────── */
+function CategoryDropdown({
+  value, onChange, disabled, C,
+}: {
+  value: DocumentCategory
+  onChange: (v: DocumentCategory) => void
+  disabled?: boolean
+  C: ReturnType<typeof getColors>
+}) {
   return (
-    <div>
-      <div style={{
-        fontSize: '9px', color: C.text3,
-        fontFamily: 'IBM Plex Mono, monospace',
-        textTransform: 'uppercase', letterSpacing: '0.08em',
-        marginBottom: '5px',
-      }}>
-        {label}
-      </div>
-      {multiline ? (
-        <textarea
-          rows={3}
-          value={value}
-          onChange={e => onChange(field, e.target.value)}
-          style={base}
-        />
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={e => onChange(field, e.target.value)}
-          style={{ ...base, height: '34px' }}
-        />
-      )}
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={e => onChange(e.target.value as DocumentCategory)}
+        style={{
+          appearance: 'none',
+          padding: '5px 28px 5px 10px',
+          borderRadius: '6px',
+          background: C.bg2,
+          border: `1px solid ${C.border2}`,
+          color: disabled ? C.text3 : C.text1,
+          fontSize: '11px',
+          fontFamily: 'IBM Plex Mono, monospace',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          minWidth: '140px',
+        }}
+      >
+        {DOCUMENT_CATEGORIES.map(cat => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
+      </select>
+      <ChevronDown
+        size={12}
+        style={{
+          position: 'absolute', right: '8px', pointerEvents: 'none',
+          color: disabled ? C.text4 : C.text3,
+        }}
+      />
     </div>
   )
 }
 
-/* ─── Extraction Log Steps ───────────────────────────────────── */
-const LOG_STEPS = [
-  'Convertendo PDF para texto...',
-  'Identificando tipo de documento...',
-  'Extraindo partes e advogados...',
-  'Localizando número CNJ e comarca...',
-  'Analisando pedidos e fundamentos...',
-  'Calculando prazo de contestação...',
-  'Gerando ficha de risco inicial...',
-]
-
 /* ─── Main Component ─────────────────────────────────────────── */
+
 export default function NovoProcessoModal({
   open,
   onClose,
@@ -188,41 +211,43 @@ export default function NovoProcessoModal({
   const { theme } = useTheme()
   const C = getColors(theme)
 
-  const [step,            setStep]            = useState(1)
-  const [clients,         setClients]         = useState<Client[]>([])
-  const [selectedClient,  setSelectedClient]  = useState<string | null>(null)
-  const [file,            setFile]            = useState<File | null>(null)
-  const [dragOver,        setDragOver]        = useState(false)
-  const [extracting,      setExtracting]      = useState(false)
-  const [extracted,       setExtracted]       = useState<ExtractedData | null>(null)
-  const [extractError,    setExtractError]    = useState<string | null>(null)
-  const [editedData,      setEditedData]      = useState<ExtractedData | null>(null)
-  const [creating,        setCreating]        = useState(false)
-  const [toast,           setToast]           = useState<string | null>(null)
+  const [step,           setStep]           = useState(1)
+  const [clients,        setClients]        = useState<Client[]>([])
+  const [selectedClient, setSelectedClient] = useState<string | null>(null)
+  const [taggedFiles,    setTaggedFiles]    = useState<TaggedFile[]>([])
+  const [dragOver,       setDragOver]       = useState(false)
+  const [toast,          setToast]          = useState<string | null>(null)
 
-  /* Extraction log state */
-  const [logProgress,     setLogProgress]     = useState(0)      // 0–100
-  const [logStepsDone,    setLogStepsDone]    = useState(0)      // how many steps shown
-  const [logDone,         setLogDone]         = useState(false)  // extraction finished
-  const logTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  /* Step 2 state */
+  const [extractions,    setExtractions]    = useState<FileExtractionResult[]>([])
+  const [logLines,       setLogLines]       = useState<string[]>([])
+  const [overallProgress, setOverallProgress] = useState(0)
+  const [projectId,      setProjectId]      = useState<string | null>(null)
+  const [globalError,    setGlobalError]    = useState<string | null>(null)
+
+  /* Step 3 state */
+  const [peticaoData,    setPeticaoData]    = useState<PeticaoExtracted | null>(null)
+  const [allExtractions, setAllExtractions] = useState<FileExtractionResult[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  /* Reset on open */
+  /* ── Reset on open ───────────────────────────────────────── */
   useEffect(() => {
     if (open) {
       setStep(1)
-      setFile(null)
-      setExtracted(null)
-      setExtractError(null)
-      setEditedData(null)
-      setCreating(false)
+      setTaggedFiles([])
+      setExtractions([])
+      setLogLines([])
+      setOverallProgress(0)
+      setProjectId(null)
+      setGlobalError(null)
+      setPeticaoData(null)
+      setAllExtractions([])
       setSelectedClient(preSelectedClientId || null)
-      resetLog()
     }
   }, [open, preSelectedClientId])
 
-  /* Load clients */
+  /* ── Load clients ────────────────────────────────────────── */
   useEffect(() => {
     if (!open || !firmId) return
     supabase
@@ -233,155 +258,346 @@ export default function NovoProcessoModal({
       .then(({ data }) => setClients(data || []))
   }, [open, firmId])
 
-  const canProceed = selectedClient && file
-
-  /* ── Reset log state ─────────────────────────────────────── */
-  function resetLog() {
-    logTimersRef.current.forEach(t => clearTimeout(t))
-    logTimersRef.current = []
-    setLogProgress(0)
-    setLogStepsDone(0)
-    setLogDone(false)
+  /* ── Unique ID generator ─────────────────────────────────── */
+  function genId() {
+    return Math.random().toString(36).slice(2, 10)
   }
 
-  /* ── Start animated log sequence ─────────────────────────── */
-  function startLogAnimation(onApiComplete: Promise<void>) {
-    const totalSteps = LOG_STEPS.length
-    // Spread 7 steps over ~3.5 s (500ms each) → reaches ~70% of bar
-    const stepDelay = 500
-
-    for (let i = 0; i < totalSteps; i++) {
-      const t = setTimeout(() => {
-        setLogStepsDone(i + 1)
-        // Progress: each step advances ~10%, capped at 70%
-        setLogProgress(Math.round(((i + 1) / totalSteps) * 70))
-      }, (i + 1) * stepDelay)
-      logTimersRef.current.push(t)
-    }
-
-    // When API resolves, jump to 100% and mark done
-    onApiComplete.then(() => {
-      logTimersRef.current.forEach(t => clearTimeout(t))
-      setLogStepsDone(totalSteps)
-      setLogProgress(100)
-      setLogDone(true)
-    })
-  }
-
-  /* ── Step 2: extraction ──────────────────────────────────── */
-  const runExtraction = useCallback(async () => {
-    if (!file) return
-    setStep(2)
-    setExtracting(true)
-    setExtractError(null)
-    resetLog()
-
-    let resolveApi!: () => void
-    const apiPromise = new Promise<void>(res => { resolveApi = res })
-
-    startLogAnimation(apiPromise)
-
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-
-      const res = await fetch('/api/extract-pdf', { method: 'POST', body: fd })
-      const data = await res.json()
-
-      // Signal animation to finish
-      resolveApi()
-
-      if (!res.ok || !data.extracted) {
-        throw new Error(data.error || 'Falha na extração')
-      }
-
-      setExtracted(data.extracted)
-      setEditedData(data.extracted)
-
-      // Wait 1s after "Extração concluída" then advance
-      await new Promise(r => setTimeout(r, 1000))
-      setStep(3)
-    } catch (err) {
-      resolveApi() // always resolve so animation stops
-      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
-      setExtractError(msg)
-    } finally {
-      setExtracting(false)
-    }
-  }, [file])
-
-  /* ── Step 3: create project ──────────────────────────────── */
-  async function handleCreate() {
-    if (!editedData || !selectedClient || !firmId) return
-    setCreating(true)
-
-    try {
-      /* Build name from extracted data — map to existing schema columns only */
-      const autor = editedData.autor?.trim()
-      const reu   = editedData.reu?.trim()
-      const projectName =
-        editedData.nome_processo?.trim() ||
-        editedData.tipo_acao?.trim() ||
-        (autor && reu
-          ? `${editedData.tipo_acao || 'Processo'} — ${autor} vs ${reu}`
-          : `Processo ${editedData.numero_processo || 'Novo'}`)
-
-      /* Insert ONLY columns that exist in the projects table */
-      const { error } = await supabase.from('projects').insert({
-        firm_id:         firmId,
-        client_id:       selectedClient,
-        name:            projectName,
-        numero_processo: editedData.numero_processo  || null,
-        tipo:            editedData.tipo             || 'contencioso',
-        area:            editedData.area             || 'civel',
-        fase:            'analise',
-        status:          'ativo',
-        risk_level:      'medio',
-        vara:            editedData.vara             || null,
-        comarca:         editedData.comarca          || null,
-      })
-
-      if (error) throw new Error(error.message)
-
-      setToast('Processo criado com sucesso!')
-      setTimeout(() => {
-        setToast(null)
-        onSuccess()
-        onClose()
-      }, 1500)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar processo'
-      setExtractError(msg)
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  /* ── Drag & drop ─────────────────────────────────────────── */
+  /* ── File drop handler ───────────────────────────────────── */
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
-    const dropped = e.dataTransfer.files[0]
-    if (dropped && dropped.type === 'application/pdf') {
-      setFile(dropped)
-    }
+    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf')
+    addFiles(dropped)
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (selected) setFile(selected)
+    const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf')
+    addFiles(selected)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  function updateField(field: keyof ExtractedData, value: string) {
-    setEditedData(prev => prev ? { ...prev, [field]: value } : prev)
+  function addFiles(files: File[]) {
+    setTaggedFiles(prev => {
+      const existing = [...prev]
+      const hasPeticao = existing.some(f => f.category === 'Petição Inicial')
+
+      const newTagged = files.map((file, i) => ({
+        id: genId(),
+        file,
+        category: (!hasPeticao && i === 0)
+          ? ('Petição Inicial' as DocumentCategory)
+          : ('Outro' as DocumentCategory),
+      }))
+
+      return [...existing, ...newTagged]
+    })
   }
 
-  /* Resolve client name for display */
+  function removeFile(id: string) {
+    setTaggedFiles(prev => prev.filter(f => f.id !== id))
+  }
+
+  function updateCategory(id: string, category: DocumentCategory) {
+    setTaggedFiles(prev => prev.map(f => {
+      if (f.id !== id) return f
+      // If setting to Petição Inicial, demote existing one
+      return { ...f, category }
+    }))
+  }
+
+  /* Ensure only one Petição Inicial: when user selects it, demote others */
+  function handleCategoryChange(id: string, newCategory: DocumentCategory) {
+    setTaggedFiles(prev => prev.map(f => {
+      if (f.id === id) return { ...f, category: newCategory }
+      if (newCategory === 'Petição Inicial' && f.category === 'Petição Inicial') {
+        return { ...f, category: 'Outro' as DocumentCategory }
+      }
+      return f
+    }))
+  }
+
+  void updateCategory
+
+  const hasPeticao = taggedFiles.some(f => f.category === 'Petição Inicial')
+  const canProceed = selectedClient && taggedFiles.length > 0 && hasPeticao
+
+  /* ── Add log line ────────────────────────────────────────── */
+  function addLog(line: string) {
+    setLogLines(prev => [...prev, line])
+  }
+
+  /* ── Update extraction status ────────────────────────────── */
+  function updateExtraction(id: string, patch: Partial<FileExtractionResult>) {
+    setExtractions(prev => prev.map(e => e.taggedFileId === id ? { ...e, ...patch } : e))
+  }
+
+  /* ── Main extraction flow ────────────────────────────────── */
+  const runExtraction = useCallback(async () => {
+    if (!firmId || !selectedClient || taggedFiles.length === 0) return
+
+    setStep(2)
+    setGlobalError(null)
+
+    // Init extraction state for all files
+    const initialExtractions: FileExtractionResult[] = taggedFiles.map(tf => ({
+      taggedFileId: tf.id,
+      fileName: tf.file.name,
+      category: tf.category,
+      status: 'pending',
+    }))
+    setExtractions(initialExtractions)
+
+    const total = taggedFiles.length
+
+    try {
+      /* ── 1. Create project ──────────────────────────────── */
+      addLog('Criando processo no sistema...')
+
+      const projectName = `Novo Processo — ${clients.find(c => c.id === selectedClient)?.name || 'Cliente'}`
+      const { data: projectRow, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          firm_id: firmId,
+          client_id: selectedClient,
+          name: projectName,
+          fase: 'analise',
+          status: 'ativo',
+          risk_level: 'medio',
+          tipo: 'contencioso',
+          area: 'civel',
+        })
+        .select('id')
+        .single()
+
+      if (projectError || !projectRow) {
+        throw new Error(`Falha ao criar processo: ${projectError?.message}`)
+      }
+
+      const newProjectId = projectRow.id
+      setProjectId(newProjectId)
+      addLog(`✓ Processo criado [${newProjectId.slice(0, 8)}...]`)
+
+      /* ── 2. Upload all files to Storage ─────────────────── */
+      addLog(`Enviando ${total} documento(s) para armazenamento...`)
+
+      const uploadFormData = new FormData()
+      uploadFormData.append('project_id', newProjectId)
+      uploadFormData.append('firm_id', firmId)
+
+      taggedFiles.forEach((tf, i) => {
+        uploadFormData.append(`file_${i}`, tf.file)
+        uploadFormData.append(`category_${i}`, tf.category)
+      })
+
+      const uploadRes = await fetch('/api/upload-documents', {
+        method: 'POST',
+        body: uploadFormData,
+      })
+      const uploadData = await uploadRes.json()
+
+      if (!uploadRes.ok || !uploadData.documents) {
+        throw new Error(uploadData.error || 'Falha no upload de documentos')
+      }
+
+      addLog(`✓ ${total} documento(s) enviados com sucesso`)
+
+      // Map document_id back to tagged file id
+      const uploadedDocs = uploadData.documents as {
+        field: string; document_id: string; name: string; document_category: string
+      }[]
+
+      // Update extractions with document IDs
+      setExtractions(prev => prev.map(e => {
+        const match = uploadedDocs.find(d => d.name === e.fileName)
+        return match ? { ...e, documentId: match.document_id } : e
+      }))
+
+      /* ── 3. Extract Petição Inicial first ───────────────── */
+      const peticaoTagged = taggedFiles.find(f => f.category === 'Petição Inicial')!
+      const peticaoUploaded = uploadedDocs.find(d => d.document_category === 'Petição Inicial')!
+
+      addLog(`Extraindo petição inicial: ${peticaoTagged.file.name}...`)
+      setExtractions(prev => prev.map(e =>
+        e.taggedFileId === peticaoTagged.id ? { ...e, status: 'processing' } : e
+      ))
+
+      let peticaoExtracted: PeticaoExtracted | null = null
+
+      try {
+        const peticaoFd = new FormData()
+        peticaoFd.append('file', peticaoTagged.file)
+        peticaoFd.append('document_category', 'Petição Inicial')
+
+        const pRes = await fetch('/api/extract-pdf', { method: 'POST', body: peticaoFd })
+        const pData = await pRes.json()
+
+        if (!pRes.ok || !pData.extracted) throw new Error(pData.error || 'Falha na extração')
+
+        peticaoExtracted = pData.extracted as PeticaoExtracted
+
+        // Save extraction
+        await fetch('/api/save-extraction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            document_id: peticaoUploaded.document_id,
+            project_id: newProjectId,
+            document_category: 'Petição Inicial',
+            extracted: peticaoExtracted,
+            is_peticao: true,
+          }),
+        })
+
+        setExtractions(prev => prev.map(e =>
+          e.taggedFileId === peticaoTagged.id
+            ? { ...e, status: 'done', extracted: peticaoExtracted!, documentId: peticaoUploaded.document_id }
+            : e
+        ))
+        addLog(`✓ Petição inicial extraída — ${peticaoExtracted.tipo_acao || 'Tipo identificado'}`)
+
+        // Update project name if we got metadata
+        if (peticaoExtracted.nome_processo) {
+          addLog(`  Processo: ${peticaoExtracted.nome_processo}`)
+        }
+        if (peticaoExtracted.numero_processo) {
+          addLog(`  CNJ: ${peticaoExtracted.numero_processo}`)
+        }
+
+        setPeticaoData(peticaoExtracted)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro na extração da petição'
+        setExtractions(prev => prev.map(e =>
+          e.taggedFileId === peticaoTagged.id ? { ...e, status: 'error', error: msg } : e
+        ))
+        addLog(`✗ Erro na petição inicial: ${msg}`)
+      }
+
+      // Update progress: 1 done out of total
+      setOverallProgress(Math.round((1 / total) * 100))
+
+      /* ── 4. Extract supporting docs in parallel ─────────── */
+      const supportingFiles = taggedFiles.filter(f => f.category !== 'Petição Inicial')
+
+      if (supportingFiles.length > 0) {
+        addLog(`Iniciando extração paralela de ${supportingFiles.length} documento(s) de suporte...`)
+
+        // Mark all as processing
+        setExtractions(prev => prev.map(e =>
+          supportingFiles.some(sf => sf.id === e.taggedFileId)
+            ? { ...e, status: 'processing' }
+            : e
+        ))
+
+        let doneCount = 1 // petição counts as 1
+        const totalDone = { count: 1 }
+
+        await Promise.all(supportingFiles.map(async (sf, sfIdx) => {
+          const uploaded = uploadedDocs.find(d => d.name === sf.file.name)
+          if (!uploaded) return
+
+          try {
+            const fd = new FormData()
+            fd.append('file', sf.file)
+            fd.append('document_category', sf.category)
+
+            const res = await fetch('/api/extract-pdf', { method: 'POST', body: fd })
+            const data = await res.json()
+
+            if (!res.ok || !data.extracted) throw new Error(data.error || 'Falha na extração')
+
+            const extracted = data.extracted as SupportingExtracted
+
+            // Save extraction
+            await fetch('/api/save-extraction', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                document_id: uploaded.document_id,
+                project_id: newProjectId,
+                document_category: sf.category,
+                extracted,
+                is_peticao: false,
+              }),
+            })
+
+            setExtractions(prev => prev.map(e =>
+              e.taggedFileId === sf.id
+                ? { ...e, status: 'done', extracted, documentId: uploaded.document_id }
+                : e
+            ))
+
+            totalDone.count++
+            addLog(`✓ ${sf.category} extraído (${totalDone.count}/${total}): ${sf.file.name}`)
+            setOverallProgress(Math.round((totalDone.count / total) * 100))
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Erro'
+            setExtractions(prev => prev.map(e =>
+              e.taggedFileId === sf.id ? { ...e, status: 'error', error: msg } : e
+            ))
+            totalDone.count++
+            addLog(`✗ Erro em ${sf.file.name} (${sfIdx + 2}/${total}): ${msg}`)
+            setOverallProgress(Math.round((totalDone.count / total) * 100))
+          }
+        }))
+
+        void doneCount
+      }
+
+      setOverallProgress(100)
+      addLog('▸ Extração completa. Gerando resumo unificado...')
+
+      // Collect final extraction state for summary
+      setExtractions(prev => {
+        setAllExtractions(prev)
+        return prev
+      })
+
+      await new Promise(r => setTimeout(r, 800))
+      setStep(3)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      setGlobalError(msg)
+      addLog(`✗ Erro crítico: ${msg}`)
+    }
+  }, [firmId, selectedClient, taggedFiles, clients])
+
+  /* ── Helpers for summary screen ──────────────────────────── */
+  function getAllKeyDates(): { date: string | null; description: string; source: string }[] {
+    const dates: { date: string | null; description: string; source: string }[] = []
+    allExtractions.forEach(e => {
+      if (e.status !== 'done' || !e.extracted) return
+      const ext = e.extracted as SupportingExtracted
+      if (ext.key_dates) {
+        ext.key_dates.forEach(d => dates.push({ ...d, source: e.fileName }))
+      }
+    })
+    return dates
+  }
+
+  function getAllRiskFlags(): { severity: string; description: string; source: string }[] {
+    const flags: { severity: string; description: string; source: string }[] = []
+    allExtractions.forEach(e => {
+      if (e.status !== 'done' || !e.extracted) return
+      const ext = e.extracted as SupportingExtracted
+      if (ext.risk_flags) {
+        ext.risk_flags.forEach(f => flags.push({ ...f, source: e.fileName }))
+      }
+    })
+    return flags
+  }
+
+  function severityColor(sev: string) {
+    if (sev === 'alto') return C.red
+    if (sev === 'medio') return C.amber
+    return C.green
+  }
+
   const selectedClientName = clients.find(c => c.id === selectedClient)?.name || ''
 
   if (!open) return null
 
-  /* ─── Overlay ───────────────────────────────────────────── */
+  /* ─── Render ────────────────────────────────────────────── */
   return (
     <>
       {/* Backdrop */}
@@ -396,12 +612,12 @@ export default function NovoProcessoModal({
         }}
       />
 
-      {/* Modal card */}
+      {/* Modal */}
       <div style={{
         position: 'fixed',
         top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: 'min(660px, calc(100vw - 32px))',
+        width: 'min(700px, calc(100vw - 32px))',
         maxHeight: 'calc(100vh - 48px)',
         overflowY: 'auto',
         borderRadius: '14px',
@@ -412,25 +628,19 @@ export default function NovoProcessoModal({
         animation: 'slideUp 200ms ease',
       }}>
 
-        {/* ── Header ───────────────────────────────────────── */}
+        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '20px 24px 0',
         }}>
           <div>
-            <h2 style={{
-              margin: 0, fontSize: '18px', fontWeight: 700,
-              color: C.text1, letterSpacing: '-0.01em',
-            }}>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: C.text1, letterSpacing: '-0.01em' }}>
               Novo Processo
             </h2>
-            <p style={{
-              margin: '4px 0 0', fontSize: '11px', color: C.text3,
-              fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
-            }}>
-              {step === 1 && 'Etapa 1 de 3 — Upload da petição inicial'}
-              {step === 2 && 'Etapa 2 de 3 — Extração AI'}
-              {step === 3 && 'Etapa 3 de 3 — Confirmação'}
+            <p style={{ margin: '4px 0 0', fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em' }}>
+              {step === 1 && 'Etapa 1 de 3 — Upload de documentos'}
+              {step === 2 && 'Etapa 2 de 3 — Extração AI em andamento'}
+              {step === 3 && 'Etapa 3 de 3 — Resumo unificado'}
             </p>
           </div>
           <button
@@ -442,28 +652,20 @@ export default function NovoProcessoModal({
               alignItems: 'center', justifyContent: 'center',
               transition: 'all 150ms ease',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = C.bg3
-              e.currentTarget.style.color = C.text1
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.color = C.text3
-            }}
+            onMouseEnter={e => { e.currentTarget.style.background = C.bg3; e.currentTarget.style.color = C.text1 }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.text3 }}
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Divider */}
         <div style={{ height: '1px', background: C.border1, margin: '16px 0' }} />
 
-        {/* ── Body ─────────────────────────────────────────── */}
+        {/* Body */}
         <div style={{ padding: '0 24px 24px' }}>
-
           <StepIndicator step={step} C={C} />
 
-          {/* ══ STEP 1: Upload ════════════════════════════════ */}
+          {/* ══ STEP 1: Multi-file upload ══════════════════════ */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -477,12 +679,10 @@ export default function NovoProcessoModal({
                     width: '20px', height: '20px', borderRadius: '50%',
                     background: C.amberBg, border: `1px solid ${C.amberBorder}`,
                     color: C.amber, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '10px', fontWeight: 700,
-                    flexShrink: 0,
+                    justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0,
                   }}>1</span>
                   Selecione o cliente
                 </div>
-
                 {clients.length === 0 ? (
                   <div style={{
                     padding: '16px', borderRadius: '8px',
@@ -496,8 +696,7 @@ export default function NovoProcessoModal({
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                     gap: '8px',
-                    maxHeight: '180px', overflowY: 'auto',
-                    paddingRight: '4px',
+                    maxHeight: '180px', overflowY: 'auto', paddingRight: '4px',
                   }}>
                     {clients.map(c => {
                       const ac = avatarColor(c.name)
@@ -541,7 +740,7 @@ export default function NovoProcessoModal({
                 )}
               </div>
 
-              {/* PDF upload */}
+              {/* Multi-file drop zone */}
               <div>
                 <div style={{
                   fontSize: '11px', color: C.text2, fontWeight: 600,
@@ -551,24 +750,24 @@ export default function NovoProcessoModal({
                     width: '20px', height: '20px', borderRadius: '50%',
                     background: C.amberBg, border: `1px solid ${C.amberBorder}`,
                     color: C.amber, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '10px', fontWeight: 700,
-                    flexShrink: 0,
+                    justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0,
                   }}>2</span>
-                  Faça upload da petição inicial (PDF)
+                  Adicione os documentos do processo (PDFs)
                 </div>
 
+                {/* Drop zone */}
                 <div
                   onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: `2px dashed ${dragOver ? C.amber : file ? C.green : C.border2}`,
+                    border: `2px dashed ${dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.border2}`,
                     borderRadius: '10px',
-                    padding: '28px 20px',
+                    padding: '20px',
                     textAlign: 'center',
                     cursor: 'pointer',
-                    background: dragOver ? C.amberBg : file ? C.greenBg : C.bg2,
+                    background: dragOver ? C.amberBg : taggedFiles.length > 0 ? C.greenBg : C.bg2,
                     transition: 'all 200ms ease',
                   }}
                 >
@@ -576,80 +775,130 @@ export default function NovoProcessoModal({
                     ref={fileInputRef}
                     type="file"
                     accept=".pdf"
+                    multiple
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
-
-                  {file ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                      <FileText size={28} style={{ color: C.green }} />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: C.green }}>
-                          {file.name}
-                        </div>
-                        <div style={{ fontSize: '11px', color: C.text3, marginTop: '3px' }}>
-                          {(file.size / 1024).toFixed(0)} KB · Clique para trocar
-                        </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <Upload size={24} style={{ color: dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.text3 }} />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.text2 }}>
+                        {taggedFiles.length > 0
+                          ? `${taggedFiles.length} arquivo(s) — clique para adicionar mais`
+                          : 'Arraste PDFs aqui ou clique para selecionar'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: C.text3, marginTop: '4px' }}>
+                        Aceita múltiplos PDFs — petição inicial + documentos de suporte
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                      <Upload size={28} style={{ color: dragOver ? C.amber : C.text3 }} />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: dragOver ? C.amber : C.text2 }}>
-                          Arraste o PDF aqui ou clique para selecionar
-                        </div>
-                        <div style={{ fontSize: '11px', color: C.text3, marginTop: '5px' }}>
-                          A AI extrai automaticamente: CNJ, partes, comarca, valor, pedidos, prazos
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
+
+                {/* File list */}
+                {taggedFiles.length > 0 && (
+                  <div style={{
+                    marginTop: '12px',
+                    display: 'flex', flexDirection: 'column', gap: '6px',
+                    maxHeight: '240px', overflowY: 'auto',
+                  }}>
+                    {taggedFiles.map(tf => (
+                      <div key={tf.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        background: tf.category === 'Petição Inicial' ? C.amberBg : C.bg2,
+                        border: `1px solid ${tf.category === 'Petição Inicial' ? C.amberBorder : C.border1}`,
+                        transition: 'all 150ms ease',
+                      }}>
+                        <FileText size={14} style={{ color: tf.category === 'Petição Inicial' ? C.amber : C.text3, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '12px', fontWeight: 500, color: C.text1,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {tf.file.name}
+                          </div>
+                          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                            {(tf.file.size / 1024).toFixed(0)} KB
+                          </div>
+                        </div>
+                        <CategoryDropdown
+                          value={tf.category}
+                          onChange={v => handleCategoryChange(tf.id, v)}
+                          C={C}
+                        />
+                        <button
+                          onClick={() => removeFile(tf.id)}
+                          style={{
+                            width: '28px', height: '28px', borderRadius: '6px',
+                            background: 'transparent', border: `1px solid ${C.border2}`,
+                            color: C.text3, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 150ms ease', flexShrink: 0,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Validation hint */}
+                {taggedFiles.length > 0 && !hasPeticao && (
+                  <div style={{
+                    marginTop: '8px', padding: '8px 12px', borderRadius: '6px',
+                    background: C.redBg, border: `1px solid ${C.redBorder}`,
+                    color: C.red, fontSize: '11px',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                  }}>
+                    <AlertCircle size={12} />
+                    Marque um documento como "Petição Inicial" antes de continuar
+                  </div>
+                )}
               </div>
 
-              {/* CTA button */}
+              {/* CTA */}
               <button
                 disabled={!canProceed}
                 onClick={runExtraction}
                 style={{
                   width: '100%', padding: '13px',
-                  borderRadius: '8px', fontWeight: 700,
-                  fontSize: '13px', cursor: canProceed ? 'pointer' : 'not-allowed',
+                  borderRadius: '8px', fontWeight: 700, fontSize: '13px',
+                  cursor: canProceed ? 'pointer' : 'not-allowed',
                   border: `1px solid ${canProceed ? C.amber : C.border1}`,
                   background: canProceed ? C.amber : C.bg3,
                   color: canProceed ? '#fff' : C.text4,
                   transition: 'all 200ms ease',
-                  fontFamily: 'IBM Plex Mono, monospace',
-                  letterSpacing: '0.06em',
+                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
                 }}
               >
                 {canProceed
-                  ? 'Enviar para Extração AI →'
-                  : 'Selecione o cliente e faça upload de PDF'}
+                  ? `Enviar ${taggedFiles.length} documento${taggedFiles.length > 1 ? 's' : ''} para Extração AI →`
+                  : !selectedClient
+                    ? 'Selecione o cliente primeiro'
+                    : taggedFiles.length === 0
+                      ? 'Adicione ao menos um PDF'
+                      : 'Marque a Petição Inicial'}
               </button>
             </div>
           )}
 
-          {/* ══ STEP 2: Extraction ════════════════════════════ */}
+          {/* ══ STEP 2: Extraction log ════════════════════════ */}
           {step === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px 0 8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0 8px' }}>
 
-              {extractError ? (
-                /* Error state */
-                <div style={{
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', gap: '16px', padding: '20px 0',
-                }}>
+              {globalError ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
                   <AlertCircle size={48} style={{ color: C.red }} />
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>
-                      Falha na extração
-                    </div>
-                    <div style={{ fontSize: '12px', color: C.text3 }}>{extractError}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha na extração</div>
+                    <div style={{ fontSize: '12px', color: C.text3 }}>{globalError}</div>
                   </div>
                   <button
-                    onClick={() => { setStep(1); setExtractError(null); resetLog() }}
+                    onClick={() => { setStep(1); setGlobalError(null) }}
                     style={{
                       padding: '10px 24px', borderRadius: '7px',
                       background: C.bg3, border: `1px solid ${C.border2}`,
@@ -660,162 +909,126 @@ export default function NovoProcessoModal({
                   </button>
                 </div>
               ) : (
-                /* Rich extraction log */
                 <>
-                  {/* File + client header */}
+                  {/* Client + file count header */}
                   <div>
                     <div style={{ fontSize: '14px', color: C.text1, lineHeight: 1.5 }}>
-                      Analisando{' '}
-                      <strong style={{ color: C.text1, fontWeight: 700 }}>
-                        {file?.name || 'documento.pdf'}
-                      </strong>
+                      Processando <strong style={{ color: C.amber }}>{taggedFiles.length} documento(s)</strong>
                     </div>
                     {selectedClientName && (
-                      <div style={{
-                        fontSize: '11px', color: C.text3,
-                        fontFamily: 'IBM Plex Mono, monospace',
-                        marginTop: '3px',
-                      }}>
+                      <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
                         {selectedClientName}
                       </div>
                     )}
                   </div>
 
-                  {/* Progress bar */}
+                  {/* Overall progress bar */}
                   <div>
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      alignItems: 'center', marginBottom: '6px',
-                    }}>
-                      <span style={{
-                        fontSize: '10px', color: C.text3,
-                        fontFamily: 'IBM Plex Mono, monospace',
-                        textTransform: 'uppercase', letterSpacing: '0.08em',
-                      }}>
-                        Extração em andamento
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        Progresso geral
                       </span>
-                      <span style={{
-                        fontSize: '11px', color: C.amber,
-                        fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
-                      }}>
-                        {logProgress}%
+                      <span style={{ fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
+                        {overallProgress}%
                       </span>
                     </div>
-                    <div style={{
-                      width: '100%', height: '6px',
-                      borderRadius: '3px', background: C.bg3,
-                      overflow: 'hidden',
-                    }}>
+                    <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: C.bg3, overflow: 'hidden' }}>
                       <div style={{
-                        height: '100%',
-                        width: `${logProgress}%`,
-                        borderRadius: '3px',
+                        height: '100%', width: `${overallProgress}%`, borderRadius: '3px',
                         background: `linear-gradient(90deg, ${C.amber}cc, ${C.amber})`,
                         transition: 'width 400ms ease',
                         boxShadow: `0 0 8px ${C.amber}66`,
                       }} />
                     </div>
+                    <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '4px' }}>
+                      {extractions.filter(e => e.status === 'done' || e.status === 'error').length} de {taggedFiles.length} documentos concluídos
+                    </div>
                   </div>
 
-                  {/* LOG DE EXTRAÇÃO card */}
+                  {/* Per-file status list */}
                   <div style={{
-                    borderRadius: '8px',
-                    background: C.bg0,
-                    border: `1px solid ${C.border1}`,
-                    padding: '14px 16px',
-                    display: 'flex', flexDirection: 'column', gap: '0',
+                    borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`,
+                    padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px',
                   }}>
-                    {/* Card header */}
                     <div style={{
-                      fontSize: '9px', color: C.text3,
-                      fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.12em',
-                      marginBottom: '10px',
+                      fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                      textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px',
+                    }}>
+                      Status por documento
+                    </div>
+                    {extractions.map(e => (
+                      <div key={e.taggedFileId} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '5px 0',
+                        borderBottom: `1px solid ${C.border1}`,
+                      }}>
+                        <FileStatusIcon status={e.status} C={C} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '11px', color: C.text1, overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {e.fileName}
+                          </div>
+                          {e.error && (
+                            <div style={{ fontSize: '10px', color: C.red, marginTop: '1px' }}>{e.error}</div>
+                          )}
+                        </div>
+                        <span style={{
+                          fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                          color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.amber : C.text4,
+                          textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
+                        }}>
+                          {e.category}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Extraction log */}
+                  <div style={{
+                    borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`,
+                    padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '0',
+                    maxHeight: '200px', overflowY: 'auto',
+                  }}>
+                    <div style={{
+                      fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                      textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px',
                       display: 'flex', alignItems: 'center', gap: '8px',
                     }}>
                       <span style={{
-                        display: 'inline-block', width: '6px', height: '6px',
-                        borderRadius: '50%',
-                        background: logDone ? C.green : C.amber,
-                        boxShadow: logDone
-                          ? `0 0 6px ${C.green}`
-                          : `0 0 6px ${C.amber}`,
-                        animation: logDone ? 'none' : 'pulse 1.2s ease-in-out infinite',
+                        display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+                        background: overallProgress === 100 ? C.green : C.amber,
+                        boxShadow: overallProgress === 100 ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`,
+                        animation: overallProgress === 100 ? 'none' : 'pulse 1.2s ease-in-out infinite',
                       }} />
                       Log de Extração
                     </div>
-
-                    {/* Steps */}
-                    {LOG_STEPS.map((stepText, i) => {
-                      const isVisible = i < logStepsDone
-                      const isDoneStep = isVisible
-                      if (!isVisible) return null
-                      return (
-                        <div
-                          key={i}
-                          style={{
-                            display: 'flex', alignItems: 'flex-start', gap: '8px',
-                            padding: '3px 0',
-                            animation: 'fadeInRow 300ms ease',
-                          }}
-                        >
-                          <span style={{
-                            color: C.green, fontFamily: 'IBM Plex Mono, monospace',
-                            fontSize: '12px', lineHeight: '18px', flexShrink: 0,
-                          }}>✓</span>
-                          <span style={{
-                            fontSize: '12px', color: C.text2,
-                            fontFamily: 'IBM Plex Mono, monospace',
-                            lineHeight: '18px',
-                          }}>
-                            {stepText}
-                          </span>
-                        </div>
-                      )
-                    })}
-
-                    {/* Final "Extração concluída" line */}
-                    {logDone && (
-                      <div
-                        style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '8px',
-                          padding: '3px 0',
-                          animation: 'fadeInRow 300ms ease',
-                        }}
-                      >
+                    {logLines.map((line, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '8px',
+                        padding: '2px 0', animation: 'fadeInRow 200ms ease',
+                      }}>
                         <span style={{
-                          color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
-                          fontSize: '12px', lineHeight: '18px', flexShrink: 0,
-                        }}>▸</span>
-                        <span style={{
-                          fontSize: '12px', color: C.amber,
-                          fontFamily: 'IBM Plex Mono, monospace',
-                          fontWeight: 700, lineHeight: '18px',
+                          color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text3,
+                          fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px',
+                          lineHeight: '18px', flexShrink: 0, minWidth: '10px',
                         }}>
-                          Extração concluída.
+                          {line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}
+                        </span>
+                        <span style={{
+                          fontSize: '11px',
+                          color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text2,
+                          fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px',
+                        }}>
+                          {line}
                         </span>
                       </div>
-                    )}
-
-                    {/* Blinking cursor while running */}
-                    {!logDone && logStepsDone > 0 && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '3px 0',
-                      }}>
-                        <Loader2
-                          size={12}
-                          style={{
-                            color: C.amber,
-                            animation: 'spin 1s linear infinite',
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{
-                          fontSize: '12px', color: C.text3,
-                          fontFamily: 'IBM Plex Mono, monospace',
-                          lineHeight: '18px',
-                        }}>
+                    ))}
+                    {overallProgress < 100 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
+                        <Loader2 size={11} style={{ color: C.amber, animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                        <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
                           Processando...
                         </span>
                       </div>
@@ -826,94 +1039,199 @@ export default function NovoProcessoModal({
             </div>
           )}
 
-          {/* ══ STEP 3: Confirmação ═══════════════════════════ */}
-          {step === 3 && editedData && (
+          {/* ══ STEP 3: Unified Context Summary ══════════════ */}
+          {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-              {extractError && (
+              {/* Case metadata banner */}
+              {peticaoData && (
                 <div style={{
-                  padding: '10px 14px', borderRadius: '6px',
-                  background: C.redBg, border: `1px solid ${C.redBorder}`,
-                  color: C.red, fontSize: '12px',
-                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '14px 16px', borderRadius: '10px',
+                  background: C.amberBg, border: `1px solid ${C.amberBorder}`,
                 }}>
-                  <AlertCircle size={14} />
-                  {extractError}
+                  <div style={{
+                    fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
+                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700,
+                  }}>
+                    Dados do Processo
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                    {[
+                      { label: 'Número CNJ',   value: peticaoData.numero_processo },
+                      { label: 'Tipo de Ação', value: peticaoData.tipo_acao },
+                      { label: 'Autor',        value: peticaoData.autor },
+                      { label: 'Réu',          value: peticaoData.reu },
+                      { label: 'Vara',         value: peticaoData.vara },
+                      { label: 'Comarca',      value: peticaoData.comarca },
+                      { label: 'Valor da Causa', value: peticaoData.valor_causa },
+                      { label: 'Área',         value: peticaoData.area },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                          {label}
+                        </div>
+                        <div style={{ fontSize: '12px', color: value ? C.text1 : C.text4, fontStyle: value ? 'normal' : 'italic' }}>
+                          {value || '—'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {peticaoData.pedidos && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                        Pedidos
+                      </div>
+                      <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>
+                        {peticaoData.pedidos}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div style={{
-                fontSize: '12px', color: C.text3,
-                padding: '8px 12px', borderRadius: '6px',
-                background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-              }}>
-                ✎ Revise e edite os campos antes de criar o processo
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <FieldRow label="Número do Processo (CNJ)" field="numero_processo" value={editedData.numero_processo || ''} onChange={updateField} C={C} />
-                <FieldRow label="Tipo de Ação" field="tipo_acao" value={editedData.tipo_acao || ''} onChange={updateField} C={C} />
-                <FieldRow label="Nome do Processo" field="nome_processo" value={editedData.nome_processo || ''} onChange={updateField} C={C} />
-                <FieldRow label="Área do Direito" field="area" value={editedData.area || ''} onChange={updateField} C={C} />
-                <FieldRow label="Autor / Requerente" field="autor" value={editedData.autor || ''} onChange={updateField} C={C} />
-                <FieldRow label="Réu / Requerido" field="reu" value={editedData.reu || ''} onChange={updateField} C={C} />
-                <FieldRow label="Vara" field="vara" value={editedData.vara || ''} onChange={updateField} C={C} />
-                <FieldRow label="Comarca" field="comarca" value={editedData.comarca || ''} onChange={updateField} C={C} />
-                <FieldRow label="Valor da Causa" field="valor_causa" value={editedData.valor_causa || ''} onChange={updateField} C={C} />
-                <div />
-              </div>
-
-              <FieldRow label="Pedidos" field="pedidos" value={editedData.pedidos || ''} onChange={updateField} C={C} multiline />
-              <FieldRow label="Prazos Identificados" field="prazos" value={editedData.prazos || ''} onChange={updateField} C={C} multiline />
-
-              {/* Info banner: extra fields shown here, not persisted to schema */}
-              {(editedData.autor || editedData.reu || editedData.valor_causa) && (
+              {/* Documents processed */}
+              <div>
                 <div style={{
-                  fontSize: '11px', color: C.text3,
-                  padding: '8px 12px', borderRadius: '6px',
-                  background: C.bg2, border: `1px solid ${C.border1}`,
-                  fontFamily: 'IBM Plex Mono, monospace',
+                  fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                  textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
                 }}>
-                  ℹ Campos de partes, valor e pedidos são exibidos para referência.
-                  Serão incluídos no nome do processo automaticamente.
+                  Documentos processados ({allExtractions.length || extractions.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {(allExtractions.length > 0 ? allExtractions : extractions).map(e => {
+                    const sup = e.extracted as SupportingExtracted | undefined
+                    return (
+                      <div key={e.taggedFileId} style={{
+                        padding: '10px 12px', borderRadius: '8px',
+                        background: C.bg2, border: `1px solid ${e.status === 'error' ? C.redBorder : C.border1}`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: sup?.summary ? '6px' : 0 }}>
+                          <FileStatusIcon status={e.status} C={C} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{
+                              fontSize: '12px', fontWeight: 600, color: C.text1,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block',
+                            }}>
+                              {e.fileName}
+                            </span>
+                          </div>
+                          <span style={{
+                            fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                            color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
+                          }}>
+                            {e.category}
+                          </span>
+                        </div>
+                        {sup?.summary && (
+                          <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.5, paddingLeft: '22px' }}>
+                            {sup.summary}
+                          </div>
+                        )}
+                        {e.error && (
+                          <div style={{ fontSize: '11px', color: C.red, paddingLeft: '22px', marginTop: '4px' }}>
+                            {e.error}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Key dates */}
+              {getAllKeyDates().length > 0 && (
+                <div>
+                  <div style={{
+                    fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
+                  }}>
+                    Datas-chave identificadas
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {getAllKeyDates().slice(0, 8).map((d, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '10px',
+                        padding: '6px 10px', borderRadius: '6px',
+                        background: C.bg2, border: `1px solid ${C.border1}`,
+                        fontSize: '11px',
+                      }}>
+                        <span style={{ color: C.blue, fontFamily: 'IBM Plex Mono, monospace', minWidth: '80px', flexShrink: 0 }}>
+                          {d.date || '—'}
+                        </span>
+                        <span style={{ color: C.text2, flex: 1 }}>{d.description}</span>
+                        <span style={{ color: C.text4, fontFamily: 'IBM Plex Mono, monospace', fontSize: '9px', flexShrink: 0 }}>
+                          {d.source.slice(0, 20)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                <button
-                  onClick={() => { setStep(1); setExtractError(null) }}
-                  style={{
-                    flex: 1, padding: '12px',
-                    borderRadius: '8px', fontWeight: 600, fontSize: '13px',
-                    cursor: 'pointer', border: `1px solid ${C.border2}`,
-                    background: C.bg3, color: C.text2, transition: 'all 150ms ease',
-                  }}
-                >
-                  ← Reiniciar
-                </button>
-                <button
-                  onClick={handleCreate}
-                  disabled={creating}
-                  style={{
-                    flex: 2, padding: '12px',
-                    borderRadius: '8px', fontWeight: 700, fontSize: '13px',
-                    cursor: creating ? 'wait' : 'pointer',
-                    border: `1px solid ${C.amber}`,
-                    background: C.amber, color: '#fff',
-                    transition: 'all 150ms ease',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
-                  }}
-                >
-                  {creating ? (
-                    <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Criando...</>
-                  ) : '✓ Criar Processo'}
-                </button>
-              </div>
+              {/* Risk flags */}
+              {getAllRiskFlags().length > 0 && (
+                <div>
+                  <div style={{
+                    fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
+                  }}>
+                    Alertas de risco ({getAllRiskFlags().length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {getAllRiskFlags().slice(0, 6).map((f, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '8px',
+                        padding: '7px 10px', borderRadius: '6px',
+                        background: C.bg2, border: `1px solid ${C.border1}`,
+                        fontSize: '11px',
+                      }}>
+                        <span style={{
+                          display: 'inline-block', width: '8px', height: '8px',
+                          borderRadius: '50%', background: severityColor(f.severity),
+                          marginTop: '3px', flexShrink: 0,
+                        }} />
+                        <span style={{ color: C.text2, flex: 1, lineHeight: 1.5 }}>{f.description}</span>
+                        <span style={{
+                          fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                          color: severityColor(f.severity), textTransform: 'uppercase',
+                          letterSpacing: '0.04em', flexShrink: 0,
+                        }}>
+                          {f.severity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CTA button */}
+              <button
+                onClick={() => {
+                  setToast('Processo criado com sucesso!')
+                  setTimeout(() => {
+                    setToast(null)
+                    onSuccess()
+                    onClose()
+                  }, 1500)
+                }}
+                style={{
+                  width: '100%', padding: '14px',
+                  borderRadius: '8px', fontWeight: 700, fontSize: '13px',
+                  cursor: 'pointer',
+                  border: `1px solid ${C.amber}`,
+                  background: C.amber, color: '#fff',
+                  transition: 'all 200ms ease',
+                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  marginTop: '4px',
+                }}
+              >
+                <CheckCircle2 size={16} />
+                Prosseguir para Análise e Pesquisa →
+              </button>
+
             </div>
           )}
-
         </div>
       </div>
 
