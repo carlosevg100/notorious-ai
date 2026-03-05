@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
 import { supabase } from '@/lib/supabase'
-import { LogOut, Sun, Moon } from 'lucide-react'
+import { LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
 
 /* ─── Colors ─────────────────────────────────────────────────── */
 const C = {
@@ -36,10 +36,11 @@ interface SidebarClient {
 }
 
 const NAV_ITEMS = [
-  { href: '/dashboard',         label: 'Dashboard',  icon: '▣', exact: true },
-  { href: '/dashboard/clients', label: 'Clientes',   icon: '◈' },
-  { href: '/dashboard/prazos',  label: 'Prazos',     icon: '◷' },
-  { href: '/dashboard/pecas',   label: 'Peças',      icon: '◧' },
+  { href: '/dashboard',          label: 'Painel de Controle', icon: '▣', exact: true },
+  { href: '/dashboard/clients',  label: 'Clientes',           icon: '◈', exact: false },
+  { href: '/dashboard/projects', label: 'Processos',          icon: '⊡', exact: false },
+  { href: '/dashboard/prazos',   label: 'Prazos',             icon: '◷', exact: false },
+  { href: '/dashboard/pecas',    label: 'Peças',              icon: '◧', exact: false },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -49,11 +50,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { theme, toggleTheme } = useTheme()
 
   const [sidebarClients, setSidebarClients] = useState<SidebarClient[]>([])
+  const [isCollapsed,    setIsCollapsed]    = useState(false)
+  const [isMobileOpen,   setIsMobileOpen]   = useState(false)
 
   useEffect(() => {
     if (!firmId) return
     async function fetchSidebarData() {
-      // Fetch clients
       const { data: clientData } = await supabase
         .from('clients')
         .select('id, name')
@@ -63,7 +65,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (!clientData || clientData.length === 0) return
 
-      // Fetch overdue/today prazos
       const today = new Date().toISOString().split('T')[0]
       const { data: urgentPrazos } = await supabase
         .from('prazos')
@@ -72,19 +73,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .eq('status', 'pendente')
         .lte('data_prazo', today)
 
-      // Fetch projects to map project_id → client_id
       const { data: projectData } = await supabase
         .from('projects')
         .select('id, client_id')
         .eq('firm_id', firmId)
 
-      // Build project → client map
       const projectClientMap = new Map<string, string>()
       ;(projectData || []).forEach((p: { id: string; client_id: string | null }) => {
         if (p.client_id) projectClientMap.set(p.id, p.client_id)
       })
 
-      // Count urgent prazos per client
       const urgentMap = new Map<string, number>()
       ;(urgentPrazos || []).forEach((p: { project_id: string }) => {
         const clientId = projectClientMap.get(p.project_id)
@@ -102,6 +100,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetchSidebarData()
   }, [firmId])
 
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [pathname])
+
   const handleLogout = async () => {
     await signOut()
     router.push('/login')
@@ -112,64 +115,172 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : (user?.email?.[0]?.toUpperCase() ?? '?')
   const userDisplay = userName || user?.email?.split('@')[0] || 'Admin'
 
+  const sidebarWidth = isCollapsed ? 56 : 220
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: C.bg0 }}>
       <style>{`
-        .nav-link:hover  { color: ${C.text1} !important; background: ${C.bg2} !important; }
-        .sb-client:hover { background: ${C.bg3} !important; }
-        .bot-btn:hover   { background: ${C.bg2} !important; color: ${C.text1} !important; }
+        .nav-link:hover   { color: ${C.text1} !important; background: ${C.bg2} !important; }
+        .sb-client:hover  { background: ${C.bg3} !important; }
+        .bot-btn:hover    { background: ${C.bg2} !important; color: ${C.text1} !important; }
         .logout-btn:hover { color: #EF4444 !important; }
+        .collapse-btn:hover { background: ${C.bg3} !important; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${C.border2}; border-radius: 2px; }
+
+        /* Mobile overlay */
+        .mobile-overlay {
+          display: none;
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.6);
+          z-index: 99;
+        }
+        .hamburger-btn {
+          display: none;
+        }
+
+        @media (max-width: 768px) {
+          .desktop-sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100vh !important;
+            z-index: 100 !important;
+            transform: translateX(-100%) !important;
+            transition: transform 200ms ease !important;
+            width: 220px !important;
+          }
+          .desktop-sidebar.mobile-open {
+            transform: translateX(0) !important;
+          }
+          .mobile-overlay.visible {
+            display: block !important;
+          }
+          .hamburger-btn {
+            display: flex !important;
+          }
+          .main-content {
+            padding: 16px 14px !important;
+          }
+          .collapse-sidebar-btn {
+            display: none !important;
+          }
+        }
       `}</style>
 
-      {/* ── Sidebar ─────────────────────────────────────────── */}
-      <aside style={{
-        width: '220px',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: C.bg1,
-        borderRight: `1px solid ${C.border1}`,
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        overflow: 'hidden',
-      }}>
+      {/* ── Mobile Overlay ─────────────────────────────────── */}
+      {isMobileOpen && (
+        <div
+          className="mobile-overlay visible"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
 
-        {/* Logo */}
+      {/* ── Sidebar ─────────────────────────────────────────── */}
+      <aside
+        className={`desktop-sidebar${isMobileOpen ? ' mobile-open' : ''}`}
+        style={{
+          width: `${sidebarWidth}px`,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          background: C.bg1,
+          borderRight: `1px solid ${C.border1}`,
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          transition: 'width 200ms ease',
+        }}
+      >
+
+        {/* Logo + collapse button */}
         <div style={{
-          padding: '20px 18px 16px',
+          padding: isCollapsed ? '16px 0' : '20px 18px 16px',
           borderBottom: `1px solid ${C.border1}`,
           flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isCollapsed ? 'center' : 'space-between',
+          gap: '8px',
+          minHeight: '64px',
         }}>
-          <div style={{
-            fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em',
-            color: C.text1, userSelect: 'none',
-          }}>
-            Litigator<span style={{ color: C.amber }}>AI</span>
-          </div>
-          <div style={{
-            fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-            letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '4px',
-          }}>
-            Escritório de Advocacia
-          </div>
+          {!isCollapsed && (
+            <div>
+              <div style={{
+                fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em',
+                color: C.text1, userSelect: 'none',
+              }}>
+                Litigator<span style={{ color: C.amber }}>AI</span>
+              </div>
+              <div style={{
+                fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
+                letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '4px',
+              }}>
+                Escritório de Advocacia
+              </div>
+            </div>
+          )}
+
+          {isCollapsed && (
+            <div style={{
+              fontSize: '15px', fontWeight: 700, color: C.amber,
+              userSelect: 'none', letterSpacing: '-0.02em',
+            }}>
+              L
+            </div>
+          )}
+
+          <button
+            className="collapse-btn collapse-sidebar-btn"
+            onClick={() => setIsCollapsed(v => !v)}
+            style={{
+              width: '24px', height: '24px', borderRadius: '5px',
+              background: 'transparent', border: `1px solid ${C.border2}`,
+              color: C.text3, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'background 150ms ease',
+            }}
+          >
+            {isCollapsed
+              ? <ChevronRight size={12} />
+              : <ChevronLeft size={12} />
+            }
+          </button>
+
+          {/* Mobile close button */}
+          {isMobileOpen && (
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              style={{
+                width: '24px', height: '24px', borderRadius: '5px',
+                background: 'transparent', border: `1px solid ${C.border2}`,
+                color: C.text3, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
 
         {/* Scrollable section */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
           {/* NAVEGAÇÃO */}
-          <div style={{ padding: '14px 8px 8px' }}>
-            <div style={{
-              fontSize: '8px', color: C.text3, letterSpacing: '0.12em',
-              fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase',
-              padding: '0 10px', marginBottom: '6px',
-            }}>
-              Navegação
-            </div>
+          <div style={{ padding: isCollapsed ? '14px 6px 8px' : '14px 8px 8px' }}>
+            {!isCollapsed && (
+              <div style={{
+                fontSize: '8px', color: C.text3, letterSpacing: '0.12em',
+                fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase',
+                padding: '0 10px', marginBottom: '6px',
+              }}>
+                Navegação
+              </div>
+            )}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
               {NAV_ITEMS.map(item => {
                 const active = item.exact
@@ -180,17 +291,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     key={item.href}
                     href={item.href}
                     className="nav-link"
+                    title={isCollapsed ? item.label : undefined}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 10px',
+                      gap: isCollapsed ? 0 : '10px',
+                      padding: isCollapsed ? '8px 0' : '8px 10px',
+                      justifyContent: isCollapsed ? 'center' : 'flex-start',
                       borderRadius: '6px',
                       fontSize: '13px',
                       fontWeight: active ? 600 : 400,
                       textDecoration: 'none',
                       transition: 'all 150ms ease',
-                      borderLeft: `2px solid ${active ? C.amber : 'transparent'}`,
+                      borderLeft: isCollapsed ? 'none' : `2px solid ${active ? C.amber : 'transparent'}`,
+                      borderBottom: isCollapsed ? `2px solid ${active ? C.amber : 'transparent'}` : 'none',
                       background: active ? C.amberBg : 'transparent',
                       color: active ? C.amber : C.text2,
                     }}
@@ -198,15 +312,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <span style={{ fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>
                       {item.icon}
                     </span>
-                    {item.label}
+                    {!isCollapsed && item.label}
                   </Link>
                 )
               })}
+
+              {/* Relatórios — disabled placeholder */}
+              <div
+                title={isCollapsed ? 'Relatórios' : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: isCollapsed ? 0 : '10px',
+                  padding: isCollapsed ? '8px 0' : '8px 10px',
+                  justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 400,
+                  borderLeft: isCollapsed ? 'none' : `2px solid transparent`,
+                  color: C.text3,
+                  cursor: 'not-allowed',
+                  opacity: 0.5,
+                  userSelect: 'none',
+                }}
+              >
+                <span style={{ fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>◫</span>
+                {!isCollapsed && (
+                  <span style={{ flex: 1 }}>Relatórios</span>
+                )}
+                {!isCollapsed && (
+                  <span style={{
+                    fontSize: '8px', background: C.bg3, color: C.text3,
+                    border: `1px solid ${C.border2}`, padding: '1px 5px',
+                    borderRadius: '3px', fontFamily: 'IBM Plex Mono, monospace',
+                    letterSpacing: '0.06em',
+                  }}>
+                    EM BREVE
+                  </span>
+                )}
+              </div>
             </nav>
           </div>
 
-          {/* CLIENTES */}
-          {sidebarClients.length > 0 && (
+          {/* CLIENTES — hidden when collapsed */}
+          {!isCollapsed && sidebarClients.length > 0 && (
             <div style={{ padding: '6px 8px 12px', marginTop: '4px' }}>
               <div style={{
                 fontSize: '8px', color: C.text3, letterSpacing: '0.12em',
@@ -265,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Bottom: controls + user profile */}
         <div style={{
-          padding: '8px',
+          padding: isCollapsed ? '8px 4px' : '8px',
           borderTop: `1px solid ${C.border1}`,
           flexShrink: 0,
           display: 'flex',
@@ -276,9 +425,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={toggleTheme}
             className="bot-btn"
+            title={isCollapsed ? (theme === 'dark' ? 'Modo Claro' : 'Modo Escuro') : undefined}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '7px 10px', borderRadius: '6px',
+              display: 'flex', alignItems: 'center',
+              gap: isCollapsed ? 0 : '8px',
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              padding: isCollapsed ? '7px 0' : '7px 10px',
+              borderRadius: '6px',
               fontSize: '12px', color: C.text3,
               background: 'transparent', border: 'none', cursor: 'pointer',
               width: '100%', textAlign: 'left', transition: 'all 150ms ease',
@@ -288,67 +441,109 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ? <Sun size={14} strokeWidth={1.5} />
               : <Moon size={14} strokeWidth={1.5} />
             }
-            {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            {!isCollapsed && (theme === 'dark' ? 'Modo Claro' : 'Modo Escuro')}
           </button>
 
           {/* User profile card */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '10px', borderRadius: '6px',
-            background: C.bg2, border: `1px solid ${C.border1}`,
-            margin: '4px 0',
-          }}>
-            <span style={{
-              width: '28px', height: '28px', borderRadius: '7px',
-              background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '10px', fontWeight: 700, color: C.amber, flexShrink: 0,
-              fontFamily: 'IBM Plex Mono, monospace',
+          {!isCollapsed ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px', borderRadius: '6px',
+              background: C.bg2, border: `1px solid ${C.border1}`,
+              margin: '4px 0',
             }}>
-              {userInitials}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '11px', fontWeight: 600, color: C.text1,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              <span style={{
+                width: '28px', height: '28px', borderRadius: '7px',
+                background: C.amberBg, border: `1px solid ${C.amberBorder}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '10px', fontWeight: 700, color: C.amber, flexShrink: 0,
+                fontFamily: 'IBM Plex Mono, monospace',
               }}>
-                {userDisplay}
+                {userInitials}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: '11px', fontWeight: 600, color: C.text1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {userDisplay}
+                </div>
+                <div style={{
+                  fontSize: '9px', color: C.text3,
+                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                }}>
+                  ADMIN
+                </div>
               </div>
-              <div style={{
-                fontSize: '9px', color: C.text3,
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
-              }}>
-                ADMIN
-              </div>
+              <span style={{ fontSize: '14px', color: C.text3, cursor: 'pointer', flexShrink: 0 }}>⋯</span>
             </div>
-            <span style={{ fontSize: '14px', color: C.text3, cursor: 'pointer', flexShrink: 0 }}>⋯</span>
-          </div>
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '6px 0',
+            }}>
+              <span style={{
+                width: '28px', height: '28px', borderRadius: '7px',
+                background: C.amberBg, border: `1px solid ${C.amberBorder}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '10px', fontWeight: 700, color: C.amber,
+                fontFamily: 'IBM Plex Mono, monospace',
+              }}>
+                {userInitials}
+              </span>
+            </div>
+          )}
 
           {/* Logout */}
           <button
             onClick={handleLogout}
             className="bot-btn logout-btn"
+            title={isCollapsed ? 'Sair' : undefined}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '7px 10px', borderRadius: '6px',
+              display: 'flex', alignItems: 'center',
+              gap: isCollapsed ? 0 : '8px',
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              padding: isCollapsed ? '7px 0' : '7px 10px',
+              borderRadius: '6px',
               fontSize: '12px', color: C.text3,
               background: 'transparent', border: 'none', cursor: 'pointer',
               width: '100%', textAlign: 'left', transition: 'all 150ms ease',
             }}
           >
             <LogOut size={14} strokeWidth={1.5} />
-            Sair
+            {!isCollapsed && 'Sair'}
           </button>
         </div>
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────── */}
-      <main style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '28px 32px',
-        background: C.bg0,
-      }}>
+      <main
+        className="main-content"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '28px 32px',
+          background: C.bg0,
+          minWidth: 0,
+        }}
+      >
+        {/* Mobile hamburger */}
+        <button
+          className="hamburger-btn"
+          onClick={() => setIsMobileOpen(v => !v)}
+          style={{
+            alignItems: 'center', justifyContent: 'center',
+            width: '36px', height: '36px',
+            borderRadius: '7px',
+            background: C.bg1, border: `1px solid ${C.border2}`,
+            color: C.text2, cursor: 'pointer',
+            marginBottom: '16px',
+            flexShrink: 0,
+          }}
+        >
+          <Menu size={16} />
+        </button>
+
         {children}
       </main>
     </div>

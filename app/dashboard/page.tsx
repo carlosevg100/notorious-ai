@@ -338,12 +338,37 @@ export default function DashboardPage() {
         .action-btn-muted:hover { background: ${C.bg3} !important; border-color: ${C.border3} !important; color: ${C.text1} !important; }
         .link-btn:hover    { color: ${C.amber} !important; }
         .risk-row:hover    { background: ${C.bg3} !important; }
+
+        /* ── Responsive grids ─────────────────────────────── */
+        .kpi-grid        { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        .two-col-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .client-grid     { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .activity-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .briefing-grid   { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+        .top-bar         { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .top-bar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding-top: 4px; }
+
+        @media (max-width: 768px) {
+          .kpi-grid        { grid-template-columns: repeat(2, 1fr); }
+          .two-col-grid    { grid-template-columns: 1fr; }
+          .client-grid     { grid-template-columns: 1fr; }
+          .activity-grid   { grid-template-columns: 1fr; }
+          .briefing-grid   { grid-template-columns: 1fr; }
+          .top-bar         { flex-direction: column; gap: 12px; }
+          .top-bar-actions { flex-wrap: wrap; padding-top: 0; }
+          .briefing-col-border { border-left: none !important; border-top: 1px solid ${C.border1} !important; }
+        }
+
+        @media (max-width: 480px) {
+          .kpi-grid        { grid-template-columns: 1fr; }
+          .top-bar-actions { gap: 8px; }
+        }
       `}</style>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* ═══ 1. TOP BAR ══════════════════════════════════════ */}
-        <div className="f1" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+        <div className="f1 top-bar">
           {/* Left */}
           <div>
             <div style={{
@@ -368,7 +393,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Right: alert + actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, paddingTop: '4px' }}>
+          <div className="top-bar-actions">
             {stats.prazosVencidos > 0 && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '7px',
@@ -388,7 +413,7 @@ export default function DashboardPage() {
               </div>
             )}
             <Link
-              href="/dashboard/pecas"
+              href="/dashboard/clients"
               className="action-btn-amber"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -399,10 +424,10 @@ export default function DashboardPage() {
                 fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
               }}
             >
-              + NOVA PEÇA
+              + CLIENTE
             </Link>
             <Link
-              href="/dashboard/prazos"
+              href="/dashboard/projects/new"
               className="action-btn-muted"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -413,7 +438,7 @@ export default function DashboardPage() {
                 fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
               }}
             >
-              VER PRAZOS
+              + PROCESSO
             </Link>
           </div>
         </div>
@@ -461,10 +486,10 @@ export default function DashboardPage() {
           </div>
 
           {briefingAberto && (
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-              borderTop: `1px solid ${C.border1}`,
-            }}>
+            <div
+              className="briefing-grid"
+              style={{ borderTop: `1px solid ${C.border1}` }}
+            >
               {/* AÇÃO IMEDIATA */}
               <div style={{ padding: '18px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
@@ -509,7 +534,7 @@ export default function DashboardPage() {
               </div>
 
               {/* SITUAÇÃO DA CARTEIRA */}
-              <div style={{ padding: '18px 20px', borderLeft: `1px solid ${C.border1}` }}>
+              <div className="briefing-col-border" style={{ padding: '18px 20px', borderLeft: `1px solid ${C.border1}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
                   <span style={{ color: C.amber, fontSize: '12px' }}>◈</span>
                   <span style={{
@@ -540,7 +565,7 @@ export default function DashboardPage() {
               </div>
 
               {/* RESULTADOS */}
-              <div style={{ padding: '18px 20px', borderLeft: `1px solid ${C.border1}` }}>
+              <div className="briefing-col-border" style={{ padding: '18px 20px', borderLeft: `1px solid ${C.border1}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
                   <span style={{ color: C.green, fontSize: '12px' }}>✓</span>
                   <span style={{
@@ -576,7 +601,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ 3. KPI ROW ══════════════════════════════════════ */}
-        <div className="f2" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+        <div className="f2 kpi-grid">
           {kpis.map(kpi => (
             <div
               key={kpi.key}
@@ -608,7 +633,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ 4. PIPELINE + RISCO ═════════════════════════════ */}
-        <div className="f2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div className="f2 two-col-grid">
 
           {/* ── Pipeline Global ───────────────────────────────── */}
           <div style={{
@@ -816,7 +841,7 @@ export default function DashboardPage() {
               <p style={{ fontSize: '12px' }}>{clientSearch ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+            <div className="client-grid">
               {filteredClients.slice(0, 12).map(client => {
                 const ac = avatarColor(client.name)
                 const rc = client._risk_level === 'alto' ? C.red   : client._risk_level === 'medio' ? C.yellow : C.green
@@ -905,7 +930,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ═══ 6. PRAZOS + ATIVIDADE ═══════════════════════════ */}
-        <div className="f4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div className="f4 two-col-grid">
 
           {/* ── Prazos Próximos ───────────────────────────────── */}
           <div style={{
@@ -993,7 +1018,7 @@ export default function DashboardPage() {
             {atividades.length === 0 ? (
               <p style={{ color: C.text3, fontSize: '12px', padding: '16px 0' }}>Nenhuma atividade recente.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div className="activity-grid">
                 {atividades.map(a => {
                   const icon = tipoIcon[a.tipo] ?? '·'
                   const borderColor = a.tipo === 'documento' ? C.blue : C.stages.contestacao
