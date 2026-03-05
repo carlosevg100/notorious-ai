@@ -10,22 +10,8 @@ import {
   Search, TrendingUp, FileText, CalendarClock, Users, ArrowRight,
   Zap, BarChart2, Sparkles, DollarSign, Shield, AlertTriangle,
 } from 'lucide-react'
-
-/* ─── Color System ───────────────────────────────────────────── */
-const C = {
-  bg0: '#08080A', bg1: '#0F0F12', bg2: '#141418', bg3: '#1A1A20',
-  border1: '#1F1F26', border2: '#252530', border3: '#2D2D3A',
-  text1: '#F4F4F6', text2: '#A0A0B0', text3: '#606070', text4: '#303040',
-  amber: '#F0A500', amberBg: '#F0A50015', amberBorder: '#F0A50030',
-  red: '#EF4444', redBg: '#EF444415', redBorder: '#EF444430',
-  yellow: '#F59E0B', yellowBg: '#F59E0B15', yellowBorder: '#F59E0B30',
-  blue: '#3B82F6', blueBg: '#3B82F615', blueBorder: '#3B82F630',
-  green: '#10B981', greenBg: '#10B98115', greenBorder: '#10B98130',
-  stages: {
-    analise: '#60A5FA', contestacao: '#F59E0B',
-    recurso: '#F87171', execucao: '#34D399', encerrado: '#4B5563',
-  },
-}
+import { useTheme } from '@/lib/theme-context'
+import { getColors } from '@/lib/theme-colors'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 interface Stats {
@@ -59,25 +45,9 @@ interface ClientWithMeta extends Client {
   _next_prazo:    string | null
 }
 
-/* ─── Stage Config ───────────────────────────────────────────── */
-const STAGE_CFG: { key: keyof Pipeline; label: string; color: string }[] = [
-  { key: 'analise',     label: 'Análise',     color: C.stages.analise },
-  { key: 'contestacao', label: 'Contestação', color: C.stages.contestacao },
-  { key: 'recurso',     label: 'Recurso',     color: C.stages.recurso },
-  { key: 'execucao',    label: 'Execução',    color: C.stages.execucao },
-  { key: 'encerrado',   label: 'Encerrado',   color: C.stages.encerrado },
-]
-
 const AVATAR_COLORS = ['#3B82F6','#EF4444','#22C55E','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316']
 
 type Urgency = 'critico' | 'alto' | 'medio' | 'baixo'
-
-const URGENCY_CFG: Record<Urgency, { cor: string; bg: string; border: string }> = {
-  critico: { cor: C.red,    bg: C.redBg,    border: C.redBorder },
-  alto:    { cor: C.yellow, bg: C.yellowBg, border: C.yellowBorder },
-  medio:   { cor: C.blue,   bg: C.blueBg,   border: C.blueBorder },
-  baixo:   { cor: C.text3,  bg: '#1A1A2088', border: C.border1 },
-}
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 function getGreeting(): string {
@@ -139,10 +109,10 @@ function riskPriority(risk: string): number {
 }
 
 /* ─── SLabel sub-component ───────────────────────────────────── */
-function SLabel({ children }: { children: React.ReactNode }) {
+function SLabel({ children, color }: { children: React.ReactNode; color: string }) {
   return (
     <div style={{
-      fontSize: 9, color: C.text3, letterSpacing: '0.1em',
+      fontSize: 9, color, letterSpacing: '0.1em',
       fontFamily: 'IBM Plex Mono, monospace',
       textTransform: 'uppercase' as const,
       marginBottom: 14,
@@ -159,6 +129,26 @@ void _unused
 /* ─── Component ──────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { firmId, userName } = useAuth()
+  const { theme } = useTheme()
+
+  // Theme-aware color palette — recomputed on every theme switch
+  const C = getColors(theme)
+
+  // Configs that depend on C (must live inside component)
+  const STAGE_CFG: { key: keyof Pipeline; label: string; color: string }[] = [
+    { key: 'analise',     label: 'Análise',     color: C.stages.analise },
+    { key: 'contestacao', label: 'Contestação', color: C.stages.contestacao },
+    { key: 'recurso',     label: 'Recurso',     color: C.stages.recurso },
+    { key: 'execucao',    label: 'Execução',    color: C.stages.execucao },
+    { key: 'encerrado',   label: 'Encerrado',   color: C.stages.encerrado },
+  ]
+
+  const URGENCY_CFG: Record<Urgency, { cor: string; bg: string; border: string }> = {
+    critico: { cor: C.red,    bg: C.redBg,    border: C.redBorder },
+    alto:    { cor: C.yellow, bg: C.yellowBg, border: C.yellowBorder },
+    medio:   { cor: C.blue,   bg: C.blueBg,   border: C.blueBorder },
+    baixo:   { cor: C.text3,  bg: theme === 'light' ? C.bg3 : '#1A1A2088', border: C.border1 },
+  }
 
   const [stats,          setStats]          = useState<Stats>({ totalProcessos: 0, docsPendentes: 0, prazosEstaSemana: 0, prazosVencidos: 0, totalClientes: 0, docsCompletados: 0 })
   const [pipeline,       setPipeline]       = useState<Pipeline>({ analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 })
@@ -640,7 +630,7 @@ export default function DashboardPage() {
             background: C.bg1, border: `1px solid ${C.border2}`,
             borderRadius: '10px', padding: '20px',
           }}>
-            <SLabel>Pipeline Global — {stats.totalProcessos} processos</SLabel>
+            <SLabel color={C.text3}>Pipeline Global — {stats.totalProcessos} processos</SLabel>
 
             {/* Proportional colored bar */}
             <div style={{
@@ -710,7 +700,7 @@ export default function DashboardPage() {
             background: C.bg1, border: `1px solid ${C.border2}`,
             borderRadius: '10px', padding: '20px',
           }}>
-            <SLabel>Risco Financeiro — Carteira</SLabel>
+            <SLabel color={C.text3}>Risco Financeiro — Carteira</SLabel>
 
             {/* Risk counters */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '18px' }}>
@@ -803,7 +793,7 @@ export default function DashboardPage() {
           borderRadius: '10px', padding: '20px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <SLabel>Carteira de Clientes — {stats.totalClientes} clientes</SLabel>
+            <SLabel color={C.text3}>Carteira de Clientes — {stats.totalClientes} clientes</SLabel>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '-14px' }}>
               <div style={{ position: 'relative' }}>
                 <Search size={12} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: C.text3 }} />
@@ -938,7 +928,7 @@ export default function DashboardPage() {
             borderRadius: '10px', padding: '20px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <SLabel>Prazos Próximos — {prazosProximos.length} pendentes</SLabel>
+              <SLabel color={C.text3}>Prazos Próximos — {prazosProximos.length} pendentes</SLabel>
               <Link
                 href="/dashboard/prazos"
                 className="link-btn"
@@ -1013,7 +1003,7 @@ export default function DashboardPage() {
             background: C.bg1, border: `1px solid ${C.border2}`,
             borderRadius: '10px', padding: '20px',
           }}>
-            <SLabel>Atividade Recente</SLabel>
+            <SLabel color={C.text3}>Atividade Recente</SLabel>
 
             {atividades.length === 0 ? (
               <p style={{ color: C.text3, fontSize: '12px', padding: '16px 0' }}>Nenhuma atividade recente.</p>

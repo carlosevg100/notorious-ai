@@ -7,15 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
 import { supabase } from '@/lib/supabase'
 import { LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
-
-/* ─── Colors ─────────────────────────────────────────────────── */
-const C = {
-  bg0: '#08080A', bg1: '#0F0F12', bg2: '#141418', bg3: '#1A1A20',
-  border1: '#1F1F26', border2: '#252530',
-  text1: '#F4F4F6', text2: '#A0A0B0', text3: '#606070',
-  amber: '#F0A500', amberBg: '#F0A50015', amberBorder: '#F0A50030',
-  red: '#EF4444',
-}
+import { getColors } from '@/lib/theme-colors'
 
 const AVATAR_COLORS = ['#3B82F6','#EF4444','#22C55E','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316']
 
@@ -48,6 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router   = useRouter()
   const { user, signOut, firmId, userName } = useAuth()
   const { theme, toggleTheme } = useTheme()
+
+  const C = getColors(theme)
 
   const [sidebarClients, setSidebarClients] = useState<SidebarClient[]>([])
   const [isCollapsed,    setIsCollapsed]    = useState(false)
