@@ -10,8 +10,10 @@ import type { Project, Document, ExtractedData, Prazo, Peca, ChatMessage, Client
 import Link from 'next/link'
 import {
   ArrowLeft, Upload, FileText, BarChart3, CalendarClock, MessageSquare,
-  Loader2, CheckCircle2, XCircle, Clock, Plus, X, Send, ChevronDown,
+  Loader2, CheckCircle2, XCircle, Clock, Plus, X, Send, ChevronDown, Trash2,
 } from 'lucide-react'
+import DeleteModal from '@/app/dashboard/components/DeleteModal'
+import Toast from '@/app/dashboard/components/Toast'
 
 type Tab = 'documentos' | 'analise' | 'prazos' | 'pecas' | 'chat'
 
@@ -42,6 +44,26 @@ export default function ProjectHubPage() {
   const [tab, setTab] = useState<Tab>('documentos')
   const [loading, setLoading] = useState(true)
   const [nextPrazoDias, setNextPrazoDias] = useState<number | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  async function handleDeleteProject() {
+    if (!project) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Falha ao excluir')
+      setToast({ message: 'Processo excluído com sucesso', type: 'success' })
+      setShowDeleteModal(false)
+      // Redirect after a brief delay to show the toast
+      setTimeout(() => router.push('/dashboard/clients'), 1000)
+    } catch {
+      setToast({ message: 'Erro ao excluir processo', type: 'error' })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -140,6 +162,31 @@ export default function ProjectHubPage() {
               </div>
             </div>
 
+            {/* Delete button */}
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              title="Excluir processo"
+              style={{
+                width: '34px', height: '34px', borderRadius: '6px',
+                background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 150ms ease', flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.12)'
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'
+                e.currentTarget.style.color = '#EF4444'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.color = 'var(--text-muted)'
+              }}
+            >
+              <Trash2 size={15} />
+            </button>
+
             {/* Dias úteis countdown */}
             {nextPrazoDias !== null && (
               <div style={{
@@ -192,6 +239,28 @@ export default function ProjectHubPage() {
         {tab === 'pecas' && <PecasTab projectId={projectId} firmId={firmId} />}
         {tab === 'chat' && <ChatTab projectId={projectId} />}
       </div>
+
+      {/* Delete confirmation modal */}
+      <DeleteModal
+        open={showDeleteModal}
+        title="Excluir Processo"
+        message={project
+          ? `Tem certeza que deseja excluir o processo "${project.name}"? Esta ação não pode ser desfeita. Todos os documentos, extrações e estratégias associados serão removidos.`
+          : ''}
+        confirmLabel="Excluir Processo"
+        loading={deleting}
+        onConfirm={handleDeleteProject}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

@@ -10,9 +10,11 @@ import Link from 'next/link'
 import {
   ArrowLeft, Plus, X, Folder, TrendingUp, FileText, CalendarClock,
   AlertTriangle, Search, Clock, Shield, DollarSign, MapPin, Activity,
-  Download, ChevronRight
+  Download, ChevronRight, Trash2
 } from 'lucide-react'
 import NovoProcessoModal from '@/app/dashboard/components/NovoProcessoModal'
+import DeleteModal from '@/app/dashboard/components/DeleteModal'
+import Toast from '@/app/dashboard/components/Toast'
 
 /* ─── Constants ──────────────────────────────────────────────── */
 const FASE_LABELS: Record<string, string> = {
@@ -68,8 +70,27 @@ export default function ClientDetailPage() {
   const [faseFilter, setFaseFilter] = useState<string>('all')
   const [tipoFilter, setTipoFilter] = useState<string>('all')
   const [activeTab, setActiveTab] = useState<'overview'|'processos'|'alertas'|'atividade'>('overview')
+  const [deleteProjectTarget, setDeleteProjectTarget] = useState<ProjectWithMeta | null>(null)
+  const [deletingProject, setDeletingProject] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => { loadData() }, [clientId, firmId])
+
+  async function handleDeleteProject() {
+    if (!deleteProjectTarget) return
+    setDeletingProject(true)
+    try {
+      const res = await fetch(`/api/projects/${deleteProjectTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Falha ao excluir')
+      setToast({ message: 'Processo excluído com sucesso', type: 'success' })
+      setDeleteProjectTarget(null)
+      loadData()
+    } catch {
+      setToast({ message: 'Erro ao excluir processo', type: 'error' })
+    } finally {
+      setDeletingProject(false)
+    }
+  }
 
   async function loadData() {
     const [clientRes, projRes, prazoRes, pecaRes] = await Promise.all([
@@ -520,7 +541,7 @@ export default function ClientDetailPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Nome', 'Nº Processo', 'Tipo', 'Fase', 'Docs', 'Próx. Prazo', 'Risco'].map(h => (
+                    {['Nome', 'Nº Processo', 'Tipo', 'Fase', 'Docs', 'Próx. Prazo', 'Risco', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -556,6 +577,32 @@ export default function ClientDetailPage() {
                               border: `1px solid ${project._risk === 'alto' ? 'rgba(239,68,68,0.25)' : project._risk === 'medio' ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             }}>{project._risk}</span>
                           ) : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        {/* Delete button */}
+                        <td style={{ padding: '12px 8px', width: '40px' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setDeleteProjectTarget(project) }}
+                            title="Excluir processo"
+                            style={{
+                              width: '28px', height: '28px', borderRadius: '6px',
+                              background: 'transparent', border: '1px solid transparent',
+                              color: 'var(--text-muted)', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 150ms ease',
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = 'rgba(239,68,68,0.12)'
+                              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'
+                              e.currentTarget.style.color = '#EF4444'
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = 'transparent'
+                              e.currentTarget.style.borderColor = 'transparent'
+                              e.currentTarget.style.color = 'var(--text-muted)'
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </td>
                       </tr>
                     )
@@ -675,6 +722,28 @@ export default function ClientDetailPage() {
         }}
         preSelectedClientId={clientId}
       />
+
+      {/* Delete project confirmation modal */}
+      <DeleteModal
+        open={!!deleteProjectTarget}
+        title="Excluir Processo"
+        message={deleteProjectTarget
+          ? `Tem certeza que deseja excluir o processo "${deleteProjectTarget.name}"? Esta ação não pode ser desfeita. Todos os documentos, extrações e estratégias associados serão removidos.`
+          : ''}
+        confirmLabel="Excluir Processo"
+        loading={deletingProject}
+        onConfirm={handleDeleteProject}
+        onCancel={() => setDeleteProjectTarget(null)}
+      />
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
