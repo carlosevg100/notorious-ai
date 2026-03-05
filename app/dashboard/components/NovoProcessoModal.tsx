@@ -5,11 +5,13 @@ import {
   X, Upload, CheckCircle2, Loader2, FileText,
   AlertCircle, Trash2, ChevronDown, ChevronRight,
   Scale, BookOpen, TrendingUp, TrendingDown, Edit3, Save,
+  ClipboardList, ShieldCheck, Users,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/theme-context'
 import { getColors } from '@/lib/theme-colors'
+import type { CaseAnalysis, DocumentoNecessario } from '@/app/api/analyze-case/route'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -23,13 +25,29 @@ const DOCUMENT_CATEGORIES = [
   'Outro',
 ] as const
 
+const CLIENT_DOCUMENT_CATEGORIES = [
+  'Contrato',
+  'Correspondência (WhatsApp/Email)',
+  'Comprovante de Pagamento',
+  'Gravação/Áudio',
+  'Procuração',
+  'Outro',
+] as const
+
 type DocumentCategory = typeof DOCUMENT_CATEGORIES[number]
+type ClientDocCategory = typeof CLIENT_DOCUMENT_CATEGORIES[number]
 
 interface TaggedFile {
   id: string
   file: File
   category: DocumentCategory
-  suggested?: boolean   // filename hints it might be the Petição Inicial
+  suggested?: boolean
+}
+
+interface ClientTaggedFile {
+  id: string
+  file: File
+  category: ClientDocCategory
 }
 
 interface Client {
@@ -68,7 +86,7 @@ interface SupportingExtracted {
 interface FileExtractionResult {
   taggedFileId: string
   fileName: string
-  category: DocumentCategory
+  category: DocumentCategory | ClientDocCategory
   status: 'pending' | 'processing' | 'done' | 'error'
   error?: string
   extracted?: PeticaoExtracted | SupportingExtracted
@@ -115,11 +133,9 @@ const AVATAR_COLORS = [
   '#3B82F6', '#EF4444', '#22C55E', '#F59E0B',
   '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
 ]
-
 function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 }
-
 function avatarColor(name: string): string {
   let hash = 0
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
@@ -132,7 +148,7 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
     { n: 1, label: 'Upload' },
     { n: 2, label: 'Extração AI' },
     { n: 3, label: 'Resumo' },
-    { n: 4, label: 'Pesquisa' },
+    { n: 4, label: 'Docs Cliente' },
     { n: 5, label: 'Estratégia' },
   ]
 
@@ -191,12 +207,13 @@ function FileStatusIcon({ status, C }: { status: FileExtractionResult['status'];
 
 /* ─── Category dropdown ──────────────────────────────────────── */
 function CategoryDropdown({
-  value, onChange, disabled, highlighted, C,
+  value, onChange, disabled, highlighted, options, C,
 }: {
-  value: DocumentCategory
-  onChange: (v: DocumentCategory) => void
+  value: string
+  onChange: (v: string) => void
   disabled?: boolean
   highlighted?: boolean
+  options: readonly string[]
   C: ReturnType<typeof getColors>
 }) {
   return (
@@ -204,7 +221,7 @@ function CategoryDropdown({
       <select
         value={value}
         disabled={disabled}
-        onChange={e => onChange(e.target.value as DocumentCategory)}
+        onChange={e => onChange(e.target.value)}
         style={{
           appearance: 'none',
           padding: '5px 28px 5px 10px',
@@ -221,7 +238,7 @@ function CategoryDropdown({
           transition: 'all 150ms ease',
         }}
       >
-        {DOCUMENT_CATEGORIES.map(cat => (
+        {options.map(cat => (
           <option key={cat} value={cat}>{cat}</option>
         ))}
       </select>
@@ -243,7 +260,6 @@ function TribunalBadge({ tribunal, C }: { tribunal: string; C: ReturnType<typeof
   const bg = isSTJ || isSTF ? C.amberBg : C.blueBg
   const border = isSTJ || isSTF ? C.amberBorder : C.blueBorder
   const color = isSTJ || isSTF ? C.amber : C.blue
-
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
@@ -259,61 +275,27 @@ function TribunalBadge({ tribunal, C }: { tribunal: string; C: ReturnType<typeof
 }
 
 /* ─── Jurisprudência card ────────────────────────────────────── */
-function JurisprudenciaCard({
-  item, type, C,
-}: {
-  item: JurisprudenciaItem
-  type: 'favorable' | 'unfavorable'
-  C: ReturnType<typeof getColors>
-}) {
+function JurisprudenciaCard({ item, type, C }: { item: JurisprudenciaItem; type: 'favorable' | 'unfavorable'; C: ReturnType<typeof getColors> }) {
   const [expanded, setExpanded] = useState(false)
   const borderColor = type === 'favorable' ? C.greenBorder : C.redBorder
   const badgeBg = type === 'favorable' ? C.greenBg : C.redBg
-
   return (
-    <div style={{
-      borderRadius: '8px',
-      background: C.bg2,
-      border: `1px solid ${borderColor}`,
-      padding: '10px 12px',
-      transition: 'all 150ms ease',
-    }}>
+    <div style={{ borderRadius: '8px', background: C.bg2, border: `1px solid ${borderColor}`, padding: '10px 12px', transition: 'all 150ms ease' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <TribunalBadge tribunal={item.tribunal} C={C} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: '11px', fontWeight: 600, color: C.text1,
-            fontFamily: 'IBM Plex Mono, monospace',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.numero}
-          </div>
-          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>
-            {item.data}
-          </div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.numero}</div>
+          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{item.data}</div>
         </div>
-        <button
-          onClick={() => setExpanded(e => !e)}
-          style={{
-            background: badgeBg, border: 'none', color: type === 'favorable' ? C.green : C.red,
-            cursor: 'pointer', padding: '2px 4px', borderRadius: '4px',
-            display: 'flex', alignItems: 'center',
-          }}
-        >
+        <button onClick={() => setExpanded(e => !e)} style={{ background: badgeBg, border: 'none', color: type === 'favorable' ? C.green : C.red, cursor: 'pointer', padding: '2px 4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
           <ChevronRight size={12} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
         </button>
       </div>
       {expanded && (
         <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${C.border1}` }}>
-          <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.5, marginBottom: '6px' }}>
-            {item.ementa}
-          </div>
+          <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.5, marginBottom: '6px' }}>{item.ementa}</div>
           {(item.relevancia || item.risco) && (
-            <div style={{
-              fontSize: '10px', color: type === 'favorable' ? C.green : C.red,
-              background: badgeBg, padding: '4px 8px', borderRadius: '4px',
-              lineHeight: 1.4,
-            }}>
+            <div style={{ fontSize: '10px', color: type === 'favorable' ? C.green : C.red, background: badgeBg, padding: '4px 8px', borderRadius: '4px', lineHeight: 1.4 }}>
               {type === 'favorable' ? `✓ ${item.relevancia}` : `⚠ ${item.risco}`}
             </div>
           )}
@@ -327,45 +309,44 @@ function JurisprudenciaCard({
 function ProbabilityDisplay({ value, C }: { value: number; C: ReturnType<typeof getColors> }) {
   const color = value >= 70 ? C.green : value >= 40 ? C.amber : C.red
   const label = value >= 70 ? 'Favorável' : value >= 40 ? 'Incerto' : 'Desfavorável'
-
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '16px', borderRadius: '10px',
-      background: C.bg2, border: `1px solid ${C.border2}`,
-      textAlign: 'center',
-    }}>
-      <div style={{
-        fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-        textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-      }}>
-        Probabilidade de Êxito
-      </div>
-      <div style={{
-        fontSize: '48px', fontWeight: 800, color, lineHeight: 1,
-        fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '-0.02em',
-      }}>
-        {value}%
-      </div>
-      <div style={{
-        marginTop: '6px', padding: '3px 12px', borderRadius: '20px',
-        background: color + '20', border: `1px solid ${color}50`,
-        fontSize: '11px', fontWeight: 700, color,
-      }}>
-        {label}
-      </div>
-      {/* Progress bar */}
-      <div style={{
-        width: '100%', height: '4px', borderRadius: '2px',
-        background: C.bg3, overflow: 'hidden', marginTop: '10px',
-      }}>
-        <div style={{
-          height: '100%', width: `${value}%`, borderRadius: '2px',
-          background: color, transition: 'width 800ms ease',
-          boxShadow: `0 0 6px ${color}66`,
-        }} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, textAlign: 'center' }}>
+      <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Probabilidade de Êxito</div>
+      <div style={{ fontSize: '48px', fontWeight: 800, color, lineHeight: 1, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '-0.02em' }}>{value}%</div>
+      <div style={{ marginTop: '6px', padding: '3px 12px', borderRadius: '20px', background: color + '20', border: `1px solid ${color}50`, fontSize: '11px', fontWeight: 700, color }}>{label}</div>
+      <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: C.bg3, overflow: 'hidden', marginTop: '10px' }}>
+        <div style={{ height: '100%', width: `${value}%`, borderRadius: '2px', background: color, transition: 'width 800ms ease', boxShadow: `0 0 6px ${color}66` }} />
       </div>
     </div>
+  )
+}
+
+/* ─── Priority badge ─────────────────────────────────────────── */
+function PriorityBadge({ prioridade, C }: { prioridade: DocumentoNecessario['prioridade']; C: ReturnType<typeof getColors> }) {
+  const config = {
+    alta:  { color: C.red,   bg: C.redBg,   border: C.redBorder,   label: 'Alta' },
+    media: { color: C.amber, bg: C.amberBg, border: C.amberBorder, label: 'Média' },
+    baixa: { color: C.text3, bg: C.bg3,     border: C.border2,     label: 'Baixa' },
+  }
+  const s = config[prioridade] || config.baixa
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', flexShrink: 0 }}>
+      {s.label}
+    </span>
+  )
+}
+
+/* ─── Risk badge ─────────────────────────────────────────────── */
+function RiskBadge({ risco, C }: { risco: string; C: ReturnType<typeof getColors> }) {
+  const lower = risco.toLowerCase()
+  const color = lower === 'alto' ? C.red : lower === 'medio' ? C.amber : C.green
+  const bg    = lower === 'alto' ? C.redBg : lower === 'medio' ? C.amberBg : C.greenBg
+  const border = lower === 'alto' ? C.redBorder : lower === 'medio' ? C.amberBorder : C.greenBorder
+  const label = lower === 'alto' ? '⚠ Risco Alto' : lower === 'medio' ? '◈ Risco Médio' : '✓ Risco Baixo'
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', background: bg, border: `1px solid ${border}`, color, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace' }}>
+      {label}
+    </span>
   )
 }
 
@@ -395,17 +376,33 @@ export default function NovoProcessoModal({
   const [projectId,      setProjectId]      = useState<string | null>(null)
   const [globalError,    setGlobalError]    = useState<string | null>(null)
 
-  /* Step 3 state */
+  /* Step 2 → 3 bridge */
   const [peticaoData,    setPeticaoData]    = useState<PeticaoExtracted | null>(null)
   const [allExtractions, setAllExtractions] = useState<FileExtractionResult[]>([])
+  const [expandedDocCards, setExpandedDocCards] = useState<Set<string>>(new Set())
 
-  /* Step 4 — Research state */
+  /* Step 3 — Case Analysis */
+  const [caseAnalysis,         setCaseAnalysis]         = useState<CaseAnalysis | null>(null)
+  const [caseAnalysisLoading,  setCaseAnalysisLoading]  = useState(false)
+  const [caseAnalysisError,    setCaseAnalysisError]    = useState<string | null>(null)
+  const [checkedDocs,          setCheckedDocs]          = useState<Set<number>>(new Set())
+  const [isSavingAndWaiting,   setIsSavingAndWaiting]   = useState(false)
+
+  /* Step 4 — Client Documents */
+  const [clientTaggedFiles,    setClientTaggedFiles]    = useState<ClientTaggedFile[]>([])
+  const [clientDragOver,       setClientDragOver]       = useState(false)
+  const [clientExtractions,    setClientExtractions]    = useState<FileExtractionResult[]>([])
+  const [clientLogLines,       setClientLogLines]       = useState<string[]>([])
+  const [clientProgress,       setClientProgress]       = useState(0)
+  const [clientExtractionsDone, setClientExtractionsDone] = useState(false)
+  const [clientGlobalError,    setClientGlobalError]    = useState<string | null>(null)
+  const clientFileInputRef = useRef<HTMLInputElement>(null)
+
+  /* Step 5 — Research + Strategy state */
   const [researchLogLines,  setResearchLogLines]  = useState<string[]>([])
   const [researchDone,      setResearchDone]      = useState(false)
   const [researchResults,   setResearchResults]   = useState<ResearchResults | null>(null)
   const [researchError,     setResearchError]     = useState<string | null>(null)
-
-  /* Step 5 — Strategy state */
   const [strategyData,      setStrategyData]      = useState<StrategyResult | null>(null)
   const [strategyLoading,   setStrategyLoading]   = useState(false)
   const [strategyError,     setStrategyError]     = useState<string | null>(null)
@@ -413,7 +410,6 @@ export default function NovoProcessoModal({
   const [adjustFeedback,    setAdjustFeedback]    = useState('')
   const [isSaving,          setIsSaving]          = useState(false)
   const [expandedTese,      setExpandedTese]      = useState<number | null>(null)
-  const [expandedDocCards,  setExpandedDocCards]  = useState<Set<string>>(new Set())
 
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const researchLogRef = useRef<HTMLDivElement>(null)
@@ -431,6 +427,19 @@ export default function NovoProcessoModal({
       setGlobalError(null)
       setPeticaoData(null)
       setAllExtractions([])
+      setExpandedDocCards(new Set())
+      setCaseAnalysis(null)
+      setCaseAnalysisLoading(false)
+      setCaseAnalysisError(null)
+      setCheckedDocs(new Set())
+      setIsSavingAndWaiting(false)
+      setClientTaggedFiles([])
+      setClientDragOver(false)
+      setClientExtractions([])
+      setClientLogLines([])
+      setClientProgress(0)
+      setClientExtractionsDone(false)
+      setClientGlobalError(null)
       setResearchLogLines([])
       setResearchDone(false)
       setResearchResults(null)
@@ -441,7 +450,6 @@ export default function NovoProcessoModal({
       setShowAdjustInput(false)
       setAdjustFeedback('')
       setIsSaving(false)
-      setExpandedDocCards(new Set())
       setSelectedClient(preSelectedClientId || null)
     }
   }, [open, preSelectedClientId])
@@ -464,147 +472,138 @@ export default function NovoProcessoModal({
       .then(({ data }) => setClients(data || []))
   }, [open, firmId])
 
+  /* ── Trigger case analysis when entering step 3 ──────────── */
+  useEffect(() => {
+    if (step !== 3 || caseAnalysis || caseAnalysisLoading || !projectId) return
+    runCaseAnalysis()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  /* ── Trigger research when entering step 5 ───────────────── */
+  useEffect(() => {
+    if (step !== 5 || researchDone || researchLogLines.length > 0 || !projectId || !peticaoData) return
+    runResearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   /* ── Unique ID generator ─────────────────────────────────── */
   function genId() {
     return Math.random().toString(36).slice(2, 10)
   }
 
-  /* ── File drop handler ───────────────────────────────────── */
+  /* ── File drop handlers (plaintiff docs) ─────────────────── */
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
     const dropped = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf')
     addFiles(dropped)
   }
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf')
     addFiles(selected)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
-
   function isSuggestedPeticao(filename: string): boolean {
     const lower = filename.toLowerCase()
     return lower.includes('peti') || lower.includes('inicial')
   }
-
   function addFiles(files: File[]) {
-    setTaggedFiles(prev => {
-      const existing = [...prev]
-      const newTagged = files.map((file) => ({
+    setTaggedFiles(prev => [
+      ...prev,
+      ...files.map(file => ({
         id: genId(),
         file,
         category: 'Outro' as DocumentCategory,
         suggested: isSuggestedPeticao(file.name),
-      }))
-      return [...existing, ...newTagged]
-    })
+      })),
+    ])
   }
-
   function removeFile(id: string) {
     setTaggedFiles(prev => prev.filter(f => f.id !== id))
   }
-
   function handleCategoryChange(id: string, newCategory: DocumentCategory) {
     setTaggedFiles(prev => prev.map(f => {
       if (f.id === id) return { ...f, category: newCategory, suggested: false }
-      // Swap: if another file was already tagged as Petição Inicial, demote it to Outro
-      if (newCategory === 'Petição Inicial' && f.category === 'Petição Inicial') {
-        return { ...f, category: 'Outro' as DocumentCategory }
-      }
+      if (newCategory === 'Petição Inicial' && f.category === 'Petição Inicial') return { ...f, category: 'Outro' as DocumentCategory }
       return f
     }))
+  }
+
+  /* ── File drop handlers (client docs) ───────────────────── */
+  function handleClientDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setClientDragOver(false)
+    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf')
+    addClientFiles(dropped)
+  }
+  function handleClientFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf')
+    addClientFiles(selected)
+    if (clientFileInputRef.current) clientFileInputRef.current.value = ''
+  }
+  function addClientFiles(files: File[]) {
+    setClientTaggedFiles(prev => [
+      ...prev,
+      ...files.map(file => ({ id: genId(), file, category: 'Outro' as ClientDocCategory })),
+    ])
+  }
+  function removeClientFile(id: string) {
+    setClientTaggedFiles(prev => prev.filter(f => f.id !== id))
+  }
+  function handleClientCategoryChange(id: string, cat: ClientDocCategory) {
+    setClientTaggedFiles(prev => prev.map(f => f.id === id ? { ...f, category: cat } : f))
   }
 
   const hasPeticao = taggedFiles.some(f => f.category === 'Petição Inicial')
   const canProceed = selectedClient && taggedFiles.length > 0 && hasPeticao
 
-  /* ── Add log line ────────────────────────────────────────── */
-  function addLog(line: string) {
-    setLogLines(prev => [...prev, line])
-  }
+  /* ── Log helpers ─────────────────────────────────────────── */
+  function addLog(line: string) { setLogLines(prev => [...prev, line]) }
+  function addResearchLog(line: string) { setResearchLogLines(prev => [...prev, line]) }
+  function addClientLog(line: string) { setClientLogLines(prev => [...prev, line]) }
 
-  function addResearchLog(line: string) {
-    setResearchLogLines(prev => [...prev, line])
-  }
-
-  /* ── Update extraction status ────────────────────────────── */
-  function updateExtraction(id: string, patch: Partial<FileExtractionResult>) {
-    setExtractions(prev => prev.map(e => e.taggedFileId === id ? { ...e, ...patch } : e))
-  }
-  void updateExtraction
-
-  /* ── Main extraction flow ────────────────────────────────── */
+  /* ── Main plaintiff extraction flow ──────────────────────── */
   const runExtraction = useCallback(async () => {
     if (!firmId || !selectedClient || taggedFiles.length === 0) return
-
     setStep(2)
     setGlobalError(null)
 
     const initialExtractions: FileExtractionResult[] = taggedFiles.map(tf => ({
-      taggedFileId: tf.id,
-      fileName: tf.file.name,
-      category: tf.category,
-      status: 'pending',
+      taggedFileId: tf.id, fileName: tf.file.name, category: tf.category, status: 'pending',
     }))
     setExtractions(initialExtractions)
-
     const total = taggedFiles.length
 
     try {
       addLog('Criando processo no sistema...')
-
       const projectName = `Novo Processo — ${clients.find(c => c.id === selectedClient)?.name || 'Cliente'}`
       const { data: projectRow, error: projectError } = await supabase
         .from('projects')
-        .insert({
-          firm_id: firmId,
-          client_id: selectedClient,
-          name: projectName,
-          fase: 'analise',
-          status: 'ativo',
-          risk_level: 'medio',
-          tipo: 'contencioso',
-          area: 'civel',
-        })
+        .insert({ firm_id: firmId, client_id: selectedClient, name: projectName, fase: 'analise', status: 'ativo', risk_level: 'medio', tipo: 'contencioso', area: 'civel' })
         .select('id')
         .single()
 
-      if (projectError || !projectRow) {
-        throw new Error(`Falha ao criar processo: ${projectError?.message}`)
-      }
+      if (projectError || !projectRow) throw new Error(`Falha ao criar processo: ${projectError?.message}`)
 
       const newProjectId = projectRow.id
       setProjectId(newProjectId)
       addLog(`✓ Processo criado [${newProjectId.slice(0, 8)}...]`)
-
       addLog(`Enviando ${total} documento(s) para armazenamento...`)
 
       const uploadFormData = new FormData()
       uploadFormData.append('project_id', newProjectId)
       uploadFormData.append('firm_id', firmId)
-
       taggedFiles.forEach((tf, i) => {
         uploadFormData.append(`file_${i}`, tf.file)
         uploadFormData.append(`category_${i}`, tf.category)
       })
 
-      const uploadRes = await fetch('/api/upload-documents', {
-        method: 'POST',
-        body: uploadFormData,
-      })
+      const uploadRes = await fetch('/api/upload-documents', { method: 'POST', body: uploadFormData })
       const uploadData = await uploadRes.json()
-
-      if (!uploadRes.ok || !uploadData.documents) {
-        throw new Error(uploadData.error || 'Falha no upload de documentos')
-      }
-
+      if (!uploadRes.ok || !uploadData.documents) throw new Error(uploadData.error || 'Falha no upload de documentos')
       addLog(`✓ ${total} documento(s) enviados com sucesso`)
 
-      const uploadedDocs = uploadData.documents as {
-        field: string; document_id: string; name: string; document_category: string
-      }[]
-
+      const uploadedDocs = uploadData.documents as { field: string; document_id: string; name: string; document_category: string }[]
       setExtractions(prev => prev.map(e => {
         const match = uploadedDocs.find(d => d.name === e.fileName)
         return match ? { ...e, documentId: match.document_id } : e
@@ -614,111 +613,55 @@ export default function NovoProcessoModal({
       const peticaoUploaded = uploadedDocs.find(d => d.document_category === 'Petição Inicial')!
 
       addLog(`Extraindo petição inicial: ${peticaoTagged.file.name}...`)
-      setExtractions(prev => prev.map(e =>
-        e.taggedFileId === peticaoTagged.id ? { ...e, status: 'processing' } : e
-      ))
+      setExtractions(prev => prev.map(e => e.taggedFileId === peticaoTagged.id ? { ...e, status: 'processing' } : e))
 
       let peticaoExtracted: PeticaoExtracted | null = null
-
       try {
         const peticaoFd = new FormData()
         peticaoFd.append('file', peticaoTagged.file)
         peticaoFd.append('document_category', 'Petição Inicial')
-
         const pRes = await fetch('/api/extract-pdf', { method: 'POST', body: peticaoFd })
         const pData = await pRes.json()
-
         if (!pRes.ok || !pData.extracted) throw new Error(pData.error || 'Falha na extração')
-
         peticaoExtracted = pData.extracted as PeticaoExtracted
-
-        await fetch('/api/save-extraction', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            document_id: peticaoUploaded.document_id,
-            project_id: newProjectId,
-            document_category: 'Petição Inicial',
-            extracted: peticaoExtracted,
-            is_peticao: true,
-          }),
-        })
-
-        setExtractions(prev => prev.map(e =>
-          e.taggedFileId === peticaoTagged.id
-            ? { ...e, status: 'done', extracted: peticaoExtracted!, documentId: peticaoUploaded.document_id }
-            : e
-        ))
+        await fetch('/api/save-extraction', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document_id: peticaoUploaded.document_id, project_id: newProjectId, document_category: 'Petição Inicial', extracted: peticaoExtracted, is_peticao: true }) })
+        setExtractions(prev => prev.map(e => e.taggedFileId === peticaoTagged.id ? { ...e, status: 'done', extracted: peticaoExtracted!, documentId: peticaoUploaded.document_id } : e))
         addLog(`✓ Petição inicial extraída — ${peticaoExtracted.tipo_acao || 'Tipo identificado'}`)
         if (peticaoExtracted.nome_processo) addLog(`  Processo: ${peticaoExtracted.nome_processo}`)
         if (peticaoExtracted.numero_processo) addLog(`  CNJ: ${peticaoExtracted.numero_processo}`)
-
         setPeticaoData(peticaoExtracted)
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Erro na extração da petição'
-        setExtractions(prev => prev.map(e =>
-          e.taggedFileId === peticaoTagged.id ? { ...e, status: 'error', error: msg } : e
-        ))
+        setExtractions(prev => prev.map(e => e.taggedFileId === peticaoTagged.id ? { ...e, status: 'error', error: msg } : e))
         addLog(`✗ Erro na petição inicial: ${msg}`)
       }
 
       setOverallProgress(Math.round((1 / total) * 100))
-
       const supportingFiles = taggedFiles.filter(f => f.category !== 'Petição Inicial')
 
       if (supportingFiles.length > 0) {
         addLog(`Iniciando extração paralela de ${supportingFiles.length} documento(s) de suporte...`)
-
-        setExtractions(prev => prev.map(e =>
-          supportingFiles.some(sf => sf.id === e.taggedFileId)
-            ? { ...e, status: 'processing' }
-            : e
-        ))
-
+        setExtractions(prev => prev.map(e => supportingFiles.some(sf => sf.id === e.taggedFileId) ? { ...e, status: 'processing' } : e))
         const totalDone = { count: 1 }
-
         await Promise.all(supportingFiles.map(async (sf, sfIdx) => {
           const uploaded = uploadedDocs.find(d => d.name === sf.file.name)
           if (!uploaded) return
-
           try {
             const fd = new FormData()
             fd.append('file', sf.file)
             fd.append('document_category', sf.category)
-
             const res = await fetch('/api/extract-pdf', { method: 'POST', body: fd })
             const data = await res.json()
-
             if (!res.ok || !data.extracted) throw new Error(data.error || 'Falha na extração')
-
             const extracted = data.extracted as SupportingExtracted
-
-            await fetch('/api/save-extraction', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                document_id: uploaded.document_id,
-                project_id: newProjectId,
-                document_category: sf.category,
-                extracted,
-                is_peticao: false,
-              }),
-            })
-
-            setExtractions(prev => prev.map(e =>
-              e.taggedFileId === sf.id
-                ? { ...e, status: 'done', extracted, documentId: uploaded.document_id }
-                : e
-            ))
-
+            await fetch('/api/save-extraction', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document_id: uploaded.document_id, project_id: newProjectId, document_category: sf.category, extracted, is_peticao: false }) })
+            setExtractions(prev => prev.map(e => e.taggedFileId === sf.id ? { ...e, status: 'done', extracted, documentId: uploaded.document_id } : e))
             totalDone.count++
             addLog(`✓ ${sf.category} extraído (${totalDone.count}/${total}): ${sf.file.name}`)
             setOverallProgress(Math.round((totalDone.count / total) * 100))
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Erro'
-            setExtractions(prev => prev.map(e =>
-              e.taggedFileId === sf.id ? { ...e, status: 'error', error: msg } : e
-            ))
+            setExtractions(prev => prev.map(e => e.taggedFileId === sf.id ? { ...e, status: 'error', error: msg } : e))
             totalDone.count++
             addLog(`✗ Erro em ${sf.file.name} (${sfIdx + 2}/${total}): ${msg}`)
             setOverallProgress(Math.round((totalDone.count / total) * 100))
@@ -727,7 +670,7 @@ export default function NovoProcessoModal({
       }
 
       setOverallProgress(100)
-      addLog('▸ Extração completa. Gerando resumo unificado...')
+      addLog('▸ Extração completa. Gerando análise executiva...')
 
       setExtractions(prev => {
         setAllExtractions(prev)
@@ -743,35 +686,190 @@ export default function NovoProcessoModal({
     }
   }, [firmId, selectedClient, taggedFiles, clients])
 
-  /* ── Research flow ───────────────────────────────────────── */
-  const runResearch = useCallback(async () => {
-    if (!firmId || !projectId || !peticaoData) return
+  /* ── Case analysis (Step 3) ──────────────────────────────── */
+  const runCaseAnalysis = useCallback(async () => {
+    if (!projectId) return
+    setCaseAnalysisLoading(true)
+    setCaseAnalysisError(null)
 
-    setStep(4)
-    setResearchError(null)
-    setResearchLogLines([])
-    setResearchDone(false)
+    try {
+      const peticaoExt = allExtractions.find(e => e.category === 'Petição Inicial')?.extracted as PeticaoExtracted | undefined
+      const supportingDocsPayload = allExtractions
+        .filter(e => e.status === 'done' && e.category !== 'Petição Inicial')
+        .map(e => ({ fileName: e.fileName, category: e.category as string, extracted: (e.extracted || {}) as Record<string, unknown> }))
 
-    // Loading animation steps (shown while API is running)
-    const RESEARCH_LOADING_STEPS = [
-      'Analisando contexto do caso...',
-      'Consultando STJ — Superior Tribunal de Justiça...',
-      'Consultando STF — Supremo Tribunal Federal...',
-      'Pesquisando jurisprudência complementar...',
-      'Aguardando resultados das fontes oficiais...',
-    ]
+      const res = await fetch('/api/analyze-case', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          firm_id: firmId,
+          peticao_extracted: (peticaoExt || {}) as Record<string, unknown>,
+          supporting_docs: supportingDocsPayload,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.analysis) throw new Error(data.error || 'Falha na análise executiva')
+      setCaseAnalysis(data.analysis as CaseAnalysis)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro'
+      setCaseAnalysisError(msg)
+    } finally {
+      setCaseAnalysisLoading(false)
+    }
+  }, [projectId, firmId, allExtractions])
 
-    // Build supporting summaries
-    const supportingSummaries = allExtractions
+  /* ── Save and wait for documents ─────────────────────────── */
+  const handleSaveAndWait = useCallback(async () => {
+    if (!projectId || !firmId) return
+    setIsSavingAndWaiting(true)
+    try {
+      // Update project status
+      await supabase
+        .from('projects')
+        .update({ status: 'aguardando_documentos', updated_at: new Date().toISOString() })
+        .eq('id', projectId)
+
+      setToast('Processo salvo — aguardando documentos do cliente.')
+      setTimeout(() => {
+        setToast(null)
+        onSuccess()
+        onClose()
+      }, 2000)
+    } catch (err) {
+      console.error('save-and-wait error:', err)
+    } finally {
+      setIsSavingAndWaiting(false)
+    }
+  }, [projectId, firmId, onSuccess, onClose])
+
+  /* ── Client document extraction flow (Step 4) ───────────── */
+  const runClientExtraction = useCallback(async () => {
+    if (!firmId || !projectId || clientTaggedFiles.length === 0) return
+
+    setClientExtractionsDone(false)
+    setClientGlobalError(null)
+    setClientLogLines([])
+    setClientProgress(0)
+
+    const total = clientTaggedFiles.length
+    const initialExtractions: FileExtractionResult[] = clientTaggedFiles.map(tf => ({
+      taggedFileId: tf.id, fileName: tf.file.name, category: tf.category, status: 'pending',
+    }))
+    setClientExtractions(initialExtractions)
+
+    try {
+      // Upload client docs
+      addClientLog(`Enviando ${total} documento(s) do cliente...`)
+      const uploadFd = new FormData()
+      uploadFd.append('project_id', projectId)
+      uploadFd.append('firm_id', firmId)
+      clientTaggedFiles.forEach((tf, i) => {
+        uploadFd.append(`file_${i}`, tf.file)
+        uploadFd.append(`category_${i}`, tf.category)
+      })
+      const uploadRes = await fetch('/api/upload-documents', { method: 'POST', body: uploadFd })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok || !uploadData.documents) throw new Error(uploadData.error || 'Falha no upload')
+      addClientLog(`✓ ${total} documento(s) enviados`)
+
+      const uploadedDocs = uploadData.documents as { field: string; document_id: string; name: string; document_category: string }[]
+
+      setClientExtractions(prev => prev.map(e => {
+        const match = uploadedDocs.find(d => d.name === e.fileName)
+        return match ? { ...e, documentId: match.document_id } : e
+      }))
+
+      // Extract all in parallel
+      addClientLog(`Iniciando extração de ${total} documento(s) do cliente...`)
+      setClientExtractions(prev => prev.map(e => ({ ...e, status: 'processing' })))
+
+      const totalDone = { count: 0 }
+      await Promise.all(clientTaggedFiles.map(async (tf) => {
+        const uploaded = uploadedDocs.find(d => d.name === tf.file.name)
+        if (!uploaded) return
+        try {
+          const fd = new FormData()
+          fd.append('file', tf.file)
+          fd.append('document_category', tf.category)
+          const res = await fetch('/api/extract-pdf', { method: 'POST', body: fd })
+          const data = await res.json()
+          if (!res.ok || !data.extracted) throw new Error(data.error || 'Falha na extração')
+          const extracted = data.extracted as SupportingExtracted
+          await fetch('/api/save-extraction', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document_id: uploaded.document_id, project_id: projectId, document_category: tf.category, extracted, is_peticao: false }) })
+          setClientExtractions(prev => prev.map(e => e.taggedFileId === tf.id ? { ...e, status: 'done', extracted, documentId: uploaded.document_id } : e))
+          totalDone.count++
+          addClientLog(`✓ Extraído: ${tf.file.name} (${totalDone.count}/${total})`)
+          setClientProgress(Math.round((totalDone.count / total) * 100))
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Erro'
+          setClientExtractions(prev => prev.map(e => e.taggedFileId === tf.id ? { ...e, status: 'error', error: msg } : e))
+          totalDone.count++
+          addClientLog(`✗ Erro em ${tf.file.name}: ${msg}`)
+          setClientProgress(Math.round((totalDone.count / total) * 100))
+        }
+      }))
+
+      setClientProgress(100)
+      addClientLog('▸ Documentos do cliente extraídos. Iniciando análise cruzada...')
+      setClientExtractionsDone(true)
+      await new Promise(r => setTimeout(r, 800))
+      setStep(5)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro'
+      setClientGlobalError(msg)
+      addClientLog(`✗ Erro crítico: ${msg}`)
+    }
+  }, [firmId, projectId, clientTaggedFiles])
+
+  /* ── Build supporting summaries (shared helper) ──────────── */
+  function buildSupportingSummaries(extracts: FileExtractionResult[]): string[] {
+    return extracts
       .filter(e => e.status === 'done' && e.category !== 'Petição Inicial')
       .map(e => {
         const sup = e.extracted as SupportingExtracted
         return sup?.summary ? `[${e.category}] ${sup.summary}` : null
       })
       .filter(Boolean) as string[]
+  }
 
-    // Start animated log in background while API runs
-    // Use longer interval since the real API takes 20-40s
+  function buildClientDocSummaries(): string[] {
+    return clientExtractions
+      .filter(e => e.status === 'done')
+      .map(e => {
+        const sup = e.extracted as SupportingExtracted
+        return sup?.summary ? `[${e.category}] ${sup.summary}` : null
+      })
+      .filter(Boolean) as string[]
+  }
+
+  function buildCrossRefNotes(): string {
+    if (clientExtractions.filter(e => e.status === 'done').length === 0) return ''
+    const plaintiffDocs = allExtractions.filter(e => e.status === 'done').map(e => `${e.category}: ${(e.extracted as SupportingExtracted)?.summary || ''}`)
+    const clientDocs = clientExtractions.filter(e => e.status === 'done').map(e => `${e.category}: ${(e.extracted as SupportingExtracted)?.summary || ''}`)
+    return `Docs da parte autora: ${plaintiffDocs.join('; ')} | Docs do réu: ${clientDocs.join('; ')}`
+  }
+
+  /* ── Research + Strategy flow (Step 5) ──────────────────── */
+  const runResearch = useCallback(async () => {
+    if (!firmId || !projectId || !peticaoData) return
+
+    setResearchError(null)
+    setResearchLogLines([])
+    setResearchDone(false)
+
+    const RESEARCH_LOADING_STEPS = [
+      'Analisando contexto completo do caso...',
+      'Consultando STJ — Superior Tribunal de Justiça...',
+      'Consultando STF — Supremo Tribunal Federal...',
+      'Pesquisando jurisprudência complementar...',
+      'Aguardando resultados das fontes oficiais...',
+    ]
+
+    const supportingSummaries = buildSupportingSummaries(allExtractions)
+    const clientDocSummaries = buildClientDocSummaries()
+    const crossReferenceNotes = buildCrossRefNotes()
+
     const logPromise = (async () => {
       for (const step_text of RESEARCH_LOADING_STEPS) {
         addResearchLog(step_text)
@@ -779,7 +877,6 @@ export default function NovoProcessoModal({
       }
     })()
 
-    // Start research API in parallel
     const apiPromise = fetch('/api/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -796,11 +893,12 @@ export default function NovoProcessoModal({
           pedidos: peticaoData.pedidos,
           area: peticaoData.area,
           supporting_summaries: supportingSummaries,
+          client_doc_summaries: clientDocSummaries,
+          cross_reference_notes: crossReferenceNotes || undefined,
         },
       }),
     })
 
-    // Wait for both (log animation + API)
     const [, researchRes] = await Promise.all([logPromise, apiPromise])
     const researchJson = await researchRes.json()
 
@@ -813,7 +911,6 @@ export default function NovoProcessoModal({
     const results = researchJson.results as ResearchResults
     setResearchResults(results)
 
-    // Show per-source logs returned by the API (with actual counts)
     if (Array.isArray(researchJson.source_logs)) {
       for (const logLine of researchJson.source_logs as string[]) {
         addResearchLog(logLine)
@@ -825,7 +922,6 @@ export default function NovoProcessoModal({
     await new Promise(r => setTimeout(r, 600))
     addResearchLog('Gerando minuta da contestação...')
 
-    // Now call strategy API
     setStrategyLoading(true)
     try {
       const stratRes = await fetch('/api/strategy', {
@@ -846,13 +942,14 @@ export default function NovoProcessoModal({
             numero_processo: peticaoData.numero_processo,
             nome_processo: peticaoData.nome_processo,
             supporting_summaries: supportingSummaries,
+            client_doc_summaries: clientDocSummaries,
+            cross_reference_notes: crossReferenceNotes || undefined,
           },
           research_results: results,
         }),
       })
 
       const stratJson = await stratRes.json()
-
       if (!stratRes.ok || !stratJson.strategy) {
         setStrategyError(stratJson.error || 'Falha na geração de estratégia')
         addResearchLog(`✗ Erro na estratégia: ${stratJson.error || 'Falha desconhecida'}`)
@@ -860,11 +957,9 @@ export default function NovoProcessoModal({
       }
 
       setStrategyData(stratJson.strategy)
-      addResearchLog('▸ Pesquisa concluída.')
+      addResearchLog('▸ Análise concluída.')
       await new Promise(r => setTimeout(r, 400))
       setResearchDone(true)
-      await new Promise(r => setTimeout(r, 600))
-      setStep(5)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro'
       setStrategyError(msg)
@@ -872,23 +967,17 @@ export default function NovoProcessoModal({
     } finally {
       setStrategyLoading(false)
     }
-  }, [firmId, projectId, peticaoData, allExtractions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmId, projectId, peticaoData, allExtractions, clientExtractions])
 
-  /* ── Re-generate strategy (feedback loop) ────────────────── */
+  /* ── Re-generate strategy ────────────────────────────────── */
   const regenerateStrategy = useCallback(async () => {
     if (!firmId || !projectId || !researchResults || !peticaoData) return
-
     setStrategyLoading(true)
     setStrategyError(null)
-
-    const supportingSummaries = allExtractions
-      .filter(e => e.status === 'done' && e.category !== 'Petição Inicial')
-      .map(e => {
-        const sup = e.extracted as SupportingExtracted
-        return sup?.summary ? `[${e.category}] ${sup.summary}` : null
-      })
-      .filter(Boolean) as string[]
-
+    const supportingSummaries = buildSupportingSummaries(allExtractions)
+    const clientDocSummaries = buildClientDocSummaries()
+    const crossReferenceNotes = buildCrossRefNotes()
     try {
       const stratRes = await fetch('/api/strategy', {
         method: 'POST',
@@ -908,165 +997,103 @@ export default function NovoProcessoModal({
             numero_processo: peticaoData.numero_processo,
             nome_processo: peticaoData.nome_processo,
             supporting_summaries: supportingSummaries,
+            client_doc_summaries: clientDocSummaries,
+            cross_reference_notes: crossReferenceNotes || undefined,
           },
           research_results: researchResults,
           lawyer_feedback: adjustFeedback,
         }),
       })
-
       const stratJson = await stratRes.json()
       if (!stratRes.ok || !stratJson.strategy) {
         setStrategyError(stratJson.error || 'Falha ao regenerar estratégia')
         return
       }
-
       setStrategyData(stratJson.strategy)
       setShowAdjustInput(false)
       setAdjustFeedback('')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro'
-      setStrategyError(msg)
+      setStrategyError(err instanceof Error ? err.message : 'Erro')
     } finally {
       setStrategyLoading(false)
     }
-  }, [firmId, projectId, researchResults, peticaoData, allExtractions, adjustFeedback])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmId, projectId, researchResults, peticaoData, allExtractions, clientExtractions, adjustFeedback])
 
   /* ── Save approved strategy ──────────────────────────────── */
   const handleApproveAndSave = useCallback(async () => {
     if (!firmId || !projectId || !strategyData) return
-
     setIsSaving(true)
     try {
       const res = await fetch('/api/strategy/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          firm_id: firmId,
-          ...strategyData,
-        }),
+        body: JSON.stringify({ project_id: projectId, firm_id: firmId, ...strategyData }),
       })
-
       const json = await res.json()
-      if (!res.ok) {
-        setStrategyError(json.error || 'Falha ao salvar')
-        return
-      }
-
+      if (!res.ok) { setStrategyError(json.error || 'Falha ao salvar'); return }
       setToast('Estratégia e minuta aprovadas e salvas com sucesso!')
-      setTimeout(() => {
-        setToast(null)
-        onSuccess()
-        onClose()
-      }, 2000)
+      setTimeout(() => { setToast(null); onSuccess(); onClose() }, 2000)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro'
-      setStrategyError(msg)
+      setStrategyError(err instanceof Error ? err.message : 'Erro')
     } finally {
       setIsSaving(false)
     }
   }, [firmId, projectId, strategyData, onSuccess, onClose])
 
-  /* ── Helpers for summary screen ──────────────────────────── */
-  function getAllKeyDates(): { date: string | null; description: string; source: string }[] {
+  /* ── Risk flag helpers ───────────────────────────────────── */
+  function getAllKeyDates() {
     const dates: { date: string | null; description: string; source: string }[] = []
     allExtractions.forEach(e => {
       if (e.status !== 'done' || !e.extracted) return
       const ext = e.extracted as SupportingExtracted
-      if (ext.key_dates) {
-        ext.key_dates.forEach(d => dates.push({ ...d, source: e.fileName }))
-      }
+      if (ext.key_dates) ext.key_dates.forEach(d => dates.push({ ...d, source: e.fileName }))
     })
     return dates
   }
 
-  function getAllRiskFlags(): { severity: string; description: string; source: string }[] {
-    const flags: { severity: string; description: string; source: string }[] = []
-    allExtractions.forEach(e => {
-      if (e.status !== 'done' || !e.extracted) return
-      const ext = e.extracted as SupportingExtracted
-      if (ext.risk_flags) {
-        ext.risk_flags.forEach(f => flags.push({ ...f, source: e.fileName }))
-      }
-    })
-    return flags
-  }
-
-  function severityColor(sev: string) {
-    if (sev === 'alto') return C.red
-    if (sev === 'medio') return C.amber
-    return C.green
-  }
-
   const selectedClientName = clients.find(c => c.id === selectedClient)?.name || ''
-
-  /* ── Modal width based on step ───────────────────────────── */
-  const modalWidth = step === 5
+  const modalWidth = step === 5 && strategyData
     ? 'min(1120px, calc(100vw - 32px))'
     : 'min(700px, calc(100vw - 32px))'
 
   if (!open) return null
 
-  /* ─── Render ────────────────────────────────────────────── */
+  /* ─── Render ─────────────────────────────────────────────── */
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.65)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 1000,
-          animation: 'fadeIn 150ms ease',
-        }}
-      />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', zIndex: 1000, animation: 'fadeIn 150ms ease' }} />
 
       {/* Modal */}
       <div style={{
-        position: 'fixed',
-        top: '50%', left: '50%',
+        position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: modalWidth,
-        maxHeight: 'calc(100vh - 48px)',
-        overflowY: step === 5 ? 'hidden' : 'auto',
-        borderRadius: '14px',
-        background: C.bg1,
+        width: modalWidth, maxHeight: 'calc(100vh - 48px)',
+        overflowY: (step === 5 && strategyData) ? 'hidden' : 'auto',
+        borderRadius: '14px', background: C.bg1,
         border: `1px solid ${C.border2}`,
         boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
-        zIndex: 1001,
-        animation: 'slideUp 200ms ease',
+        zIndex: 1001, animation: 'slideUp 200ms ease',
         transition: 'width 400ms ease',
         display: 'flex', flexDirection: 'column',
       }}>
 
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px 0',
-          flexShrink: 0,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0', flexShrink: 0 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: C.text1, letterSpacing: '-0.01em' }}>
-              Novo Processo
-            </h2>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: C.text1, letterSpacing: '-0.01em' }}>Novo Processo</h2>
             <p style={{ margin: '4px 0 0', fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em' }}>
-              {step === 1 && 'Etapa 1 de 5 — Upload de documentos'}
+              {step === 1 && 'Etapa 1 de 5 — Upload de documentos do processo'}
               {step === 2 && 'Etapa 2 de 5 — Extração AI em andamento'}
-              {step === 3 && 'Etapa 3 de 5 — Resumo unificado'}
-              {step === 4 && 'Etapa 4 de 5 — Pesquisa Jurisprudencial'}
-              {step === 5 && 'Etapa 5 de 5 — Estratégia de Defesa + Minuta'}
+              {step === 3 && 'Etapa 3 de 5 — Resumo executivo + documentos necessários'}
+              {step === 4 && 'Etapa 4 de 5 — Upload dos documentos do cliente'}
+              {step === 5 && 'Etapa 5 de 5 — Pesquisa + Estratégia de Defesa'}
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              width: '32px', height: '32px', borderRadius: '8px',
-              background: 'transparent', border: `1px solid ${C.border2}`,
-              color: C.text3, cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              transition: 'all 150ms ease',
-            }}
+            style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 150ms ease' }}
             onMouseEnter={e => { e.currentTarget.style.background = C.bg3; e.currentTarget.style.color = C.text1 }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.text3 }}
           >
@@ -1078,83 +1105,42 @@ export default function NovoProcessoModal({
 
         {/* Body */}
         <div style={{
-          padding: step === 5 ? '0 24px' : '0 24px 24px',
+          padding: (step === 5 && strategyData) ? '0 24px' : '0 24px 24px',
           flex: 1,
-          overflowY: step === 5 ? 'hidden' : 'auto',
+          overflowY: (step === 5 && strategyData) ? 'hidden' : 'auto',
           display: 'flex', flexDirection: 'column',
         }}>
           <div style={{ flexShrink: 0 }}>
             <StepIndicator step={step} C={C} />
           </div>
 
-          {/* ══ STEP 1: Multi-file upload ══════════════════════ */}
+          {/* ══ STEP 1: Upload ════════════════════════════════ */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
               {/* Client selector */}
               <div>
-                <div style={{
-                  fontSize: '11px', color: C.text2, fontWeight: 600,
-                  marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
-                  <span style={{
-                    width: '20px', height: '20px', borderRadius: '50%',
-                    background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                    color: C.amber, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0,
-                  }}>1</span>
+                <div style={{ fontSize: '11px', color: C.text2, fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: C.amberBg, border: `1px solid ${C.amberBorder}`, color: C.amber, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0 }}>1</span>
                   Selecione o cliente
                 </div>
                 {clients.length === 0 ? (
-                  <div style={{
-                    padding: '16px', borderRadius: '8px',
-                    background: C.bg2, border: `1px dashed ${C.border2}`,
-                    textAlign: 'center', color: C.text3, fontSize: '12px',
-                  }}>
+                  <div style={{ padding: '16px', borderRadius: '8px', background: C.bg2, border: `1px dashed ${C.border2}`, textAlign: 'center', color: C.text3, fontSize: '12px' }}>
                     Nenhum cliente cadastrado. Crie um cliente primeiro.
                   </div>
                 ) : (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '8px',
-                    maxHeight: '180px', overflowY: 'auto', paddingRight: '4px',
-                  }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
                     {clients.map(c => {
                       const ac = avatarColor(c.name)
                       const isSelected = selectedClient === c.id
                       return (
-                        <button
-                          key={c.id}
-                          onClick={() => setSelectedClient(c.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            padding: '10px 12px', borderRadius: '8px',
-                            background: isSelected ? C.amberBg : C.bg2,
-                            border: `2px solid ${isSelected ? C.amber : C.border1}`,
-                            cursor: 'pointer', textAlign: 'left', width: '100%',
-                            transition: 'all 150ms ease',
-                          }}
-                        >
-                          <span style={{
-                            width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0,
-                            background: ac + '25', border: `1px solid ${ac}50`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '10px', fontWeight: 700, color: ac,
-                            fontFamily: 'IBM Plex Mono, monospace',
-                          }}>
+                        <button key={c.id} onClick={() => setSelectedClient(c.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', background: isSelected ? C.amberBg : C.bg2, border: `2px solid ${isSelected ? C.amber : C.border1}`, cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 150ms ease' }}>
+                          <span style={{ width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0, background: ac + '25', border: `1px solid ${ac}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: ac, fontFamily: 'IBM Plex Mono, monospace' }}>
                             {getInitials(c.name)}
                           </span>
-                          <span style={{
-                            fontSize: '12px', color: isSelected ? C.amber : C.text1,
-                            fontWeight: isSelected ? 600 : 400,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
+                          <span style={{ fontSize: '12px', color: isSelected ? C.amber : C.text1, fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {c.name}
                           </span>
-                          {isSelected && (
-                            <CheckCircle2 size={14} style={{ color: C.amber, marginLeft: 'auto', flexShrink: 0 }} />
-                          )}
+                          {isSelected && <CheckCircle2 size={14} style={{ color: C.amber, marginLeft: 'auto', flexShrink: 0 }} />}
                         </button>
                       )
                     })}
@@ -1162,54 +1148,28 @@ export default function NovoProcessoModal({
                 )}
               </div>
 
-              {/* Multi-file drop zone */}
+              {/* Drop zone */}
               <div>
-                <div style={{
-                  fontSize: '11px', color: C.text2, fontWeight: 600,
-                  marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
-                  <span style={{
-                    width: '20px', height: '20px', borderRadius: '50%',
-                    background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                    color: C.amber, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0,
-                  }}>2</span>
+                <div style={{ fontSize: '11px', color: C.text2, fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: C.amberBg, border: `1px solid ${C.amberBorder}`, color: C.amber, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0 }}>2</span>
                   Adicione os documentos do processo (PDFs)
                 </div>
-
                 <div
                   onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.border2}`,
-                    borderRadius: '10px',
-                    padding: '20px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: dragOver ? C.amberBg : taggedFiles.length > 0 ? C.greenBg : C.bg2,
-                    transition: 'all 200ms ease',
-                  }}
+                  style={{ border: `2px dashed ${dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.border2}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: dragOver ? C.amberBg : taggedFiles.length > 0 ? C.greenBg : C.bg2, transition: 'all 200ms ease' }}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf"
-                    multiple
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                  />
+                  <input ref={fileInputRef} type="file" accept=".pdf" multiple onChange={handleFileChange} style={{ display: 'none' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <Upload size={24} style={{ color: dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.text3 }} />
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 600, color: dragOver ? C.amber : taggedFiles.length > 0 ? C.green : C.text2 }}>
-                        {taggedFiles.length > 0
-                          ? `${taggedFiles.length} arquivo(s) — clique para adicionar mais`
-                          : 'Arraste PDFs aqui ou clique para selecionar'}
+                        {taggedFiles.length > 0 ? `${taggedFiles.length} arquivo(s) — clique para adicionar mais` : 'Arraste PDFs aqui ou clique para selecionar'}
                       </div>
                       <div style={{ fontSize: '11px', color: C.text3, marginTop: '4px' }}>
-                        Aceita múltiplos PDFs — petição inicial + documentos de suporte
+                        Aceita múltiplos PDFs — petição inicial + documentos da parte autora
                       </div>
                     </div>
                   </div>
@@ -1217,92 +1177,34 @@ export default function NovoProcessoModal({
 
                 {taggedFiles.length > 0 && (
                   <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-                    {/* ── Visual hint ── */}
-                    <div style={{
-                      padding: '9px 14px', borderRadius: '8px',
-                      background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      fontSize: '12px', color: C.amber, fontWeight: 600,
-                    }}>
+                    <div style={{ padding: '9px 14px', borderRadius: '8px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: C.amber, fontWeight: 600 }}>
                       <span style={{ fontSize: '14px' }}>⚖️</span>
-                      Selecione qual documento é a{' '}
-                      <strong style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Petição Inicial</strong>
-                      {hasPeticao && (
-                        <span style={{
-                          marginLeft: 'auto', fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace',
-                          color: C.green, display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                          <CheckCircle2 size={12} /> Marcada
-                        </span>
-                      )}
+                      Selecione qual documento é a <strong style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Petição Inicial</strong>
+                      {hasPeticao && <span style={{ marginLeft: 'auto', fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', color: C.green, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Marcada</span>}
                     </div>
-
-                    {/* ── File list ── */}
-                    <div style={{
-                      display: 'flex', flexDirection: 'column', gap: '6px',
-                      maxHeight: '240px', overflowY: 'auto',
-                    }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
                       {taggedFiles.map(tf => {
                         const showSuggestion = tf.suggested && tf.category !== 'Petição Inicial'
                         return (
-                          <div key={tf.id} style={{
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            padding: '9px 12px',
-                            borderRadius: '8px',
-                            background: tf.category === 'Petição Inicial' ? C.amberBg : C.bg2,
-                            border: `1px solid ${tf.category === 'Petição Inicial' ? C.amberBorder : showSuggestion ? C.amberBorder + '80' : C.border1}`,
-                            transition: 'all 150ms ease',
-                          }}>
+                          <div key={tf.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', background: tf.category === 'Petição Inicial' ? C.amberBg : C.bg2, border: `1px solid ${tf.category === 'Petição Inicial' ? C.amberBorder : showSuggestion ? C.amberBorder + '80' : C.border1}`, transition: 'all 150ms ease' }}>
                             <FileText size={14} style={{ color: tf.category === 'Petição Inicial' ? C.amber : C.text3, flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{
-                                fontSize: '12px', fontWeight: 500, color: C.text1,
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}>
-                                {tf.file.name}
-                              </div>
-                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
-                                {(tf.file.size / 1024).toFixed(0)} KB
-                              </div>
+                              <div style={{ fontSize: '12px', fontWeight: 500, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tf.file.name}</div>
+                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
                             </div>
-                            {/* BONUS: suggestion badge */}
                             {showSuggestion && (
-                              <button
-                                onClick={() => handleCategoryChange(tf.id, 'Petição Inicial')}
-                                title="Clique para marcar como Petição Inicial"
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: '4px',
-                                  padding: '3px 8px', borderRadius: '12px',
-                                  background: C.amberBg, border: `1px solid ${C.amber}`,
-                                  color: C.amber, fontSize: '10px',
-                                  fontFamily: 'IBM Plex Mono, monospace',
-                                  cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                                  fontWeight: 600, letterSpacing: '0.02em',
-                                  animation: 'pulse 2s ease-in-out infinite',
-                                }}
-                              >
+                              <button onClick={() => handleCategoryChange(tf.id, 'Petição Inicial')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '12px', background: C.amberBg, border: `1px solid ${C.amber}`, color: C.amber, fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600, letterSpacing: '0.02em', animation: 'pulse 2s ease-in-out infinite' }}>
                                 ✦ Sugestão: Petição Inicial?
                               </button>
                             )}
                             <CategoryDropdown
                               value={tf.category}
-                              onChange={v => handleCategoryChange(tf.id, v)}
+                              onChange={v => handleCategoryChange(tf.id, v as DocumentCategory)}
                               highlighted={showSuggestion}
+                              options={DOCUMENT_CATEGORIES}
                               C={C}
                             />
-                            <button
-                              onClick={() => removeFile(tf.id)}
-                              style={{
-                                width: '28px', height: '28px', borderRadius: '6px',
-                                background: 'transparent', border: `1px solid ${C.border2}`,
-                                color: C.text3, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                transition: 'all 150ms ease', flexShrink: 0,
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}
-                            >
+                            <button onClick={() => removeFile(tf.id)} style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 150ms ease', flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }} onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}>
                               <Trash2 size={12} />
                             </button>
                           </div>
@@ -1313,14 +1215,8 @@ export default function NovoProcessoModal({
                 )}
 
                 {taggedFiles.length > 0 && !hasPeticao && (
-                  <div style={{
-                    marginTop: '8px', padding: '8px 12px', borderRadius: '6px',
-                    background: C.redBg, border: `1px solid ${C.redBorder}`,
-                    color: C.red, fontSize: '11px',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                  }}>
-                    <AlertCircle size={12} />
-                    Marque um documento como "Petição Inicial" antes de continuar
+                  <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', background: C.redBg, border: `1px solid ${C.redBorder}`, color: C.red, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertCircle size={12} /> Marque um documento como "Petição Inicial" antes de continuar
                   </div>
                 )}
               </div>
@@ -1328,24 +1224,9 @@ export default function NovoProcessoModal({
               <button
                 disabled={!canProceed}
                 onClick={runExtraction}
-                style={{
-                  width: '100%', padding: '13px',
-                  borderRadius: '8px', fontWeight: 700, fontSize: '13px',
-                  cursor: canProceed ? 'pointer' : 'not-allowed',
-                  border: `1px solid ${canProceed ? C.amber : C.border1}`,
-                  background: canProceed ? C.amber : C.bg3,
-                  color: canProceed ? '#fff' : C.text4,
-                  transition: 'all 200ms ease',
-                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
-                }}
+                style={{ width: '100%', padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: canProceed ? 'pointer' : 'not-allowed', border: `1px solid ${canProceed ? C.amber : C.border1}`, background: canProceed ? C.amber : C.bg3, color: canProceed ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em' }}
               >
-                {canProceed
-                  ? `Enviar ${taggedFiles.length} documento${taggedFiles.length > 1 ? 's' : ''} para Extração AI →`
-                  : !selectedClient
-                    ? 'Selecione o cliente primeiro'
-                    : taggedFiles.length === 0
-                      ? 'Adicione ao menos um PDF'
-                      : 'Marque a Petição Inicial'}
+                {canProceed ? `Enviar ${taggedFiles.length} documento${taggedFiles.length > 1 ? 's' : ''} para Análise →` : !selectedClient ? 'Selecione o cliente primeiro' : taggedFiles.length === 0 ? 'Adicione ao menos um PDF' : 'Marque a Petição Inicial'}
               </button>
             </div>
           )}
@@ -1360,14 +1241,7 @@ export default function NovoProcessoModal({
                     <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha na extração</div>
                     <div style={{ fontSize: '12px', color: C.text3 }}>{globalError}</div>
                   </div>
-                  <button
-                    onClick={() => { setStep(1); setGlobalError(null) }}
-                    style={{
-                      padding: '10px 24px', borderRadius: '7px',
-                      background: C.bg3, border: `1px solid ${C.border2}`,
-                      color: C.text2, cursor: 'pointer', fontSize: '13px',
-                    }}
-                  >
+                  <button onClick={() => { setStep(1); setGlobalError(null) }} style={{ padding: '10px 24px', borderRadius: '7px', background: C.bg3, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '13px' }}>
                     ← Voltar
                   </button>
                 </div>
@@ -1377,119 +1251,48 @@ export default function NovoProcessoModal({
                     <div style={{ fontSize: '14px', color: C.text1, lineHeight: 1.5 }}>
                       Processando <strong style={{ color: C.amber }}>{taggedFiles.length} documento(s)</strong>
                     </div>
-                    {selectedClientName && (
-                      <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
-                        {selectedClientName}
-                      </div>
-                    )}
+                    {selectedClientName && <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>{selectedClientName}</div>}
                   </div>
-
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Progresso geral
-                      </span>
-                      <span style={{ fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
-                        {overallProgress}%
-                      </span>
+                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso geral</span>
+                      <span style={{ fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{overallProgress}%</span>
                     </div>
                     <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: C.bg3, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', width: `${overallProgress}%`, borderRadius: '3px',
-                        background: `linear-gradient(90deg, ${C.amber}cc, ${C.amber})`,
-                        transition: 'width 400ms ease',
-                        boxShadow: `0 0 8px ${C.amber}66`,
-                      }} />
+                      <div style={{ height: '100%', width: `${overallProgress}%`, borderRadius: '3px', background: `linear-gradient(90deg, ${C.amber}cc, ${C.amber})`, transition: 'width 400ms ease', boxShadow: `0 0 8px ${C.amber}66` }} />
                     </div>
                     <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '4px' }}>
                       {extractions.filter(e => e.status === 'done' || e.status === 'error').length} de {taggedFiles.length} documentos concluídos
                     </div>
                   </div>
-
-                  <div style={{
-                    borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`,
-                    padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px',
-                  }}>
-                    <div style={{
-                      fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px',
-                    }}>
-                      Status por documento
-                    </div>
+                  <div style={{ borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Status por documento</div>
                     {extractions.map(e => (
-                      <div key={e.taggedFileId} style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        padding: '5px 0',
-                        borderBottom: `1px solid ${C.border1}`,
-                      }}>
+                      <div key={e.taggedFileId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0', borderBottom: `1px solid ${C.border1}` }}>
                         <FileStatusIcon status={e.status} C={C} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '11px', color: C.text1, overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
-                            {e.fileName}
-                          </div>
-                          {e.error && (
-                            <div style={{ fontSize: '10px', color: C.red, marginTop: '1px' }}>{e.error}</div>
-                          )}
+                          <div style={{ fontSize: '11px', color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.fileName}</div>
+                          {e.error && <div style={{ fontSize: '10px', color: C.red, marginTop: '1px' }}>{e.error}</div>}
                         </div>
-                        <span style={{
-                          fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
-                          color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.amber : C.text4,
-                          textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
-                        }}>
-                          {e.category}
-                        </span>
+                        <span style={{ fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.amber : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
                       </div>
                     ))}
                   </div>
-
-                  <div style={{
-                    borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`,
-                    padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '0',
-                    maxHeight: '200px', overflowY: 'auto',
-                  }}>
-                    <div style={{
-                      fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px',
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                    }}>
-                      <span style={{
-                        display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
-                        background: overallProgress === 100 ? C.green : C.amber,
-                        boxShadow: overallProgress === 100 ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`,
-                        animation: overallProgress === 100 ? 'none' : 'pulse 1.2s ease-in-out infinite',
-                      }} />
+                  <div style={{ borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '0', maxHeight: '200px', overflowY: 'auto' }}>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: overallProgress === 100 ? C.green : C.amber, boxShadow: overallProgress === 100 ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`, animation: overallProgress === 100 ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
                       Log de Extração
                     </div>
                     {logLines.map((line, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '8px',
-                        padding: '2px 0', animation: 'fadeInRow 200ms ease',
-                      }}>
-                        <span style={{
-                          color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text3,
-                          fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px',
-                          lineHeight: '18px', flexShrink: 0, minWidth: '10px',
-                        }}>
-                          {line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}
-                        </span>
-                        <span style={{
-                          fontSize: '11px',
-                          color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text2,
-                          fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px',
-                        }}>
-                          {line}
-                        </span>
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '2px 0', animation: 'fadeInRow 200ms ease' }}>
+                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text3, fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', lineHeight: '18px', flexShrink: 0, minWidth: '10px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
+                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px' }}>{line}</span>
                       </div>
                     ))}
                     {overallProgress < 100 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
                         <Loader2 size={11} style={{ color: C.amber, animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                        <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
-                          Processando...
-                        </span>
+                        <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Processando...</span>
                       </div>
                     )}
                   </div>
@@ -1498,600 +1301,506 @@ export default function NovoProcessoModal({
             </div>
           )}
 
-          {/* ══ STEP 3: Unified Context Summary ══════════════ */}
+          {/* ══ STEP 3: Executive Summary + Document Request ══ */}
           {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-              {peticaoData && (
-                <div style={{
-                  padding: '14px 16px', borderRadius: '10px',
-                  background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                }}>
-                  <div style={{
-                    fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
-                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700,
-                  }}>
-                    Dados do Processo
+              {caseAnalysisLoading && !caseAnalysis && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', padding: '40px 0' }}>
+                  <div style={{ position: 'relative', width: '60px', height: '60px' }}>
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `3px solid ${C.border2}` }} />
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: `3px solid transparent`, borderTopColor: C.amber, animation: 'spin 1s linear infinite' }} />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
-                    {[
-                      { label: 'Número CNJ',   value: peticaoData.numero_processo },
-                      { label: 'Tipo de Ação', value: peticaoData.tipo_acao },
-                      { label: 'Autor',        value: peticaoData.autor },
-                      { label: 'Réu',          value: peticaoData.reu },
-                      { label: 'Vara',         value: peticaoData.vara },
-                      { label: 'Comarca',      value: peticaoData.comarca },
-                      { label: 'Valor da Causa', value: peticaoData.valor_causa },
-                      { label: 'Área',         value: peticaoData.area },
-                    ].map(({ label, value }) => (
-                      <div key={label}>
-                        <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
-                          {label}
-                        </div>
-                        <div style={{ fontSize: '12px', color: value ? C.text1 : C.text4, fontStyle: value ? 'normal' : 'italic' }}>
-                          {value || '—'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {peticaoData.pedidos && (
-                    <div style={{ marginTop: '10px' }}>
-                      <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
-                        Pedidos
-                      </div>
-                      <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>
-                        {peticaoData.pedidos}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <div style={{
-                  fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                  textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                }}>
-                  Documentos processados ({allExtractions.length || extractions.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {(allExtractions.length > 0 ? allExtractions : extractions).map(e => {
-                    const sup = e.extracted as SupportingExtracted | undefined
-                    const isSupporting = e.category !== 'Petição Inicial'
-                    const hasDetails = isSupporting && sup && (sup.resumo_executivo || (sup.pontos_principais && sup.pontos_principais.length > 0))
-                    const isExpanded = expandedDocCards.has(e.taggedFileId)
-
-                    return (
-                      <div key={e.taggedFileId} style={{
-                        borderRadius: '10px',
-                        background: C.bg2,
-                        border: `1px solid ${e.status === 'error' ? C.redBorder : isExpanded ? C.border3 : C.border1}`,
-                        overflow: 'hidden',
-                        transition: 'border-color 200ms ease',
-                      }}>
-                        {/* Card header — always visible */}
-                        <div
-                          onClick={() => {
-                            if (!hasDetails) return
-                            setExpandedDocCards(prev => {
-                              const next = new Set(prev)
-                              next.has(e.taggedFileId) ? next.delete(e.taggedFileId) : next.add(e.taggedFileId)
-                              return next
-                            })
-                          }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            padding: '10px 14px',
-                            cursor: hasDetails ? 'pointer' : 'default',
-                          }}
-                        >
-                          <span style={{ fontSize: '16px', flexShrink: 0 }}>📄</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: '12px', fontWeight: 600, color: C.text1,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {e.fileName}
-                            </div>
-                            <div style={{
-                              fontSize: '10px', color: C.text3,
-                              fontFamily: 'IBM Plex Mono, monospace',
-                              textTransform: 'uppercase', letterSpacing: '0.05em',
-                              marginTop: '2px',
-                            }}>
-                              {e.category}
-                            </div>
-                          </div>
-                          <FileStatusIcon status={e.status} C={C} />
-                          {hasDetails && (
-                            <ChevronRight
-                              size={14}
-                              style={{
-                                color: C.text3, flexShrink: 0,
-                                transform: isExpanded ? 'rotate(90deg)' : 'none',
-                                transition: '200ms',
-                              }}
-                            />
-                          )}
-                        </div>
-
-                        {/* Petição Inicial: show pedidos summary if available */}
-                        {!isSupporting && sup && (sup as unknown as PeticaoExtracted).pedidos && (
-                          <div style={{
-                            padding: '0 14px 10px 40px',
-                            fontSize: '11px', color: C.text2, lineHeight: 1.5,
-                          }}>
-                            {(sup as unknown as PeticaoExtracted).pedidos}
-                          </div>
-                        )}
-
-                        {/* Supporting doc: inline resumo_executivo (always visible if present) */}
-                        {isSupporting && sup?.resumo_executivo && (
-                          <div style={{
-                            padding: '0 14px 10px 40px',
-                            fontSize: '11px', color: C.text2, lineHeight: 1.6,
-                            borderTop: `1px solid ${C.border1}`,
-                            paddingTop: '8px',
-                          }}>
-                            {sup.resumo_executivo}
-                          </div>
-                        )}
-
-                        {/* Fallback to old summary if no resumo_executivo */}
-                        {isSupporting && !sup?.resumo_executivo && sup?.summary && !isExpanded && (
-                          <div style={{
-                            padding: '0 14px 10px 40px',
-                            fontSize: '11px', color: C.text2, lineHeight: 1.5,
-                            borderTop: `1px solid ${C.border1}`,
-                            paddingTop: '8px',
-                          }}>
-                            {sup.summary}
-                          </div>
-                        )}
-
-                        {/* Expanded: pontos_principais */}
-                        {isExpanded && hasDetails && sup?.pontos_principais && sup.pontos_principais.length > 0 && (
-                          <div style={{
-                            padding: '8px 14px 12px 40px',
-                            borderTop: `1px solid ${C.border1}`,
-                          }}>
-                            <div style={{
-                              fontSize: '9px', color: C.text3,
-                              fontFamily: 'IBM Plex Mono, monospace',
-                              textTransform: 'uppercase', letterSpacing: '0.08em',
-                              marginBottom: '6px', fontWeight: 700,
-                            }}>
-                              Pontos principais
-                            </div>
-                            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {sup.pontos_principais.map((pt, i) => (
-                                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11px', color: C.text2, lineHeight: 1.5 }}>
-                                  <span style={{ color: C.amber, flexShrink: 0, marginTop: '1px' }}>•</span>
-                                  <span>{pt}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Error */}
-                        {e.error && (
-                          <div style={{
-                            padding: '6px 14px 10px 40px',
-                            fontSize: '11px', color: C.red,
-                          }}>
-                            {e.error}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {getAllKeyDates().length > 0 && (
-                <div>
-                  <div style={{
-                    fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                  }}>
-                    Datas-chave identificadas
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {getAllKeyDates().slice(0, 8).map((d, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '10px',
-                        padding: '6px 10px', borderRadius: '6px',
-                        background: C.bg2, border: `1px solid ${C.border1}`,
-                        fontSize: '11px',
-                      }}>
-                        <span style={{ color: C.blue, fontFamily: 'IBM Plex Mono, monospace', minWidth: '80px', flexShrink: 0 }}>
-                          {d.date || '—'}
-                        </span>
-                        <span style={{ color: C.text2, flex: 1 }}>{d.description}</span>
-                        <span style={{ color: C.text4, fontFamily: 'IBM Plex Mono, monospace', fontSize: '9px', flexShrink: 0 }}>
-                          {d.source.slice(0, 20)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {getAllRiskFlags().length > 0 && (
-                <div>
-                  <div style={{
-                    fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                  }}>
-                    Alertas de risco ({getAllRiskFlags().length})
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {getAllRiskFlags().slice(0, 6).map((f, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '8px',
-                        padding: '7px 10px', borderRadius: '6px',
-                        background: C.bg2, border: `1px solid ${C.border1}`,
-                        fontSize: '11px',
-                      }}>
-                        <span style={{
-                          display: 'inline-block', width: '8px', height: '8px',
-                          borderRadius: '50%', background: severityColor(f.severity),
-                          marginTop: '3px', flexShrink: 0,
-                        }} />
-                        <span style={{ color: C.text2, flex: 1, lineHeight: 1.5 }}>{f.description}</span>
-                        <span style={{
-                          fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
-                          color: severityColor(f.severity), textTransform: 'uppercase',
-                          letterSpacing: '0.04em', flexShrink: 0,
-                        }}>
-                          {f.severity}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* CTA */}
-              <button
-                onClick={runResearch}
-                style={{
-                  width: '100%', padding: '14px',
-                  borderRadius: '8px', fontWeight: 700, fontSize: '13px',
-                  cursor: 'pointer',
-                  border: `1px solid ${C.amber}`,
-                  background: C.amber, color: '#fff',
-                  transition: 'all 200ms ease',
-                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  marginTop: '4px',
-                }}
-              >
-                <Scale size={16} />
-                Prosseguir para Análise e Pesquisa →
-              </button>
-            </div>
-          )}
-
-          {/* ══ STEP 4: Research log ══════════════════════════ */}
-          {step === 4 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '8px' }}>
-
-              {researchError ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
-                  <AlertCircle size={48} style={{ color: C.red }} />
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha na pesquisa</div>
-                    <div style={{ fontSize: '12px', color: C.text3 }}>{researchError}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.text1, marginBottom: '6px' }}>Analisando documentos...</div>
+                    <div style={{ fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Sintetizando todos os documentos com GPT-4o</div>
                   </div>
-                  <button
-                    onClick={() => { setStep(3); setResearchError(null) }}
-                    style={{
-                      padding: '10px 24px', borderRadius: '7px',
-                      background: C.bg3, border: `1px solid ${C.border2}`,
-                      color: C.text2, cursor: 'pointer', fontSize: '13px',
-                    }}
-                  >
-                    ← Voltar ao Resumo
+                </div>
+              )}
+
+              {caseAnalysisError && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
+                  <AlertCircle size={40} style={{ color: C.red }} />
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha na análise</div>
+                    <div style={{ fontSize: '12px', color: C.text3 }}>{caseAnalysisError}</div>
+                  </div>
+                  <button onClick={() => { setCaseAnalysisError(null); runCaseAnalysis() }} style={{ padding: '10px 24px', borderRadius: '7px', background: C.amber, border: `1px solid ${C.amber}`, color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                    Tentar Novamente
                   </button>
                 </div>
-              ) : (
+              )}
+
+              {caseAnalysis && (
                 <>
-                  {/* Case context reminder */}
-                  {peticaoData && (
-                    <div style={{
-                      padding: '10px 14px', borderRadius: '8px',
-                      background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                    }}>
+                  {/* ─ Section A: Executive Summary ── */}
+                  <div style={{ borderRadius: '12px', background: C.bg2, border: `1px solid ${C.amberBorder}`, overflow: 'hidden' }}>
+                    {/* Section header */}
+                    <div style={{ padding: '14px 16px', background: C.amberBg, borderBottom: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <Scale size={16} style={{ color: C.amber, flexShrink: 0 }} />
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>
-                          {peticaoData.tipo_acao || 'Ação em análise'}
-                        </div>
-                        <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
-                          {[peticaoData.autor, 'x', peticaoData.reu].filter(Boolean).join(' ')} — {peticaoData.comarca || 'Comarca não informada'}
-                        </div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>RESUMO EXECUTIVO DA DEMANDA</div>
+                        <div style={{ fontSize: '10px', color: C.text3, marginTop: '2px' }}>Análise completa sintetizada por GPT-4o com base em todos os documentos</div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                        <RiskBadge risco={caseAnalysis.risco_preliminar} C={C} />
                       </div>
                     </div>
-                  )}
 
-                  {/* Research log */}
-                  <div style={{
-                    borderRadius: '10px', background: C.bg0, border: `1px solid ${C.border1}`,
-                    padding: '16px 20px', minHeight: '280px',
-                  }}>
-                    <div style={{
-                      fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px',
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                    }}>
-                      <span style={{
-                        display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
-                        background: researchDone ? C.green : C.amber,
-                        boxShadow: researchDone ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`,
-                        animation: researchDone ? 'none' : 'pulse 1.2s ease-in-out infinite',
-                      }} />
-                      Pesquisa Jurisprudencial — IA
-                    </div>
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {/* Resumo */}
+                      <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.7, padding: '12px 14px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border2}` }}>
+                        {caseAnalysis.resumo_demanda}
+                      </div>
 
-                    <div
-                      ref={researchLogRef}
-                      style={{ display: 'flex', flexDirection: 'column', gap: '0', maxHeight: '300px', overflowY: 'auto' }}
-                    >
-                      {researchLogLines.map((line, i) => (
-                        <div key={i} style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '10px',
-                          padding: '5px 0',
-                          borderBottom: i < researchLogLines.length - 1 ? `1px solid ${C.border1}` : 'none',
-                          animation: 'fadeInRow 300ms ease',
-                        }}>
-                          <span style={{ fontSize: '12px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', width: '20px', flexShrink: 0 }}>
-                            {line.startsWith('✓') ? '✓' : line.startsWith('✗') ? '✗' : line.startsWith('▸') ? '▸' : '·'}
-                          </span>
-                          <span style={{
-                            fontSize: '13px',
-                            color: line.startsWith('✓') ? C.green
-                              : line.startsWith('✗') ? C.red
-                              : line.startsWith('▸') ? C.amber
-                              : i === researchLogLines.length - 1 ? C.text1 : C.text2,
-                            fontFamily: 'IBM Plex Mono, monospace', lineHeight: '22px',
-                            fontWeight: line.startsWith('▸') ? 700 : 400,
-                          }}>
-                            {line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸')
-                              ? line.slice(2)
-                              : line}
-                          </span>
-                          {i === researchLogLines.length - 1 && !researchDone && !line.startsWith('✓') && !line.startsWith('✗') && !line.startsWith('▸') && (
-                            <Loader2 size={12} style={{ color: C.amber, animation: 'spin 1s linear infinite', marginTop: '5px', flexShrink: 0 }} />
-                          )}
-                        </div>
-                      ))}
-                      {researchLogLines.length === 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <Loader2 size={14} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
-                          <span style={{ fontSize: '13px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
-                            Iniciando pesquisa...
-                          </span>
+                      {/* Fundamentos */}
+                      {caseAnalysis.fundamentos_autor?.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Fundamentos Alegados</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {caseAnalysis.fundamentos_autor.map((f, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>
+                                <span style={{ color: C.amber, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px' }}>{String(i + 1).padStart(2, '0')}</span>
+                                <span>{f}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
+
+                      {/* Evidências */}
+                      {caseAnalysis.evidencias_apresentadas?.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Evidências Apresentadas pelo Autor</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {caseAnalysis.evidencias_apresentadas.map((ev, i) => (
+                              <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <FileText size={12} style={{ color: C.blue, flexShrink: 0 }} />
+                                  <span style={{ fontSize: '11px', fontWeight: 600, color: C.text1, fontFamily: 'IBM Plex Mono, monospace' }}>{ev.documento}</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.5, marginBottom: '4px' }}>{ev.descricao}</div>
+                                <div style={{ fontSize: '10px', color: C.blue, display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                                  <span style={{ flexShrink: 0 }}>→</span>
+                                  <span>{ev.relevancia}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Valores + Datas */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div style={{ padding: '12px 14px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+                          <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Valores Envolvidos</div>
+                          {[
+                            { l: 'Pedido Principal', v: caseAnalysis.valores_envolvidos?.pedido_principal },
+                            { l: 'Danos Morais', v: caseAnalysis.valores_envolvidos?.danos_morais },
+                            { l: 'Total', v: caseAnalysis.valores_envolvidos?.total },
+                          ].map(({ l, v }) => v && v !== 'Não identificado' && v !== 'Não requerido' && (
+                            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '11px', color: C.text3 }}>{l}</span>
+                              <span style={{ fontSize: '11px', color: C.text1, fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {caseAnalysis.datas_chave?.length > 0 && (
+                          <div style={{ padding: '12px 14px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+                            <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>Datas-Chave</div>
+                            {caseAnalysis.datas_chave.slice(0, 4).map((d, i) => (
+                              <div key={i} style={{ marginBottom: '4px' }}>
+                                <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace' }}>{d.data}</div>
+                                <div style={{ fontSize: '10px', color: C.text2 }}>{d.evento}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Pontos fortes / fracos */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {caseAnalysis.pontos_fortes_autor?.length > 0 && (
+                          <div style={{ padding: '12px 14px', borderRadius: '8px', background: C.redBg, border: `1px solid ${C.redBorder}` }}>
+                            <div style={{ fontSize: '9px', color: C.red, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <TrendingUp size={10} /> Pontos Fortes do Autor
+                            </div>
+                            {caseAnalysis.pontos_fortes_autor.map((p, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px', fontSize: '11px', color: C.text2, lineHeight: 1.4 }}>
+                                <span style={{ color: C.red, flexShrink: 0 }}>•</span><span>{p}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {caseAnalysis.pontos_fracos_autor?.length > 0 && (
+                          <div style={{ padding: '12px 14px', borderRadius: '8px', background: C.greenBg, border: `1px solid ${C.greenBorder}` }}>
+                            <div style={{ fontSize: '9px', color: C.green, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <TrendingDown size={10} /> Fraquezas do Autor (oportunidades para defesa)
+                            </div>
+                            {caseAnalysis.pontos_fracos_autor.map((p, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px', fontSize: '11px', color: C.text2, lineHeight: 1.4 }}>
+                                <span style={{ color: C.green, flexShrink: 0 }}>•</span><span>{p}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Loading state */}
-                  {!researchDone && (
-                    <div style={{
-                      padding: '12px 16px', borderRadius: '8px',
-                      background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                      display: 'flex', alignItems: 'center', gap: '10px',
-                    }}>
-                      <Loader2 size={16} style={{ color: C.amber, animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>
-                          Pesquisa em andamento...
+                  {/* ─ Section B: Document Checklist ── */}
+                  {caseAnalysis.documentos_necessarios_cliente?.length > 0 && (
+                    <div style={{ borderRadius: '12px', background: C.bg2, border: `1px solid ${C.border2}`, overflow: 'hidden' }}>
+                      <div style={{ padding: '14px 16px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <ClipboardList size={16} style={{ color: C.blue, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>DOCUMENTOS NECESSÁRIOS DO CLIENTE</div>
+                          <div style={{ fontSize: '10px', color: C.text3, marginTop: '2px' }}>Solicite estes documentos ao seu cliente antes de prosseguir com a defesa</div>
                         </div>
-                        <div style={{ fontSize: '10px', color: C.text3, marginTop: '2px' }}>
-                          Consultando STJ, STF e tribunais estaduais. Aguarde.
+                        <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                          {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
+                        </span>
+                      </div>
+
+                      <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {caseAnalysis.documentos_necessarios_cliente.map((doc, i) => {
+                          const isChecked = checkedDocs.has(i)
+                          return (
+                            <div
+                              key={i}
+                              onClick={() => setCheckedDocs(prev => {
+                                const next = new Set(prev)
+                                next.has(i) ? next.delete(i) : next.add(i)
+                                return next
+                              })}
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', borderRadius: '8px', background: isChecked ? C.greenBg : C.bg3, border: `1px solid ${isChecked ? C.greenBorder : C.border1}`, cursor: 'pointer', transition: 'all 150ms ease' }}
+                            >
+                              <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${isChecked ? C.green : C.border3}`, background: isChecked ? C.green : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 150ms ease' }}>
+                                {isChecked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '12px', fontWeight: 600, color: isChecked ? C.text3 : C.text1, textDecoration: isChecked ? 'line-through' : 'none' }}>{doc.documento}</span>
+                                  <PriorityBadge prioridade={doc.prioridade} C={C} />
+                                </div>
+                                <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.motivo}</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border2}`, background: C.bg3 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                          <Users size={14} style={{ color: C.text3, flexShrink: 0, marginTop: '1px' }} />
+                          <p style={{ margin: 0, fontSize: '11px', color: C.text3, lineHeight: 1.6 }}>
+                            <strong style={{ color: C.text2 }}>Próximo passo:</strong> Solicite os documentos marcados acima ao seu cliente. Você pode salvar o processo agora e retornar quando tiver os documentos, ou continuar imediatamente se já os possui.
+                          </p>
                         </div>
                       </div>
                     </div>
                   )}
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                    <button
+                      onClick={handleSaveAndWait}
+                      disabled={isSavingAndWaiting}
+                      style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: isSavingAndWaiting ? 'not-allowed' : 'pointer', border: `1px solid ${C.border3}`, background: isSavingAndWaiting ? C.bg3 : C.bg2, color: isSavingAndWaiting ? C.text4 : C.text2, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      onMouseEnter={e => { if (!isSavingAndWaiting) { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text1 } }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text2 }}
+                    >
+                      {isSavingAndWaiting ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={14} /> Salvar e Aguardar Documentos</>}
+                    </button>
+
+                    <button
+                      onClick={() => setStep(4)}
+                      style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.amber}`, background: C.amber, color: '#fff', transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      <ShieldCheck size={14} />
+                      Já Tenho os Documentos — Continuar →
+                    </button>
+                  </div>
                 </>
               )}
             </div>
           )}
 
-          {/* ══ STEP 5: Strategy + Draft ══════════════════════ */}
-          {step === 5 && (
-            <div style={{
-              display: 'flex', flexDirection: 'column',
-              flex: 1, minHeight: 0,
-              paddingBottom: '80px', /* space for action bar */
-            }}>
-              {strategyLoading && !strategyData && (
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', gap: '16px', padding: '60px 0',
-                }}>
-                  <Loader2 size={40} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
-                  <div style={{ fontSize: '14px', color: C.text2, fontFamily: 'IBM Plex Mono, monospace' }}>
-                    Gerando estratégia e minuta...
+          {/* ══ STEP 4: Client Document Upload ═══════════════ */}
+          {step === 4 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {clientGlobalError ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
+                  <AlertCircle size={48} style={{ color: C.red }} />
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha no upload</div>
+                    <div style={{ fontSize: '12px', color: C.text3 }}>{clientGlobalError}</div>
+                  </div>
+                  <button onClick={() => setClientGlobalError(null)} style={{ padding: '10px 24px', borderRadius: '7px', background: C.bg3, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '13px' }}>
+                    Tentar Novamente
+                  </button>
+                </div>
+              ) : clientExtractions.length > 0 ? (
+                /* Extraction in progress */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ fontSize: '14px', color: C.text1, lineHeight: 1.5 }}>
+                    Processando <strong style={{ color: C.blue }}>{clientTaggedFiles.length} documento(s) do cliente</strong>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso</span>
+                      <span style={{ fontSize: '11px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{clientProgress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: C.bg3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${clientProgress}%`, borderRadius: '3px', background: `linear-gradient(90deg, ${C.blue}cc, ${C.blue})`, transition: 'width 400ms ease', boxShadow: `0 0 8px ${C.blue}66` }} />
+                    </div>
+                  </div>
+                  <div style={{ borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {clientExtractions.map(e => (
+                      <div key={e.taggedFileId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0', borderBottom: `1px solid ${C.border1}` }}>
+                        <FileStatusIcon status={e.status} C={C} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '11px', color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.fileName}</div>
+                          {e.error && <div style={{ fontSize: '10px', color: C.red }}>{e.error}</div>}
+                        </div>
+                        <span style={{ fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.blue : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '14px 16px', maxHeight: '180px', overflowY: 'auto' }}>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: clientExtractionsDone ? C.green : C.blue, boxShadow: clientExtractionsDone ? `0 0 6px ${C.green}` : `0 0 6px ${C.blue}`, animation: clientExtractionsDone ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
+                      Log de Extração — Documentos do Cliente
+                    </div>
+                    {clientLogLines.map((line, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '2px 0' }}>
+                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text3, fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
+                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px' }}>{line}</span>
+                      </div>
+                    ))}
+                    {!clientExtractionsDone && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}><Loader2 size={11} style={{ color: C.blue, animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Processando...</span></div>}
                   </div>
                 </div>
-              )}
+              ) : (
+                /* Upload UI */
+                <>
+                  {/* Context reminder */}
+                  <div style={{ padding: '12px 14px', borderRadius: '10px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <Scale size={16} style={{ color: C.amber, flexShrink: 0, marginTop: '1px' }} />
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber, marginBottom: '4px' }}>Upload dos Documentos do Cliente (Réu)</div>
+                      <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.6 }}>
+                        Faça upload dos documentos fornecidos pelo seu cliente. Eles serão analisados em conjunto com os documentos da parte autora para identificar contradições, confirmar fatos e fortalecer a defesa.
+                      </div>
+                    </div>
+                  </div>
 
-              {strategyError && (
-                <div style={{
-                  padding: '12px 16px', borderRadius: '8px',
-                  background: C.redBg, border: `1px solid ${C.redBorder}`,
-                  color: C.red, fontSize: '12px', marginBottom: '12px',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
-                  <AlertCircle size={14} />
-                  {strategyError}
+                  {/* Drop zone */}
+                  <div>
+                    <div
+                      onDragOver={e => { e.preventDefault(); setClientDragOver(true) }}
+                      onDragLeave={() => setClientDragOver(false)}
+                      onDrop={handleClientDrop}
+                      onClick={() => clientFileInputRef.current?.click()}
+                      style={{ border: `2px dashed ${clientDragOver ? C.blue : clientTaggedFiles.length > 0 ? C.green : C.border2}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: clientDragOver ? C.blueBg : clientTaggedFiles.length > 0 ? C.greenBg : C.bg2, transition: 'all 200ms ease' }}
+                    >
+                      <input ref={clientFileInputRef} type="file" accept=".pdf" multiple onChange={handleClientFileChange} style={{ display: 'none' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <Upload size={24} style={{ color: clientDragOver ? C.blue : clientTaggedFiles.length > 0 ? C.green : C.text3 }} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: clientDragOver ? C.blue : clientTaggedFiles.length > 0 ? C.green : C.text2 }}>
+                            {clientTaggedFiles.length > 0 ? `${clientTaggedFiles.length} arquivo(s) — clique para adicionar mais` : 'Arraste os documentos do cliente aqui'}
+                          </div>
+                          <div style={{ fontSize: '11px', color: C.text3, marginTop: '4px' }}>
+                            PDFs — contratos, comprovantes, conversas, procuração, etc.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {clientTaggedFiles.length > 0 && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
+                        {clientTaggedFiles.map(tf => (
+                          <div key={tf.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`, transition: 'all 150ms ease' }}>
+                            <FileText size={14} style={{ color: C.blue, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 500, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tf.file.name}</div>
+                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
+                            </div>
+                            <CategoryDropdown
+                              value={tf.category}
+                              onChange={v => handleClientCategoryChange(tf.id, v as ClientDocCategory)}
+                              options={CLIENT_DOCUMENT_CATEGORIES}
+                              C={C}
+                            />
+                            <button onClick={() => removeClientFile(tf.id)} style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.borderColor = C.red; e.currentTarget.style.color = C.red }} onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text3 }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nav buttons */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => setStep(3)}
+                      style={{ padding: '11px 20px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.border2}`, background: 'transparent', color: C.text3, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace' }}
+                    >
+                      ← Voltar
+                    </button>
+
+                    <button
+                      disabled={clientTaggedFiles.length === 0}
+                      onClick={runClientExtraction}
+                      style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: clientTaggedFiles.length > 0 ? 'pointer' : 'not-allowed', border: `1px solid ${clientTaggedFiles.length > 0 ? C.blue : C.border1}`, background: clientTaggedFiles.length > 0 ? C.blue : C.bg3, color: clientTaggedFiles.length > 0 ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      <ShieldCheck size={16} />
+                      {clientTaggedFiles.length > 0 ? `Enviar ${clientTaggedFiles.length} documento(s) para Análise Cruzada →` : 'Adicione ao menos um PDF'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══ STEP 5: Research Log + Strategy ══════════════ */}
+          {step === 5 && (
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: strategyData ? '80px' : '0' }}>
+
+              {/* ─── Research loading phase ─── */}
+              {!strategyData && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '8px' }}>
+                  {researchError ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
+                      <AlertCircle size={48} style={{ color: C.red }} />
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: C.red, marginBottom: '8px' }}>Falha na pesquisa</div>
+                        <div style={{ fontSize: '12px', color: C.text3 }}>{researchError}</div>
+                      </div>
+                      <button onClick={() => { setStep(4); setResearchError(null) }} style={{ padding: '10px 24px', borderRadius: '7px', background: C.bg3, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '13px' }}>
+                        ← Voltar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {peticaoData && (
+                        <div style={{ padding: '10px 14px', borderRadius: '8px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <Scale size={16} style={{ color: C.amber, flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>{peticaoData.tipo_acao || 'Ação em análise'}</div>
+                            <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
+                              {[peticaoData.autor, 'x', peticaoData.reu].filter(Boolean).join(' ')} — {peticaoData.comarca || 'Comarca não informada'}
+                              {clientExtractions.filter(e => e.status === 'done').length > 0 && (
+                                <span style={{ color: C.blue, marginLeft: '8px' }}>· {clientExtractions.filter(e => e.status === 'done').length} doc(s) do cliente incluídos</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ borderRadius: '10px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '16px 20px', minHeight: '280px' }}>
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: researchDone ? C.green : C.amber, boxShadow: researchDone ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`, animation: researchDone ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
+                          Pesquisa Jurisprudencial — IA{clientExtractions.filter(e => e.status === 'done').length > 0 && ' + Análise Cruzada'}
+                        </div>
+                        <div ref={researchLogRef} style={{ display: 'flex', flexDirection: 'column', gap: '0', maxHeight: '300px', overflowY: 'auto' }}>
+                          {researchLogLines.map((line, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '5px 0', borderBottom: i < researchLogLines.length - 1 ? `1px solid ${C.border1}` : 'none', animation: 'fadeInRow 300ms ease' }}>
+                              <span style={{ fontSize: '12px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', width: '20px', flexShrink: 0 }}>
+                                {line.startsWith('✓') ? '✓' : line.startsWith('✗') ? '✗' : line.startsWith('▸') ? '▸' : '·'}
+                              </span>
+                              <span style={{ fontSize: '13px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : i === researchLogLines.length - 1 ? C.text1 : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '22px', fontWeight: line.startsWith('▸') ? 700 : 400 }}>
+                                {line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? line.slice(2) : line}
+                              </span>
+                              {i === researchLogLines.length - 1 && !researchDone && !line.startsWith('✓') && !line.startsWith('✗') && !line.startsWith('▸') && (
+                                <Loader2 size={12} style={{ color: C.amber, animation: 'spin 1s linear infinite', marginTop: '5px', flexShrink: 0 }} />
+                              )}
+                            </div>
+                          ))}
+                          {researchLogLines.length === 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <Loader2 size={14} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
+                              <span style={{ fontSize: '13px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Iniciando pesquisa...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {!researchDone && (
+                        <div style={{ padding: '12px 16px', borderRadius: '8px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Loader2 size={16} style={{ color: C.amber, animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>Pesquisa em andamento...</div>
+                            <div style={{ fontSize: '10px', color: C.text3, marginTop: '2px' }}>Consultando STJ, STF e tribunais estaduais. Aguarde.</div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
+              {/* ─── Strategy display phase ─── */}
               {strategyData && (
-                <div style={{
-                  display: 'flex', gap: '16px', flex: 1, minHeight: 0,
-                }}>
-                  {/* ── Left column: Strategy ── */}
-                  <div style={{
-                    flex: '0 0 58%', overflowY: 'auto',
-                    paddingRight: '8px',
-                    display: 'flex', flexDirection: 'column', gap: '12px',
-                  }}>
-                    <div style={{
-                      fontSize: '10px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                    }}>
-                      <Scale size={12} />
-                      ESTRATÉGIA DE DEFESA
+                <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
+                  {/* Left column: Strategy */}
+                  <div style={{ flex: '0 0 58%', overflowY: 'auto', paddingRight: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: '10px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Scale size={12} /> ESTRATÉGIA DE DEFESA
                     </div>
 
-                    {/* Probabilidade + Recomendação */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <ProbabilityDisplay value={strategyData.probabilidade_exito} C={C} />
-
-                      <div style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        padding: '16px', borderRadius: '10px',
-                        background: C.bg2, border: `1px solid ${C.border2}`,
-                        textAlign: 'center', justifyContent: 'center', gap: '8px',
-                      }}>
-                        <div style={{
-                          fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                          textTransform: 'uppercase', letterSpacing: '0.1em',
-                        }}>
-                          Recomendação
-                        </div>
-                        <div style={{
-                          padding: '6px 14px', borderRadius: '20px',
-                          background: C.amberBg, border: `1px solid ${C.amberBorder}`,
-                          fontSize: '13px', fontWeight: 700, color: C.amber,
-                          fontFamily: 'IBM Plex Mono, monospace',
-                        }}>
-                          {strategyData.recomendacao}
-                        </div>
-                        {strategyData.valor_risco_estimado && (
-                          <div style={{
-                            fontSize: '10px', color: C.text3,
-                            fontFamily: 'IBM Plex Mono, monospace',
-                          }}>
-                            Risco: {strategyData.valor_risco_estimado}
-                          </div>
-                        )}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, textAlign: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recomendação</div>
+                        <div style={{ padding: '6px 14px', borderRadius: '20px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, fontSize: '13px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>{strategyData.recomendacao}</div>
+                        {strategyData.valor_risco_estimado && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Risco: {strategyData.valor_risco_estimado}</div>}
                       </div>
                     </div>
 
-                    {/* Tese Principal */}
-                    <div style={{
-                      padding: '14px 16px', borderRadius: '10px',
-                      background: C.amberBg, border: `2px solid ${C.amberBorder}`,
-                    }}>
-                      <div style={{
-                        fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
-                        textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                      }}>
-                        <TrendingUp size={10} />
-                        TESE PRINCIPAL
+                    <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.amberBg, border: `2px solid ${C.amberBorder}` }}>
+                      <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <TrendingUp size={10} /> TESE PRINCIPAL
                       </div>
-                      <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.6, fontWeight: 500 }}>
-                        {strategyData.tese_principal}
-                      </div>
+                      <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.6, fontWeight: 500 }}>{strategyData.tese_principal}</div>
                     </div>
 
-                    {/* Teses Subsidiárias */}
                     {strategyData.teses_subsidiarias?.length > 0 && (
                       <div>
-                        <div style={{
-                          fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace',
-                          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                        }}>
-                          Teses Subsidiárias ({strategyData.teses_subsidiarias.length})
-                        </div>
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Teses Subsidiárias ({strategyData.teses_subsidiarias.length})</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {strategyData.teses_subsidiarias.map((tese, i) => (
-                            <div key={i}>
-                              <button
-                                onClick={() => setExpandedTese(expandedTese === i ? null : i)}
-                                style={{
-                                  width: '100%', textAlign: 'left',
-                                  padding: '10px 12px', borderRadius: '8px',
-                                  background: C.bg2, border: `1px solid ${C.border2}`,
-                                  cursor: 'pointer', color: C.text1,
-                                  display: 'flex', alignItems: 'flex-start', gap: '8px',
-                                  transition: 'all 150ms ease',
-                                }}
-                                onMouseEnter={e => (e.currentTarget.style.borderColor = C.border3)}
-                                onMouseLeave={e => (e.currentTarget.style.borderColor = C.border2)}
-                              >
-                                <span style={{
-                                  fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace',
-                                  color: C.amber, fontWeight: 700, flexShrink: 0, marginTop: '1px',
-                                }}>
-                                  {String(i + 1).padStart(2, '0')}
-                                </span>
-                                <span style={{
-                                  fontSize: '12px', color: C.text2, flex: 1,
-                                  lineHeight: 1.5, textAlign: 'left',
-                                  display: expandedTese === i ? 'block' : '-webkit-box',
-                                  WebkitLineClamp: expandedTese === i ? undefined : 2,
-                                  WebkitBoxOrient: 'vertical' as const,
-                                  overflow: 'hidden',
-                                }}>
-                                  {tese}
-                                </span>
-                                <ChevronRight size={12} style={{
-                                  color: C.text3, flexShrink: 0, marginTop: '2px',
-                                  transform: expandedTese === i ? 'rotate(90deg)' : 'none',
-                                  transition: '200ms',
-                                }} />
-                              </button>
-                            </div>
+                            <button key={i} onClick={() => setExpandedTese(expandedTese === i ? null : i)} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border2}`, cursor: 'pointer', color: C.text1, display: 'flex', alignItems: 'flex-start', gap: '8px', transition: 'all 150ms ease' }} onMouseEnter={e => (e.currentTarget.style.borderColor = C.border3)} onMouseLeave={e => (e.currentTarget.style.borderColor = C.border2)}>
+                              <span style={{ fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', color: C.amber, fontWeight: 700, flexShrink: 0, marginTop: '1px' }}>{String(i + 1).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '12px', color: C.text2, flex: 1, lineHeight: 1.5, textAlign: 'left', display: expandedTese === i ? 'block' : '-webkit-box', WebkitLineClamp: expandedTese === i ? undefined : 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>{tese}</span>
+                              <ChevronRight size={12} style={{ color: C.text3, flexShrink: 0, marginTop: '2px', transform: expandedTese === i ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
+                            </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Jurisprudência Favorável */}
                     {strategyData.jurisprudencia_favoravel?.length > 0 && (
                       <div>
-                        <div style={{
-                          fontSize: '9px', color: C.green, fontFamily: 'IBM Plex Mono, monospace',
-                          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                        }}>
-                          <BookOpen size={10} />
-                          JURISPRUDÊNCIA FAVORÁVEL ({strategyData.jurisprudencia_favoravel.length})
+                        <div style={{ fontSize: '9px', color: C.green, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <BookOpen size={10} /> JURISPRUDÊNCIA FAVORÁVEL ({strategyData.jurisprudencia_favoravel.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {strategyData.jurisprudencia_favoravel.map((item, i) => (
-                            <JurisprudenciaCard key={i} item={item} type="favorable" C={C} />
-                          ))}
+                          {strategyData.jurisprudencia_favoravel.map((item, i) => <JurisprudenciaCard key={i} item={item} type="favorable" C={C} />)}
                         </div>
                       </div>
                     )}
 
-                    {/* Jurisprudência Desfavorável */}
                     {strategyData.jurisprudencia_desfavoravel?.length > 0 && (
                       <div>
-                        <div style={{
-                          fontSize: '9px', color: C.red, fontFamily: 'IBM Plex Mono, monospace',
-                          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px',
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                        }}>
-                          <TrendingDown size={10} />
-                          RISCOS — JURISPRUDÊNCIA DESFAVORÁVEL ({strategyData.jurisprudencia_desfavoravel.length})
+                        <div style={{ fontSize: '9px', color: C.red, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <TrendingDown size={10} /> RISCOS — JURISPRUDÊNCIA DESFAVORÁVEL ({strategyData.jurisprudencia_desfavoravel.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {strategyData.jurisprudencia_desfavoravel.map((item, i) => (
-                            <JurisprudenciaCard key={i} item={item} type="unfavorable" C={C} />
-                          ))}
+                          {strategyData.jurisprudencia_desfavoravel.map((item, i) => <JurisprudenciaCard key={i} item={item} type="unfavorable" C={C} />)}
                         </div>
                       </div>
                     )}
@@ -2100,94 +1809,33 @@ export default function NovoProcessoModal({
                   {/* Divider */}
                   <div style={{ width: '1px', background: C.border2, flexShrink: 0 }} />
 
-                  {/* ── Right column: Draft ── */}
-                  <div style={{
-                    flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0,
-                  }}>
-                    <div style={{
-                      fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace',
-                      textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0,
-                    }}>
-                      <FileText size={12} />
-                      MINUTA DA CONTESTAÇÃO
+                  {/* Right column: Draft */}
+                  <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
+                    <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <FileText size={12} /> MINUTA DA CONTESTAÇÃO
                     </div>
-
-                    <div
-                      ref={draftRef}
-                      style={{
-                        flex: 1, overflowY: 'auto',
-                        padding: '16px',
-                        borderRadius: '10px',
-                        background: C.bg2,
-                        border: `1px solid ${C.border2}`,
-                        fontSize: '12px',
-                        color: C.text2,
-                        lineHeight: '1.7',
-                        fontFamily: 'Georgia, serif',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
+                    <div ref={draftRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, fontSize: '12px', color: C.text2, lineHeight: '1.7', fontFamily: 'Georgia, serif', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                       {strategyData.draft}
                     </div>
                   </div>
                 </div>
               )}
 
+              {strategyError && (
+                <div style={{ padding: '12px 16px', borderRadius: '8px', background: C.redBg, border: `1px solid ${C.redBorder}`, color: C.red, fontSize: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={14} />{strategyError}
+                </div>
+              )}
+
               {/* Adjust input */}
-              {showAdjustInput && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '14px 16px', borderRadius: '10px',
-                  background: C.bg2, border: `1px solid ${C.border2}`,
-                  display: 'flex', flexDirection: 'column', gap: '10px',
-                  flexShrink: 0,
-                }}>
-                  <div style={{ fontSize: '12px', color: C.text2, fontWeight: 600 }}>
-                    Instruções para ajuste da estratégia:
-                  </div>
-                  <textarea
-                    value={adjustFeedback}
-                    onChange={e => setAdjustFeedback(e.target.value)}
-                    placeholder='Ex: "Focar mais na tese de prescrição" ou "Remover argumento sobre dano moral" ou "Incluir argumento de ilegitimidade passiva"'
-                    rows={3}
-                    style={{
-                      width: '100%', padding: '10px 12px',
-                      borderRadius: '7px', background: C.bg3,
-                      border: `1px solid ${C.border2}`,
-                      color: C.text1, fontSize: '12px',
-                      lineHeight: 1.5, resize: 'vertical',
-                      outline: 'none', boxSizing: 'border-box',
-                    }}
-                  />
+              {showAdjustInput && strategyData && (
+                <div style={{ marginTop: '12px', padding: '14px 16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
+                  <div style={{ fontSize: '12px', color: C.text2, fontWeight: 600 }}>Instruções para ajuste da estratégia:</div>
+                  <textarea value={adjustFeedback} onChange={e => setAdjustFeedback(e.target.value)} placeholder='Ex: "Focar mais na tese de prescrição" ou "Incluir argumento de ilegitimidade passiva"' rows={3} style={{ width: '100%', padding: '10px 12px', borderRadius: '7px', background: C.bg3, border: `1px solid ${C.border2}`, color: C.text1, fontSize: '12px', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => { setShowAdjustInput(false); setAdjustFeedback('') }}
-                      style={{
-                        padding: '8px 16px', borderRadius: '6px',
-                        background: 'transparent', border: `1px solid ${C.border2}`,
-                        color: C.text3, cursor: 'pointer', fontSize: '12px',
-                      }}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={regenerateStrategy}
-                      disabled={!adjustFeedback.trim() || strategyLoading}
-                      style={{
-                        padding: '8px 16px', borderRadius: '6px',
-                        background: adjustFeedback.trim() ? C.amber : C.bg3,
-                        border: `1px solid ${adjustFeedback.trim() ? C.amber : C.border2}`,
-                        color: adjustFeedback.trim() ? '#fff' : C.text4,
-                        cursor: adjustFeedback.trim() ? 'pointer' : 'not-allowed',
-                        fontSize: '12px', fontWeight: 600,
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                      }}
-                    >
-                      {strategyLoading
-                        ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</>
-                        : <><Edit3 size={12} /> Regenerar</>}
+                    <button onClick={() => { setShowAdjustInput(false); setAdjustFeedback('') }} style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', fontSize: '12px' }}>Cancelar</button>
+                    <button onClick={regenerateStrategy} disabled={!adjustFeedback.trim() || strategyLoading} style={{ padding: '8px 16px', borderRadius: '6px', background: adjustFeedback.trim() ? C.amber : C.bg3, border: `1px solid ${adjustFeedback.trim() ? C.amber : C.border2}`, color: adjustFeedback.trim() ? '#fff' : C.text4, cursor: adjustFeedback.trim() ? 'pointer' : 'not-allowed', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {strategyLoading ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><Edit3 size={12} /> Regenerar</>}
                     </button>
                   </div>
                 </div>
@@ -2198,63 +1846,16 @@ export default function NovoProcessoModal({
 
         {/* ── Step 5 Action Bar ─────────────────────────────── */}
         {step === 5 && strategyData && (
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '14px 24px',
-            background: C.bg1,
-            borderTop: `1px solid ${C.border2}`,
-            display: 'flex', alignItems: 'center', gap: '10px',
-            borderRadius: '0 0 14px 14px',
-          }}>
-            <button
-              onClick={() => setStep(4)}
-              style={{
-                padding: '10px 16px', borderRadius: '7px',
-                background: 'transparent', border: `1px solid ${C.border2}`,
-                color: C.text3, cursor: 'pointer', fontSize: '12px',
-                fontFamily: 'IBM Plex Mono, monospace', display: 'flex', alignItems: 'center', gap: '6px',
-              }}
-            >
-              ← Voltar para Pesquisa
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 24px', background: C.bg1, borderTop: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '10px', borderRadius: '0 0 14px 14px' }}>
+            <button onClick={() => setStep(4)} style={{ padding: '10px 16px', borderRadius: '7px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ← Voltar
             </button>
-
             <div style={{ flex: 1 }} />
-
-            <button
-              onClick={() => setShowAdjustInput(v => !v)}
-              style={{
-                padding: '10px 16px', borderRadius: '7px',
-                background: C.bg2, border: `1px solid ${C.border2}`,
-                color: C.text2, cursor: 'pointer', fontSize: '12px',
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                transition: 'all 150ms ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.color = C.amber }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2 }}
-            >
-              <Edit3 size={13} />
-              Ajustar Estratégia
+            <button onClick={() => setShowAdjustInput(v => !v)} style={{ padding: '10px 16px', borderRadius: '7px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 150ms ease' }} onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.color = C.amber }} onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2 }}>
+              <Edit3 size={13} /> Ajustar Estratégia
             </button>
-
-            <button
-              onClick={handleApproveAndSave}
-              disabled={isSaving}
-              style={{
-                padding: '10px 24px', borderRadius: '7px',
-                background: isSaving ? C.bg3 : C.amber,
-                border: `1px solid ${isSaving ? C.border2 : C.amber}`,
-                color: isSaving ? C.text4 : '#fff',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                fontSize: '13px', fontWeight: 700,
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
-                display: 'flex', alignItems: 'center', gap: '8px',
-                transition: 'all 150ms ease',
-              }}
-            >
-              {isSaving
-                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
-                : <><Save size={14} /> Aprovar e Salvar</>}
+            <button onClick={handleApproveAndSave} disabled={isSaving} style={{ padding: '10px 24px', borderRadius: '7px', background: isSaving ? C.bg3 : C.amber, border: `1px solid ${isSaving ? C.border2 : C.amber}`, color: isSaving ? C.text4 : '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 150ms ease' }}>
+              {isSaving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={14} /> Aprovar e Salvar</>}
             </button>
           </div>
         )}
@@ -2262,17 +1863,8 @@ export default function NovoProcessoModal({
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          background: C.green, color: '#fff',
-          padding: '12px 24px', borderRadius: '8px',
-          fontSize: '13px', fontWeight: 600,
-          zIndex: 1002, boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-          display: 'flex', alignItems: 'center', gap: '8px',
-          animation: 'fadeIn 200ms ease',
-        }}>
-          <CheckCircle2 size={16} />
-          {toast}
+        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: C.green, color: '#fff', padding: '12px 24px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, zIndex: 1002, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 200ms ease' }}>
+          <CheckCircle2 size={16} /> {toast}
         </div>
       )}
 

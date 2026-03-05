@@ -30,6 +30,8 @@ interface CaseContext {
   numero_processo?: string | null
   nome_processo?: string | null
   supporting_summaries?: string[]
+  client_doc_summaries?: string[]
+  cross_reference_notes?: string
 }
 
 interface StrategyPayload {
@@ -64,7 +66,15 @@ function buildStrategyPrompt(payload: StrategyPayload): string {
   ).join('\n')
 
   const supportingDocs = ctx.supporting_summaries?.length
-    ? `\n\nDOCUMENTOS DE SUPORTE:\n${ctx.supporting_summaries.join('\n')}`
+    ? `\n\nDOCUMENTOS DA PARTE AUTORA:\n${ctx.supporting_summaries.join('\n')}`
+    : ''
+
+  const clientDocs = ctx.client_doc_summaries?.length
+    ? `\n\nDOCUMENTOS DO CLIENTE (RÉU):\n${ctx.client_doc_summaries.join('\n')}`
+    : ''
+
+  const crossRef = ctx.cross_reference_notes
+    ? `\n\nANÁLISE CRUZADA — CONTRADIÇÕES E PONTOS FAVORÁVEIS À DEFESA:\n${ctx.cross_reference_notes}`
     : ''
 
   const feedbackSection = lawyer_feedback
@@ -82,7 +92,7 @@ CASO PARA ANÁLISE:
 - Vara: ${ctx.vara || 'Não informada'}
 - Comarca: ${ctx.comarca || 'Não informada'}
 - Valor da Causa: ${ctx.valor_causa || 'Não informado'}
-- Pedidos: ${ctx.pedidos || 'Não identificados'}${supportingDocs}
+- Pedidos: ${ctx.pedidos || 'Não identificados'}${supportingDocs}${clientDocs}${crossRef}
 
 JURISPRUDÊNCIA FAVORÁVEL À DEFESA:
 ${favoraveisText || '(nenhuma identificada)'}

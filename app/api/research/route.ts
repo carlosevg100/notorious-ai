@@ -42,6 +42,8 @@ interface ResearchPayload {
     pedidos?: string | null
     area?: string | null
     supporting_summaries?: string[]
+    client_doc_summaries?: string[]
+    cross_reference_notes?: string
   }
 }
 
@@ -64,6 +66,7 @@ function buildResearchQuery(ctx: ResearchPayload['case_context']): string {
   if (ctx.valor_causa) parts.push(`Valor da causa: ${ctx.valor_causa}`)
   if (ctx.pedidos)     parts.push(`Pedidos: ${ctx.pedidos.slice(0, 300)}`)
   if (ctx.autor && ctx.reu) parts.push(`Partes: ${ctx.autor} x ${ctx.reu}`)
+  if (ctx.cross_reference_notes) parts.push(`Análise cruzada: ${ctx.cross_reference_notes.slice(0, 200)}`)
   return parts.join(' | ')
 }
 
