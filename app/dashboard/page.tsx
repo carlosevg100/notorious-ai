@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { diasUteisRestantes, formatDate } from '@/lib/utils'
-import type { Project, Prazo } from '@/lib/types'
+import type { Prazo } from '@/lib/types'
 import Link from 'next/link'
 
 interface Stats {
@@ -39,17 +39,22 @@ function diasBadgeStyle(dias: number): React.CSSProperties {
 
 export default function DashboardPage() {
   const { firmId } = useAuth()
-  const [stats,          setStats]          = useState<Stats>({ totalProcessos: 0, docsPendentes: 0, prazosEstaSemana: 0, prazosVencidos: 0 })
-  const [pipeline,       setPipeline]       = useState<Pipeline>({ analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 })
-  const [prazosProximos, setPrazosProximos] = useState<(Prazo & { project_name?: string })[]>([])
-  const [loading,        setLoading]        = useState(true)
+  interface AtividadeItem { id: string; tipo: 'documento' | 'peca'; descricao: string; created_at: string }
+
+  const [stats,           setStats]           = useState<Stats>({ totalProcessos: 0, docsPendentes: 0, prazosEstaSemana: 0, prazosVencidos: 0 })
+  const [pipeline,        setPipeline]        = useState<Pipeline>({ analise: 0, contestacao: 0, recurso: 0, execucao: 0, encerrado: 0 })
+  const [prazosProximos,  setPrazosProximos]  = useState<(Prazo & { project_name?: string })[]>([])
+  const [atividades,      setAtividades]      = useState<AtividadeItem[]>([])
+  const [loading,         setLoading]         = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [projRes, docRes, prazoRes] = await Promise.all([
+      const [projRes, docRes, prazoRes, atDocRes, atPecaRes] = await Promise.all([
         supabase.from('projects').select('id, fase, status').eq('firm_id', firmId),
         supabase.from('documents').select('id, processing_status').eq('firm_id', firmId),
         supabase.from('prazos').select('*, projects(name)').eq('firm_id', firmId).order('data_prazo', { ascending: true }),
+        supabase.from('documents').select('id, nome_arquivo, created_at').eq('firm_id', firmId).eq('processing_status', 'completed').order('created_at', { ascending: false }).limit(5),
+        supabase.from('pecas').select('id, tipo_peca, created_at').eq('firm_id', firmId).order('created_at', { ascending: false }).limit(3),
       ])
 
       const projects = projRes.data || []
@@ -84,6 +89,23 @@ export default function DashboardPage() {
       setPipeline(pip)
 
       setPrazosProximos(prazosWithDias.filter(p => p.status === 'pendente').slice(0, 12))
+
+      // Atividade recente
+      const docAtividades: AtividadeItem[] = (atDocRes.data || []).map((d: Record<string, string>) => ({
+        id: d.id, tipo: 'documento' as const,
+        descricao: `Documento processado: ${d.nome_arquivo || 'arquivo'}`,
+        created_at: d.created_at,
+      }))
+      const pecaAtividades: AtividadeItem[] = (atPecaRes.data || []).map((p: Record<string, string>) => ({
+        id: p.id, tipo: 'peca' as const,
+        descricao: `Peça gerada: ${p.tipo_peca || 'peça jurídica'}`,
+        created_at: p.created_at,
+      }))
+      const all = [...docAtividades, ...pecaAtividades]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 6)
+      setAtividades(all)
+
       setLoading(false)
     }
     load()
@@ -262,6 +284,39 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Atividade Recente ─────────────────────────────── */}
+      <div style={{ padding: '20px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 16px', color: 'var(--text-primary)' }}>
+          Atividade Recente
+        </h2>
+        {atividades.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Nenhuma atividade recente.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            {atividades.map(a => (
+              <div
+                key={a.id}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0', borderBottom: '1px solid var(--border-subtle)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
+                    background: a.tipo === 'documento' ? 'var(--info)' : 'var(--accent)',
+                  }} />
+                  <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{a.descricao}</span>
+                </div>
+                <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, marginLeft: '16px' }}>
+                  {new Date(a.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>
