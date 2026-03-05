@@ -7,7 +7,7 @@ import { useTheme } from '@/lib/theme-context'
 import { LayoutDashboard, Users, CalendarClock, FileText, LogOut, Sun, Moon } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',         label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard',         label: 'Painel de Controle', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/clients', label: 'Clientes',  icon: Users },
   { href: '/dashboard/prazos',  label: 'Prazos',    icon: CalendarClock },
   { href: '/dashboard/pecas',   label: 'Peças',     icon: FileText },
