@@ -108,7 +108,10 @@ export default function ClientDetailPage() {
       client_id: clientId,
       name: form.name,
       numero_processo: form.numero_processo || null,
+      area: form.tipo === 'contencioso' ? 'Contencioso' : form.tipo === 'trabalhista' ? 'Trabalhista' : 'Cível',
       tipo: form.tipo,
+      fase: 'analise',
+      status: 'ativo',
       vara: form.vara || null,
       comarca: form.comarca || null,
     }).select().single()
