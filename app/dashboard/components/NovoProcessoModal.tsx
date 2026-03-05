@@ -159,11 +159,18 @@ interface StrategyResult {
   draft: string
 }
 
+interface ResumeProject {
+  id: string
+  clientId: string
+  clientName: string
+}
+
 interface NovoProcessoModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
   preSelectedClientId?: string | null
+  resumeProject?: ResumeProject | null
 }
 
 /* ─── Avatar helpers ─────────────────────────────────────────── */
@@ -586,6 +593,7 @@ export default function NovoProcessoModal({
   onClose,
   onSuccess,
   preSelectedClientId,
+  resumeProject,
 }: NovoProcessoModalProps) {
   const { firmId } = useAuth()
   const { theme } = useTheme()
@@ -647,17 +655,13 @@ export default function NovoProcessoModal({
   /* ── Reset on open ───────────────────────────────────────── */
   useEffect(() => {
     if (open) {
-      setStep(1)
       setTaggedFiles([])
       setExtractions([])
       setLogLines([])
       setOverallProgress(0)
-      setProjectId(null)
       setGlobalError(null)
-      setPeticaoData(null)
       setAllExtractions([])
       setExpandedDocCards(new Set())
-      setCaseAnalysis(null)
       setCaseAnalysisLoading(false)
       setCaseAnalysisError(null)
       setCheckedDocs(new Set())
@@ -679,9 +683,98 @@ export default function NovoProcessoModal({
       setShowAdjustInput(false)
       setAdjustFeedback('')
       setIsSaving(false)
-      setSelectedClient(preSelectedClientId || null)
+
+      if (resumeProject) {
+        // Resume mode: start at Step 4 with existing project loaded
+        setStep(4)
+        setProjectId(resumeProject.id)
+        setSelectedClient(resumeProject.clientId)
+        setPeticaoData(null)
+        setCaseAnalysis(null)
+      } else {
+        // Fresh start
+        setStep(1)
+        setProjectId(null)
+        setPeticaoData(null)
+        setCaseAnalysis(null)
+        setSelectedClient(preSelectedClientId || null)
+      }
     }
-  }, [open, preSelectedClientId])
+  }, [open, preSelectedClientId, resumeProject])
+
+  /* ── Load saved Phase 1 analysis when resuming ───────────── */
+  useEffect(() => {
+    if (!open || !resumeProject) return
+
+    async function loadResumedAnalysis() {
+      if (!resumeProject) return
+      try {
+        const { data } = await supabase
+          .from('case_strategies')
+          .select('draft_peca')
+          .eq('project_id', resumeProject.id)
+          .eq('status', 'analise_inicial')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (data?.draft_peca) {
+          try {
+            const parsed = JSON.parse(data.draft_peca) as {
+              caseAnalysis?: CaseAnalysis
+              peticaoData?: PeticaoExtracted
+            }
+            if (parsed.caseAnalysis) {
+              setCaseAnalysis(parsed.caseAnalysis)
+            }
+            if (parsed.peticaoData) {
+              setPeticaoData(parsed.peticaoData)
+            } else if (parsed.caseAnalysis) {
+              // Reconstruct synthetic peticaoData from saved analysis for Step 5
+              const a = parsed.caseAnalysis
+              const nullParty: PeticaoParty = {
+                nome: null, cpf_cnpj: null, rg: null, nacionalidade: null,
+                estado_civil: null, profissao: null, data_nascimento: null,
+                email: null, endereco_completo: null, telefone: null,
+              }
+              const synth: PeticaoExtracted = {
+                numero_processo: a.dados_processo?.numero_cnj || null,
+                nome_processo: null,
+                tipo_acao: a.objeto_da_acao?.tipo || null,
+                autor: a.partes?.autor
+                  ? { ...nullParty, nome: a.partes.autor.nome || null, cpf_cnpj: a.partes.autor.cpf_cnpj || null }
+                  : null,
+                advogado_autor: null,
+                reu: a.partes?.reu
+                  ? { ...nullParty, nome: a.partes.reu.nome || resumeProject.clientName || null, cpf_cnpj: a.partes.reu.cpf_cnpj || null }
+                  : { ...nullParty, nome: resumeProject.clientName || null },
+                advogado_reu: null,
+                vara: a.dados_processo?.vara || null,
+                comarca: a.dados_processo?.comarca || null,
+                valor_causa: a.valores?.total || null,
+                valores_pleiteados: null,
+                pedidos: a.fundamento_juridico?.pedidos?.join('; ') || null,
+                prazos: null,
+                tipo: null,
+                area: null,
+                objeto_acao: a.objeto_da_acao?.descricao || null,
+                fatos_principais: a.fatos_narrados || null,
+                fundamentos_legais: a.fundamento_juridico?.base_legal || null,
+              }
+              setPeticaoData(synth)
+            }
+          } catch {
+            // JSON parse error — proceed without analysis
+          }
+        }
+      } catch {
+        // Not found or error — proceed without analysis context
+      }
+    }
+
+    loadResumedAnalysis()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resumeProject?.id])
 
   /* ── Auto-scroll research log ────────────────────────────── */
   useEffect(() => {
@@ -1180,6 +1273,30 @@ export default function NovoProcessoModal({
         .update({ status: 'aguardando_documentos', updated_at: new Date().toISOString() })
         .eq('id', projectId)
 
+      // Persist Phase 1 analysis so it can be loaded when the lawyer resumes
+      if (caseAnalysis) {
+        // Remove any existing analise_inicial record for this project
+        await supabase
+          .from('case_strategies')
+          .delete()
+          .eq('project_id', projectId)
+          .eq('status', 'analise_inicial')
+
+        await supabase.from('case_strategies').insert({
+          project_id: projectId,
+          firm_id: firmId,
+          status: 'analise_inicial',
+          draft_tipo: 'analise_inicial',
+          draft_peca: JSON.stringify({ caseAnalysis, peticaoData }),
+          tese_principal: 'Análise inicial completa — aguardando documentos do cliente',
+          teses_subsidiarias: [],
+          jurisprudencia_favoravel: [],
+          jurisprudencia_desfavoravel: [],
+          risco_estimado: caseAnalysis.risco_preliminar || 'medio',
+          recomendacao: 'Aguardando documentos do cliente',
+        })
+      }
+
       setToast('Processo salvo — aguardando documentos do cliente.')
       setTimeout(() => {
         setToast(null)
@@ -1191,7 +1308,7 @@ export default function NovoProcessoModal({
     } finally {
       setIsSavingAndWaiting(false)
     }
-  }, [projectId, firmId, onSuccess, onClose])
+  }, [projectId, firmId, caseAnalysis, peticaoData, onSuccess, onClose])
 
   /* ── Client document extraction flow (Step 4) ───────────── */
   const runClientExtraction = useCallback(async () => {
@@ -1544,7 +1661,8 @@ export default function NovoProcessoModal({
               {step === 1 && 'Etapa 1 de 5 — Upload de documentos do processo'}
               {step === 2 && 'Etapa 2 de 5 — Extração AI em andamento'}
               {step === 3 && 'Etapa 3 de 5 — Resumo executivo + documentos necessários'}
-              {step === 4 && 'Etapa 4 de 5 — Upload dos documentos do cliente'}
+              {step === 4 && !resumeProject && 'Etapa 4 de 5 — Upload dos documentos do cliente'}
+              {step === 4 && resumeProject && '📎 Continuar análise — Upload dos documentos do cliente'}
               {step === 5 && 'Etapa 5 de 5 — Pesquisa + Estratégia de Defesa'}
             </p>
           </div>
@@ -2239,9 +2357,13 @@ export default function NovoProcessoModal({
                   <div style={{ padding: '12px 14px', borderRadius: '10px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                     <Scale size={16} style={{ color: C.amber, flexShrink: 0, marginTop: '1px' }} />
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber, marginBottom: '4px' }}>Upload dos Documentos do Cliente (Réu)</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber, marginBottom: '4px' }}>
+                        {resumeProject ? `📎 Retomando análise — ${resumeProject.clientName}` : 'Upload dos Documentos do Cliente (Réu)'}
+                      </div>
                       <div style={{ fontSize: '11px', color: C.text2, lineHeight: 1.6 }}>
-                        Faça upload dos documentos fornecidos pelo seu cliente. Eles serão analisados em conjunto com os documentos da parte autora para identificar contradições, confirmar fatos e fortalecer a defesa.
+                        {resumeProject
+                          ? 'A análise inicial já foi concluída e salva. Faça upload dos documentos do seu cliente para iniciar a análise cruzada, pesquisa jurisprudencial e geração da estratégia de defesa.'
+                          : 'Faça upload dos documentos fornecidos pelo seu cliente. Eles serão analisados em conjunto com os documentos da parte autora para identificar contradições, confirmar fatos e fortalecer a defesa.'}
                       </div>
                     </div>
                   </div>
@@ -2296,10 +2418,10 @@ export default function NovoProcessoModal({
                   {/* Nav buttons */}
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
-                      onClick={() => setStep(3)}
+                      onClick={() => resumeProject ? onClose() : setStep(3)}
                       style={{ padding: '11px 20px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.border2}`, background: 'transparent', color: C.text3, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace' }}
                     >
-                      ← Voltar
+                      {resumeProject ? '✕ Fechar' : '← Voltar'}
                     </button>
 
                     <button

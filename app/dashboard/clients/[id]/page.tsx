@@ -73,6 +73,7 @@ export default function ClientDetailPage() {
   const [deleteProjectTarget, setDeleteProjectTarget] = useState<ProjectWithMeta | null>(null)
   const [deletingProject, setDeletingProject] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [resumeProject, setResumeProject] = useState<{ id: string; clientId: string; clientName: string } | null>(null)
 
   useEffect(() => { loadData() }, [clientId, firmId])
 
@@ -541,7 +542,7 @@ export default function ClientDetailPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Nome', 'Nº Processo', 'Tipo', 'Fase', 'Docs', 'Próx. Prazo', 'Risco', ''].map(h => (
+                    {['Nome', 'Nº Processo', 'Tipo', 'Fase', 'Status AI', 'Próx. Prazo', 'Risco', 'Ação', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -549,6 +550,10 @@ export default function ClientDetailPage() {
                 <tbody>
                   {filteredProjects.map(project => {
                     const faseColor = FASE_COLORS[project.fase] || '#71717A'
+                    const statusCfg = getProjectStatusConfig(project.status)
+                    const isAguardando = project.status === 'aguardando_documentos'
+                    const isAnaliseInicial = project.status === 'analise_inicial'
+                    const isEstrategiaAprovada = project.status === 'estrategia_aprovada'
                     return (
                       <tr key={project.id} style={{ borderTop: '1px solid var(--border-subtle)', cursor: 'pointer' }}
                         onClick={() => router.push(`/dashboard/projects/${project.id}`)}
@@ -564,9 +569,17 @@ export default function ClientDetailPage() {
                             {FASE_LABELS[project.fase] || project.fase}
                           </span>
                         </td>
-                        <td className="font-mono" style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                          {project._doc_count}
-                          {project._pending_docs > 0 && <span style={{ color: 'var(--warning)', marginLeft: '4px' }}>({project._pending_docs})</span>}
+                        {/* Status AI badge */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center',
+                            padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                            background: statusCfg.bg, color: statusCfg.color,
+                            border: `1px solid ${statusCfg.border}`,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {statusCfg.label}
+                          </span>
                         </td>
                         <td className="font-mono" style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-secondary)' }}>{project._next_prazo ? formatDate(project._next_prazo) : '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
@@ -577,6 +590,69 @@ export default function ClientDetailPage() {
                               border: `1px solid ${project._risk === 'alto' ? 'rgba(239,68,68,0.25)' : project._risk === 'medio' ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.25)'}`,
                             }}>{project._risk}</span>
                           ) : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>}
+                        </td>
+                        {/* Action button per status */}
+                        <td style={{ padding: '12px 8px' }} onClick={e => e.stopPropagation()}>
+                          {isAguardando ? (
+                            <button
+                              onClick={() => {
+                                setResumeProject({ id: project.id, clientId: clientId, clientName: client?.name || '' })
+                                setNovoProcessoOpen(true)
+                              }}
+                              title="Enviar documentos do cliente para continuar análise"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                                background: 'rgba(245,158,11,0.15)', color: '#F59E0B',
+                                border: '1px solid rgba(245,158,11,0.4)',
+                                cursor: 'pointer', whiteSpace: 'nowrap',
+                                transition: 'all 150ms ease',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.25)' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.15)' }}
+                            >
+                              📎 Enviar Docs do Cliente
+                            </button>
+                          ) : isAnaliseInicial ? (
+                            <button
+                              onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                background: 'rgba(59,130,246,0.12)', color: '#3B82F6',
+                                border: '1px solid rgba(59,130,246,0.3)',
+                                cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Continuar Análise
+                            </button>
+                          ) : isEstrategiaAprovada ? (
+                            <button
+                              onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                background: 'rgba(34,197,94,0.12)', color: '#22C55E',
+                                border: '1px solid rgba(34,197,94,0.3)',
+                                cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Ver Estratégia
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                background: 'var(--bg-input)', color: 'var(--text-secondary)',
+                                border: '1px solid var(--border)',
+                                cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Abrir Processo
+                            </button>
+                          )}
                         </td>
                         {/* Delete button */}
                         <td style={{ padding: '12px 8px', width: '40px' }}>
@@ -715,12 +791,14 @@ export default function ClientDetailPage() {
 
       <NovoProcessoModal
         open={novoProcessoOpen}
-        onClose={() => setNovoProcessoOpen(false)}
+        onClose={() => { setNovoProcessoOpen(false); setResumeProject(null) }}
         onSuccess={() => {
           setNovoProcessoOpen(false)
+          setResumeProject(null)
           loadData()
         }}
-        preSelectedClientId={clientId}
+        preSelectedClientId={resumeProject ? null : clientId}
+        resumeProject={resumeProject}
       />
 
       {/* Delete project confirmation modal */}
@@ -754,6 +832,30 @@ function riskPriority(risk: string): number {
   if (risk === 'medio') return 2
   if (risk === 'baixo') return 1
   return 0
+}
+
+interface StatusConfig {
+  label: string
+  bg: string
+  color: string
+  border: string
+}
+
+function getProjectStatusConfig(status: string): StatusConfig {
+  switch (status) {
+    case 'aguardando_documentos':
+      return { label: '⏳ Aguardando Docs do Cliente', bg: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: 'rgba(245,158,11,0.3)' }
+    case 'analise_inicial':
+      return { label: '📋 Análise Inicial Completa', bg: 'rgba(59,130,246,0.12)', color: '#3B82F6', border: 'rgba(59,130,246,0.3)' }
+    case 'em_analise':
+      return { label: '🔄 Em Análise', bg: 'rgba(59,130,246,0.12)', color: '#3B82F6', border: 'rgba(59,130,246,0.3)' }
+    case 'estrategia_aprovada':
+      return { label: '✅ Estratégia Aprovada', bg: 'rgba(34,197,94,0.12)', color: '#22C55E', border: 'rgba(34,197,94,0.3)' }
+    case 'concluido':
+      return { label: '✅ Concluído', bg: 'rgba(34,197,94,0.12)', color: '#22C55E', border: 'rgba(34,197,94,0.3)' }
+    default:
+      return { label: 'Em andamento', bg: 'rgba(113,113,122,0.12)', color: '#71717A', border: 'rgba(113,113,122,0.3)' }
+  }
 }
 
 function timeAgo(dateStr: string): string {
