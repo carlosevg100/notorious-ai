@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://fbgqzouxbagmmlzibyhl.supabase.co'
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZ3F6b3V4YmFnbW1semlieWhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ3NjE1MSwiZXhwIjoyMDg4MDUyMTUxfQ.p_SD9mQxanP0VHQqpm0NCqbRiuHk1MPGr-1dAAZqp2s'
+
+interface JurisprudenciaItem {
+  tribunal: string
+  numero: string
+  data: string
+  ementa: string
+  relevancia?: string
+  risco?: string
+}
+
+interface SavePayload {
+  project_id: string
+  firm_id: string
+  tese_principal: string
+  teses_subsidiarias: string[]
+  jurisprudencia_favoravel: JurisprudenciaItem[]
+  jurisprudencia_desfavoravel: JurisprudenciaItem[]
+  probabilidade_exito: number
+  risco_estimado: string
+  valor_risco_estimado: string
+  recomendacao: string
+  draft: string
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body: SavePayload = await req.json()
+    const {
+      project_id, firm_id,
+      tese_principal, teses_subsidiarias,
+      jurisprudencia_favoravel, jurisprudencia_desfavoravel,
+      probabilidade_exito, risco_estimado, valor_risco_estimado,
+      recomendacao, draft,
+    } = body
+
+    if (!project_id || !firm_id) {
+      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    }
+
+    const adminSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+    // Save to case_strategies
+    const { error: stratError } = await adminSupabase
+      .from('case_strategies')
+      .insert({
+        project_id,
+        firm_id,
+        tese_principal,
+        teses_subsidiarias,
+        jurisprudencia_favoravel,
+        jurisprudencia_desfavoravel,
+        risco_estimado,
+        valor_risco_estimado,
+        recomendacao,
+        draft_peca: draft,
+        draft_tipo: 'contestacao',
+        status: 'aprovado',
+      })
+
+    if (stratError) {
+      console.error('case_strategies insert error:', stratError)
+      return NextResponse.json(
+        { error: `Falha ao salvar estratégia: ${stratError.message}` },
+        { status: 500 }
+      )
+    }
+
+    // Save draft to pecas
+    const { error: pecaError } = await adminSupabase
+      .from('pecas')
+      .insert({
+        project_id,
+        firm_id,
+        tipo: 'contestacao',
+        conteudo: draft,
+        modelo_ia: 'gpt-4o',
+        versao: 1,
+      })
+
+    if (pecaError) {
+      console.error('pecas insert error:', pecaError)
+      // Log but don't fail — strategy was already saved
+    }
+
+    // Update project fase to 'contestacao'
+    await adminSupabase
+      .from('projects')
+      .update({
+        fase: 'contestacao',
+        risk_level: risco_estimado,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', project_id)
+
+    return NextResponse.json({ success: true, probabilidade_exito })
+  } catch (err) {
+    console.error('strategy/save error:', err)
+    return NextResponse.json({ error: 'Erro interno no servidor' }, { status: 500 })
+  }
+}
