@@ -1030,21 +1030,49 @@ export default function NovoProcessoModal({
   </div>
 
   <h2>PARTES</h2>
-  <div class="grid-2">
-    <div class="card">
-      <div class="card-header">PARTE AUTORA</div>
-      ${field('Nome', caseAnalysis.partes?.autor?.nome)}
-      ${field('CPF / CNPJ', caseAnalysis.partes?.autor?.cpf_cnpj)}
-      ${(caseAnalysis.partes?.autor?.advogados || []).map(a =>
-        `<div class="field"><div class="label">Advogado(a)</div><div class="value">${a.nome}${a.oab ? ` &nbsp;<span style="font-size:11px;color:#888;font-family:monospace">(OAB ${a.oab})</span>` : ''}</div></div>`
-      ).join('')}
-    </div>
-    <div class="card">
-      <div class="card-header">RÉU — NOSSO CLIENTE</div>
-      ${field('Nome', caseAnalysis.partes?.reu?.nome || clientName)}
-      ${field('CPF / CNPJ', caseAnalysis.partes?.reu?.cpf_cnpj)}
-    </div>
-  </div>
+  ${(() => {
+    const renderParte = (parte: typeof caseAnalysis.partes.autor | null, titulo: string, fallbackNome?: string) => {
+      if (!parte && !fallbackNome) return `<div class="card"><div class="card-header">${titulo}</div><div class="prose" style="color:#aaa;font-style:italic">Não identificado</div></div>`
+      const p = parte || { nome: fallbackNome || '', cpf_cnpj: '', rg: '', nacionalidade: '', estado_civil: '', profissao: '', data_nascimento: '', email: '', endereco: null, telefone: '', outras_info: '', advogados: [] }
+      const enderecoStr = p.endereco
+        ? [p.endereco.rua, p.endereco.numero, p.endereco.bairro, p.endereco.cidade, p.endereco.estado, p.endereco.cep].filter(Boolean).join(', ')
+        : (p as unknown as { endereco_completo?: string }).endereco_completo || ''
+      const advCards = (p.advogados || []).map((a, idx) => `
+        <div style="border:1px solid #e5e5e5;border-radius:4px;padding:10px 12px;margin-top:10px">
+          <div class="card-header">ADVOGADO(A) ${idx + 1}</div>
+          <div class="grid-2">
+            ${field('Nome', a.nome)}
+            ${field('OAB / Seccional', [a.oab, a.seccional].filter(Boolean).join(' — '))}
+            ${field('Escritório', a.escritorio)}
+            ${field('Endereço', a.endereco)}
+            ${field('E-mail', a.email)}
+            ${field('Telefone', a.telefone)}
+          </div>
+        </div>`).join('')
+      return `
+        <div class="card">
+          <div class="card-header">${titulo}</div>
+          <div class="grid-2">
+            ${field('Nome', p.nome || fallbackNome)}
+            ${field('CPF / CNPJ', p.cpf_cnpj)}
+            ${field('RG', p.rg)}
+            ${field('Nacionalidade', p.nacionalidade)}
+            ${field('Estado Civil', p.estado_civil)}
+            ${field('Profissão', p.profissao)}
+            ${field('Data de Nascimento', p.data_nascimento)}
+            ${field('E-mail', p.email)}
+            ${field('Telefone', p.telefone)}
+          </div>
+          ${enderecoStr ? `<div class="field" style="margin-top:4px"><div class="label">Endereço Completo</div><div class="value">${enderecoStr}</div></div>` : ''}
+          ${field('Outras Informações', p.outras_info)}
+          ${advCards}
+        </div>`
+    }
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px">
+      ${renderParte(caseAnalysis.partes?.autor || null, 'PARTE AUTORA')}
+      ${renderParte(caseAnalysis.partes?.reu || null, 'RÉU — NOSSO CLIENTE', clientName)}
+    </div>`
+  })()}
 
   <h2>OBJETO DA AÇÃO</h2>
   ${caseAnalysis.objeto_da_acao ? `
