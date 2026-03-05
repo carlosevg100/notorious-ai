@@ -56,19 +56,56 @@ interface Client {
   name: string
 }
 
+interface PeticaoParty {
+  nome: string | null
+  cpf_cnpj: string | null
+  rg: string | null
+  nacionalidade: string | null
+  estado_civil: string | null
+  profissao: string | null
+  data_nascimento: string | null
+  email: string | null
+  endereco_completo: string | null
+  telefone: string | null
+  representante_legal?: string | null
+  cargo_representante?: string | null
+}
+
+interface PeticaoAdvogado {
+  nome: string | null
+  oab: string | null
+  seccional: string | null
+  escritorio: string | null
+  endereco: string | null
+  email: string | null
+  telefone: string | null
+}
+
+interface PeticaoValorItem {
+  item: string
+  valor: string
+}
+
 interface PeticaoExtracted {
   numero_processo: string | null
   nome_processo: string | null
   tipo_acao: string | null
-  autor: string | null
-  reu: string | null
+  autor: PeticaoParty | null
+  advogado_autor: PeticaoAdvogado | null
+  reu: PeticaoParty | null
+  advogado_reu: PeticaoAdvogado | null
   vara: string | null
   comarca: string | null
   valor_causa: string | null
+  valores_pleiteados: PeticaoValorItem[] | null
   pedidos: string | null
   prazos: string | null
   tipo: string | null
   area: string | null
+  objeto_acao: string | null
+  fatos_principais: string[] | null
+  fundamentos_legais: string[] | null
+  raw_text_preview?: string | null
 }
 
 interface SupportingExtracted {
@@ -821,6 +858,8 @@ export default function NovoProcessoModal({
         addLog(`✓ Petição inicial extraída — ${peticaoExtracted.tipo_acao || 'Tipo identificado'}`)
         if (peticaoExtracted.nome_processo) addLog(`  Processo: ${peticaoExtracted.nome_processo}`)
         if (peticaoExtracted.numero_processo) addLog(`  CNJ: ${peticaoExtracted.numero_processo}`)
+        const autorNome = typeof peticaoExtracted.autor === 'object' ? peticaoExtracted.autor?.nome : peticaoExtracted.autor
+        if (autorNome) addLog(`  Autor: ${autorNome}`)
         setPeticaoData(peticaoExtracted)
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Erro na extração da petição'
@@ -1260,6 +1299,9 @@ export default function NovoProcessoModal({
       }
     })()
 
+    const peticaoAutorNome = typeof peticaoData.autor === 'object' ? peticaoData.autor?.nome : peticaoData.autor
+    const peticaoReuNome = typeof peticaoData.reu === 'object' ? peticaoData.reu?.nome : peticaoData.reu
+
     const apiPromise = fetch('/api/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1268,8 +1310,8 @@ export default function NovoProcessoModal({
         firm_id: firmId,
         case_context: {
           tipo_acao: peticaoData.tipo_acao,
-          autor: peticaoData.autor,
-          reu: peticaoData.reu,
+          autor: peticaoAutorNome,
+          reu: peticaoReuNome,
           vara: peticaoData.vara,
           comarca: peticaoData.comarca,
           valor_causa: peticaoData.valor_causa,
@@ -1307,6 +1349,8 @@ export default function NovoProcessoModal({
 
     setStrategyLoading(true)
     try {
+      const stratAutorNome = typeof peticaoData.autor === 'object' ? peticaoData.autor?.nome : peticaoData.autor
+      const stratReuNome = typeof peticaoData.reu === 'object' ? peticaoData.reu?.nome : peticaoData.reu
       const stratRes = await fetch('/api/strategy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1315,8 +1359,8 @@ export default function NovoProcessoModal({
           firm_id: firmId,
           case_context: {
             tipo_acao: peticaoData.tipo_acao,
-            autor: peticaoData.autor,
-            reu: peticaoData.reu,
+            autor: stratAutorNome,
+            reu: stratReuNome,
             vara: peticaoData.vara,
             comarca: peticaoData.comarca,
             valor_causa: peticaoData.valor_causa,
@@ -1361,6 +1405,8 @@ export default function NovoProcessoModal({
     const supportingSummaries = buildSupportingSummaries(allExtractions)
     const clientDocSummaries = buildClientDocSummaries()
     const crossReferenceNotes = buildCrossRefNotes()
+    const regenAutorNome = typeof peticaoData.autor === 'object' ? peticaoData.autor?.nome : peticaoData.autor
+    const regenReuNome = typeof peticaoData.reu === 'object' ? peticaoData.reu?.nome : peticaoData.reu
     try {
       const stratRes = await fetch('/api/strategy', {
         method: 'POST',
@@ -1370,8 +1416,8 @@ export default function NovoProcessoModal({
           firm_id: firmId,
           case_context: {
             tipo_acao: peticaoData.tipo_acao,
-            autor: peticaoData.autor,
-            reu: peticaoData.reu,
+            autor: regenAutorNome,
+            reu: regenReuNome,
             vara: peticaoData.vara,
             comarca: peticaoData.comarca,
             valor_causa: peticaoData.valor_causa,
@@ -2268,7 +2314,7 @@ export default function NovoProcessoModal({
                           <div>
                             <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>{peticaoData.tipo_acao || 'Ação em análise'}</div>
                             <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
-                              {[peticaoData.autor, 'x', peticaoData.reu].filter(Boolean).join(' ')} — {peticaoData.comarca || 'Comarca não informada'}
+                              {[typeof peticaoData.autor === 'object' ? peticaoData.autor?.nome : peticaoData.autor, 'x', typeof peticaoData.reu === 'object' ? peticaoData.reu?.nome : peticaoData.reu].filter(Boolean).join(' ')} — {peticaoData.comarca || 'Comarca não informada'}
                               {clientExtractions.filter(e => e.status === 'done').length > 0 && (
                                 <span style={{ color: C.blue, marginLeft: '8px' }}>· {clientExtractions.filter(e => e.status === 'done').length} doc(s) do cliente incluídos</span>
                               )}

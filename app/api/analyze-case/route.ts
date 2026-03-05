@@ -121,19 +121,30 @@ function buildPrompt(peticao: Record<string, unknown>, docs: SupportingDoc[]): s
     ? docs.map(d => `\n[${d.category} — ${d.fileName}]\n${JSON.stringify(d.extracted, null, 2)}`).join('\n')
     : '(nenhum documento de suporte)'
 
+  // Include raw petition text if available for cross-reference
+  const rawTextSection = peticao.raw_text_preview
+    ? `\nTEXTO ORIGINAL DA PETIÇÃO (primeiros 8.000 caracteres — use para confirmar dados extraídos):\n${peticao.raw_text_preview}\n`
+    : ''
+
   return `Você é um advogado sênior brasileiro especializado em direito processual civil. Analise os documentos da parte autora abaixo e produza uma extração completa e estruturada para orientar a defesa do réu.
+
+REGRAS ABSOLUTAS — ANTI-ALUCINAÇÃO DE VALORES:
+- Extraia EXATAMENTE os valores que constam no documento. NÃO invente valores. NÃO estime. NÃO crie itens que não existem.
+- Se a petição tem uma seção "Dos Danos", "Do Valor da Causa", "Dos Pedidos" ou tabela de valores, transcreva CADA linha exatamente como descrita — sem renomear, sem agrupar, sem adicionar.
+- Cada item em valores.itens deve ter: descricao = nome EXATO do dano como escrito; valor = R$ EXATO como escrito; fundamento = base legal mencionada ou "Conforme petição".
+- NUNCA adicione itens como "multa diária", "honorários advocatícios", "juros de mora" ou "correção monetária" se eles não estiverem EXPLICITAMENTE listados como itens de valor nos pedidos.
+- Após listar os itens, some os valores e verifique se o total bate com o valor_causa da petição. Se não bater, revise os itens — o erro está na sua extração, não no documento.
+- Se valores_pleiteados está preenchido na petição extraída, USE EXATAMENTE esses itens na seção valores.itens. Não adicione, não remova, não renomeie.
 
 Extraia TODAS as informações pessoais e de qualificação das partes que constarem na petição inicial e documentos anexos. Petições iniciais brasileiras geralmente contêm a qualificação completa das partes no início do documento — nome, CPF/CNPJ, RG, nacionalidade, estado civil, profissão, data de nascimento, email, endereço completo e telefone.
 
 Extraia TODOS os detalhes sobre o objeto central da ação — se for veículo: marca, modelo, ano, placa, chassi, valor. Se for imóvel: endereço, matrícula, metragem. Se for contrato: número, data, partes, valor, cláusulas principais. Se for relação de trabalho: cargo, salário, período. Inclua TUDO que estiver nos documentos no campo objeto_da_acao.
 
-Liste CADA valor individual pleiteado pelo autor com sua descrição, valor exato e fundamento jurídico. Inclua: danos materiais, danos morais, lucros cessantes, multas, honorários, custas, correção monetária, juros — TUDO que constar nos pedidos.
-
 Para CADA prova/documento fornecido pelo autor, explique: (1) o que o documento contém, (2) como o autor utiliza essa prova no caso, (3) qual tese jurídica ele embasa, (4) pontos de atenção ou possíveis fragilidades dessa prova.
 
 PETIÇÃO INICIAL EXTRAÍDA:
 ${JSON.stringify(peticao, null, 2)}
-
+${rawTextSection}
 DOCUMENTOS DE SUPORTE DA PARTE AUTORA:
 ${docsSection}
 
@@ -291,7 +302,7 @@ export async function POST(req: NextRequest) {
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.1,
+        temperature: 0,   // zero temperature = precision extraction, no hallucination
         max_tokens: 6000,
       }),
     })

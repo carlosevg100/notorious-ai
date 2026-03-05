@@ -4,25 +4,86 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY || ''
 
 /* ─── Prompts ───────────────────────────────────────────────── */
 
-const PETICAO_PROMPT = (text: string) => `Você é um assistente jurídico especializado em direito brasileiro. Analise o texto abaixo extraído de uma petição inicial e extraia as informações solicitadas no formato JSON.
+const PETICAO_PROMPT = (text: string) => `Você é um assistente jurídico especializado em direito brasileiro. Analise o texto abaixo extraído de uma petição inicial e extraia TODAS as informações solicitadas no formato JSON.
 
 TEXTO DO DOCUMENTO:
 ${text}
+
+INSTRUÇÕES CRÍTICAS — LEIA ANTES DE EXTRAIR:
+
+1. QUALIFICAÇÃO DAS PARTES: Petições iniciais brasileiras SEMPRE contêm a qualificação completa das partes no início do documento — CPF, RG, nacionalidade, estado civil, profissão, data de nascimento, endereço completo e contato. Extraia TODOS esses dados sem exceção.
+
+2. ADVOGADOS: Extraia nome completo, número OAB, seccional, escritório, endereço, email e telefone de todos os advogados mencionados.
+
+3. VALORES — REGRAS ABSOLUTAS ANTI-ALUCINAÇÃO:
+   - Extraia EXATAMENTE os valores que constam no documento. NÃO invente valores. NÃO estime. NÃO agrupe.
+   - Se a petição tem uma seção "Dos Danos", "Do Valor da Causa", "Dos Pedidos" ou qualquer tabela de valores, extraia CADA linha exatamente como descrita no texto.
+   - Cada item em valores_pleiteados deve ter: o nome EXATO do dano/item como está escrito no documento e o valor EXATO em R$ como está escrito.
+   - NUNCA adicione itens que não estão explicitamente escritos no documento.
+   - NUNCA invente valores como "multa diária", "honorários", "juros" se eles não constam expressamente nos pedidos de valor.
+   - Após listar os itens, verifique se a soma bate com o valor_causa. Se não bater, revise os itens antes de responder.
 
 Retorne APENAS um JSON válido (sem markdown, sem explicações) com a seguinte estrutura:
 {
   "numero_processo": "número CNJ no formato 0000000-00.0000.0.00.0000 ou null se não encontrado",
   "nome_processo": "nome descritivo breve do processo/ação (máx 80 chars)",
-  "tipo_acao": "tipo da ação (ex: Ação de Indenização, Ação Trabalhista, etc.)",
-  "autor": "nome do(s) autor(es)/requerente(s)",
-  "reu": "nome do(s) réu(s)/requerido(s)",
-  "vara": "vara judicial (ex: 3ª Vara Cível)",
-  "comarca": "comarca (ex: São Paulo - SP)",
-  "valor_causa": "valor da causa como string (ex: R$ 50.000,00 ou null)",
+  "tipo_acao": "tipo da ação (ex: Ação de Indenização por Danos, Ação de Cobrança, etc.)",
+  "autor": {
+    "nome": "nome completo do(a) autor(a)/requerente(s)",
+    "cpf_cnpj": "CPF ou CNPJ exatamente como escrito, ou null",
+    "rg": "número do RG exatamente como escrito, ou null",
+    "nacionalidade": "nacionalidade se mencionada (ex: brasileiro(a)), ou null",
+    "estado_civil": "estado civil se mencionado (ex: solteiro, casado, divorciado), ou null",
+    "profissao": "profissão se mencionada, ou null",
+    "data_nascimento": "data de nascimento DD/MM/AAAA se mencionada, ou null",
+    "email": "email se mencionado, ou null",
+    "endereco_completo": "endereço completo se mencionado (rua, número, bairro, cidade, estado, CEP), ou null",
+    "telefone": "telefone se mencionado, ou null"
+  },
+  "advogado_autor": {
+    "nome": "nome completo do advogado do autor, ou null",
+    "oab": "número OAB (apenas o número), ou null",
+    "seccional": "estado da seccional (ex: SP, RJ), ou null",
+    "escritorio": "nome do escritório se mencionado, ou null",
+    "endereco": "endereço do escritório se mencionado, ou null",
+    "email": "email profissional se mencionado, ou null",
+    "telefone": "telefone profissional se mencionado, ou null"
+  },
+  "reu": {
+    "nome": "nome completo do(a) réu(é)/requerido(a)",
+    "cpf_cnpj": "CPF ou CNPJ exatamente como escrito, ou null",
+    "rg": "número do RG exatamente como escrito, ou null",
+    "nacionalidade": "nacionalidade se mencionada, ou null",
+    "estado_civil": "estado civil se mencionado, ou null",
+    "profissao": "profissão se mencionada, ou null",
+    "data_nascimento": "data de nascimento DD/MM/AAAA se mencionada, ou null",
+    "email": "email se mencionado, ou null",
+    "endereco_completo": "endereço completo se mencionado, ou null",
+    "telefone": "telefone se mencionado, ou null",
+    "representante_legal": "nome do representante legal se pessoa jurídica, ou null",
+    "cargo_representante": "cargo do representante, ou null"
+  },
+  "advogado_reu": {
+    "nome": "nome do advogado do réu se mencionado, ou null",
+    "oab": "número OAB se mencionado, ou null",
+    "seccional": "seccional se mencionada, ou null"
+  },
+  "vara": "vara judicial (ex: 3ª Vara Cível) ou null",
+  "comarca": "comarca (ex: São Paulo - SP) ou null",
+  "valor_causa": "valor total da causa como string exatamente como escrita (ex: R$ 34.500,00) ou null",
+  "valores_pleiteados": [
+    {
+      "item": "nome EXATO do item de dano/pedido como escrito na petição — não renomeie, não agrupe",
+      "valor": "R$ X.XXX,XX exatamente como escrito no documento"
+    }
+  ],
   "pedidos": "resumo dos pedidos principais (máx 300 chars)",
   "prazos": "prazos identificados no documento (máx 200 chars) ou null",
   "tipo": "trabalhista | tributario | contencioso | consultivo",
-  "area": "área do direito (ex: Cível, Trabalhista, Tributário, Criminal)"
+  "area": "área do direito (ex: Cível, Trabalhista, Tributário, Criminal)",
+  "objeto_acao": "descrição do objeto central da disputa (ex: veículo Marca/Modelo/Ano Placa XXX, imóvel Rua X nº Y, contrato nº Z)",
+  "fatos_principais": ["fato relevante 1 narrado pelo autor", "fato relevante 2"],
+  "fundamentos_legais": ["Art. X do Código Y — descrição", "Lei N XXXX/XXXX"]
 }`
 
 const SUPPORTING_DOC_PROMPT = (text: string, category: string) => `Você é um assistente jurídico especializado em direito brasileiro. Analise o texto abaixo extraído de um documento de suporte jurídico (categoria: ${category}) e extraia as informações no formato JSON.
@@ -101,8 +162,8 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        max_tokens: 1200,
+        temperature: 0,          // zero temperature = zero hallucination for extraction
+        max_tokens: isPeticao ? 2500 : 1200,
       }),
     })
 
@@ -128,14 +189,20 @@ export async function POST(req: NextRequest) {
           nome_processo: 'Processo sem título',
           tipo_acao: null,
           autor: null,
+          advogado_autor: null,
           reu: null,
+          advogado_reu: null,
           vara: null,
           comarca: null,
           valor_causa: null,
+          valores_pleiteados: [],
           pedidos: null,
           prazos: null,
           tipo: 'contencioso',
           area: 'Cível',
+          objeto_acao: null,
+          fatos_principais: [],
+          fundamentos_legais: [],
         }
       } else {
         extracted = {
@@ -151,6 +218,11 @@ export async function POST(req: NextRequest) {
           connection_to_case: null,
         }
       }
+    }
+
+    // For petição, include raw text preview so analyze-case can cross-reference
+    if (isPeticao) {
+      extracted.raw_text_preview = truncatedText.slice(0, 8000)
     }
 
     return NextResponse.json({
