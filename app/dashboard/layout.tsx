@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
 import { LayoutDashboard, Users, CalendarClock, FileText, LogOut, Sun, Moon } from 'lucide-react'
@@ -15,8 +15,14 @@ const NAV_ITEMS = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
+
+  const handleLogout = async () => {
+    await signOut()
+    router.push('/login')
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-primary)' }}>
@@ -140,7 +146,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <button
-            onClick={signOut}
+            onClick={handleLogout}
             style={{
               display: 'flex',
               alignItems: 'center',
