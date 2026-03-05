@@ -15,26 +15,49 @@ export interface DocumentoNecessario {
 }
 
 export interface CaseAnalysis {
-  resumo_demanda: string
-  fundamentos_autor: string[]
-  evidencias_apresentadas: Array<{
-    documento: string
-    descricao: string
-    relevancia: string
-  }>
-  valores_envolvidos: {
-    pedido_principal: string
+  dados_processo: {
+    numero_cnj: string
+    juiz: string
+    comarca: string
+    vara: string
+    localizacao: string
+    data_distribuicao: string
+  }
+  partes: {
+    autor: {
+      nome: string
+      cpf_cnpj: string
+      advogados: Array<{ nome: string; oab: string }>
+    }
+    reu: {
+      nome: string
+      cpf_cnpj: string
+    }
+  }
+  valores: {
+    valor_causa: string
+    danos_materiais: string
     danos_morais: string
+    outros: string
     total: string
   }
-  datas_chave: Array<{
-    data: string
-    evento: string
+  alegacao_principal: string
+  fatos_narrados: string[]
+  fundamento_juridico: {
+    base_legal: string[]
+    teses: string[]
+    pedidos: string[]
+  }
+  provas_fornecidas: Array<{
+    documento: string
+    tipo: string
+    resumo: string
+    relevancia: string
   }>
-  pontos_fortes_autor: string[]
-  pontos_fracos_autor: string[]
-  risco_preliminar: 'baixo' | 'medio' | 'alto'
+  datas_importantes: Array<{ data: string; evento: string }>
+  prazo_contestacao: string
   documentos_necessarios_cliente: DocumentoNecessario[]
+  risco_preliminar: 'baixo' | 'medio' | 'alto'
 }
 
 interface SupportingDoc {
@@ -55,7 +78,7 @@ function buildPrompt(peticao: Record<string, unknown>, docs: SupportingDoc[]): s
     ? docs.map(d => `\n[${d.category} — ${d.fileName}]\n${JSON.stringify(d.extracted, null, 2)}`).join('\n')
     : '(nenhum documento de suporte)'
 
-  return `Você é um advogado sênior brasileiro especializado em direito processual civil. Analise os documentos da parte autora abaixo e produza uma análise executiva completa para orientar a defesa do réu.
+  return `Você é um advogado sênior brasileiro especializado em direito processual civil. Analise os documentos da parte autora abaixo e produza uma extração completa e estruturada para orientar a defesa do réu.
 
 PETIÇÃO INICIAL EXTRAÍDA:
 ${JSON.stringify(peticao, null, 2)}
@@ -65,48 +88,74 @@ ${docsSection}
 
 Com base em TODOS os documentos acima, retorne APENAS um JSON válido (sem markdown, sem comentários) com a seguinte estrutura EXATA:
 {
-  "resumo_demanda": "Parágrafo objetivo: O autor [nome] move ação de [tipo] contra [réu] pleiteando [pedidos]. Inclua o contexto fático principal.",
-  "fundamentos_autor": [
-    "Fundamento jurídico 1 alegado pelo autor",
-    "Fundamento jurídico 2 alegado pelo autor"
+  "dados_processo": {
+    "numero_cnj": "número CNJ no formato NNNNNNN-NN.NNNN.N.NN.NNNN ou vazio",
+    "juiz": "nome do juiz se mencionado, ou vazio",
+    "comarca": "comarca do processo",
+    "vara": "vara (ex: 3ª Vara Cível)",
+    "localizacao": "cidade/estado (ex: São Paulo/SP)",
+    "data_distribuicao": "data de distribuição DD/MM/AAAA ou vazio"
+  },
+  "partes": {
+    "autor": {
+      "nome": "nome completo da parte autora",
+      "cpf_cnpj": "CPF ou CNPJ se mencionado, ou vazio",
+      "advogados": [{"nome": "nome do advogado", "oab": "número OAB se mencionado"}]
+    },
+    "reu": {
+      "nome": "nome completo do réu",
+      "cpf_cnpj": "CPF ou CNPJ se mencionado, ou vazio"
+    }
+  },
+  "valores": {
+    "valor_causa": "R$ X.XXX,XX ou 'Não identificado'",
+    "danos_materiais": "R$ X.XXX,XX ou 'Não requerido'",
+    "danos_morais": "R$ X.XXX,XX ou 'Não requerido'",
+    "outros": "outros valores mencionados ou 'Não identificado'",
+    "total": "R$ X.XXX,XX ou 'Não identificado'"
+  },
+  "alegacao_principal": "Resumo objetivo em 2-3 parágrafos da alegação central do autor. O que aconteceu, qual é o prejuízo alegado, o que o autor quer.",
+  "fatos_narrados": [
+    "Fato relevante 1 narrado pelo autor",
+    "Fato relevante 2 narrado pelo autor"
   ],
-  "evidencias_apresentadas": [
+  "fundamento_juridico": {
+    "base_legal": ["Art. X do Código Y — descrição breve", "Lei N XXXX/XXXX — descrição"],
+    "teses": ["Tese jurídica 1 do autor", "Tese jurídica 2 do autor"],
+    "pedidos": ["Pedido 1 ao juiz", "Pedido 2 ao juiz", "Pedido 3 ao juiz"]
+  },
+  "provas_fornecidas": [
     {
-      "documento": "nome do arquivo ou tipo do documento",
-      "descricao": "o que o documento contém",
-      "relevancia": "como o autor pretende usar esse documento para embasar seus pedidos"
+      "documento": "nome do arquivo ou documento",
+      "tipo": "Contrato / Nota Fiscal / Laudo / Foto / Outro",
+      "resumo": "o que o documento contém",
+      "relevancia": "como o autor pretende usar esse documento"
     }
   ],
-  "valores_envolvidos": {
-    "pedido_principal": "R$ X,XX ou 'Não identificado'",
-    "danos_morais": "R$ X,XX ou 'Não requerido'",
-    "total": "R$ X,XX ou 'Não identificado'"
-  },
-  "datas_chave": [
-    { "data": "DD/MM/AAAA ou período", "evento": "descrição do evento" }
+  "datas_importantes": [
+    {"data": "DD/MM/AAAA ou período descritivo", "evento": "descrição do evento que ocorreu nessa data"}
   ],
-  "pontos_fortes_autor": [
-    "Ponto forte identificado com base nos documentos apresentados"
-  ],
-  "pontos_fracos_autor": [
-    "Fraqueza ou lacuna identificada — documento não apresentado, contradição, etc."
-  ],
-  "risco_preliminar": "baixo",
+  "prazo_contestacao": "prazo em dias ou data limite se identificado, ou 'A verificar'",
   "documentos_necessarios_cliente": [
     {
       "documento": "nome claro do documento a solicitar ao cliente",
       "motivo": "por que precisamos desse documento para a defesa",
       "prioridade": "alta"
     }
-  ]
+  ],
+  "risco_preliminar": "baixo"
 }
 
-REGRAS:
+REGRAS OBRIGATÓRIAS:
 - risco_preliminar deve ser exatamente: "baixo", "medio" ou "alto"
 - prioridade deve ser exatamente: "alta", "media" ou "baixa"
 - documentos_necessarios_cliente: liste entre 3 e 8 documentos específicos e relevantes
+- fatos_narrados: mínimo 4 fatos concretos narrados pelo autor
+- fundamento_juridico.pedidos: liste TODOS os pedidos específicos feitos ao juiz
+- provas_fornecidas: inclua CADA documento apresentado pelo autor com análise
+- datas_importantes: inclua TODAS as datas relevantes mencionadas na cronologia dos fatos
 - Seja técnico, objetivo e orientado à defesa do réu
-- Identifique documentos que o autor NÃO apresentou mas mencionou, e que o réu pode ter
+- Se algum campo não puder ser identificado nos documentos, use string vazia "" ou "Não identificado"
 `
 }
 
@@ -133,12 +182,12 @@ export async function POST(req: NextRequest) {
           {
             role: 'system',
             content:
-              'Você é um advogado sênior brasileiro especializado em análise processual. Retorne APENAS JSON válido, sem markdown, sem comentários.',
+              'Você é um advogado sênior brasileiro especializado em análise processual. Extraia TODOS os dados estruturados solicitados. Retorne APENAS JSON válido, sem markdown, sem comentários.',
           },
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 4000,
       }),
     })
 
@@ -165,8 +214,8 @@ export async function POST(req: NextRequest) {
     await adminSupabase.from('case_strategies').insert({
       project_id,
       firm_id,
-      tese_principal: analysis.resumo_demanda || 'Análise inicial pendente',
-      teses_subsidiarias: analysis.fundamentos_autor || [],
+      tese_principal: analysis.alegacao_principal || 'Análise inicial pendente',
+      teses_subsidiarias: analysis.fundamento_juridico?.teses || [],
       jurisprudencia_favoravel: [],
       jurisprudencia_desfavoravel: [],
       risco_estimado: analysis.risco_preliminar || 'medio',
