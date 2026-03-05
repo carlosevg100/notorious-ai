@@ -147,7 +147,8 @@ async function fetchSTF(keyword: string): Promise<SourceResult> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn('[STF] fetch error:', msg)
-    return { source: 'stf', items: [], count: 0, error: msg.includes('abort') ? 'Timeout (10s)' : msg }
+    const friendlyMsg = msg.includes('abort') ? 'Timeout (10s)' : msg.includes('fetch failed') ? 'fetch failed' : msg
+    return { source: 'stf', items: [], count: 0, error: friendlyMsg }
   }
 }
 
@@ -454,10 +455,18 @@ function buildSourceLog(result: SourceResult, isLabor: boolean): string {
   }
   if (result.error && result.count === 0) {
     const tribunal = result.source.toUpperCase()
-    // Don't show as error to user if it's a known limitation
-    const isHtmlError = result.error.includes('HTML')
-    return isHtmlError
-      ? `⚠ ${tribunal}: API em manutenção — usando fontes alternativas`
+    // Treat HTML responses AND network/infra errors as "maintenance" to the user
+    const isKnownInfraError =
+      result.error.includes('HTML') ||
+      result.error.includes('fetch failed') ||
+      result.error.includes('Timeout') ||
+      result.error.includes('abort') ||
+      result.error.includes('ECONNREFUSED') ||
+      result.error.includes('ENOTFOUND') ||
+      result.error.includes('indisponível') ||
+      /HTTP [45]\d\d/.test(result.error)
+    return isKnownInfraError
+      ? `⚠ ${tribunal}: API indisponível — usando fontes alternativas`
       : `⚠ ${tribunal}: ${result.error.slice(0, 60)}`
   }
   const tribunal = result.source === 'perplexity' ? 'Jurisprudência complementar (Perplexity)' : result.source.toUpperCase()
