@@ -46,6 +46,27 @@ export interface ParteDetalhada {
   advogados: AdvogadoDetalhado[]
 }
 
+export interface ObjetoDetalhe {
+  campo: string
+  valor: string
+}
+
+export interface ValorItem {
+  descricao: string
+  valor: string
+  fundamento: string
+}
+
+export interface ProvaFornecida {
+  documento: string
+  tipo: string
+  resumo: string
+  conteudo_principal: string
+  como_autor_usa: string
+  tese_que_embasa: string
+  pontos_de_atencao: string
+}
+
 export interface CaseAnalysis {
   dados_processo: {
     numero_cnj: string
@@ -59,11 +80,13 @@ export interface CaseAnalysis {
     autor: ParteDetalhada
     reu: ParteDetalhada
   }
+  objeto_da_acao: {
+    tipo: string
+    descricao: string
+    detalhes: ObjetoDetalhe[]
+  }
   valores: {
-    valor_causa: string
-    danos_materiais: string
-    danos_morais: string
-    outros: string
+    itens: ValorItem[]
     total: string
   }
   alegacao_principal: string
@@ -73,12 +96,7 @@ export interface CaseAnalysis {
     teses: string[]
     pedidos: string[]
   }
-  provas_fornecidas: Array<{
-    documento: string
-    tipo: string
-    resumo: string
-    relevancia: string
-  }>
+  provas_fornecidas: ProvaFornecida[]
   datas_importantes: Array<{ data: string; evento: string }>
   prazo_contestacao: string
   documentos_necessarios_cliente: DocumentoNecessario[]
@@ -106,6 +124,12 @@ function buildPrompt(peticao: Record<string, unknown>, docs: SupportingDoc[]): s
   return `Você é um advogado sênior brasileiro especializado em direito processual civil. Analise os documentos da parte autora abaixo e produza uma extração completa e estruturada para orientar a defesa do réu.
 
 Extraia TODAS as informações pessoais e de qualificação das partes que constarem na petição inicial e documentos anexos. Petições iniciais brasileiras geralmente contêm a qualificação completa das partes no início do documento — nome, CPF/CNPJ, RG, nacionalidade, estado civil, profissão, data de nascimento, email, endereço completo e telefone.
+
+Extraia TODOS os detalhes sobre o objeto central da ação — se for veículo: marca, modelo, ano, placa, chassi, valor. Se for imóvel: endereço, matrícula, metragem. Se for contrato: número, data, partes, valor, cláusulas principais. Se for relação de trabalho: cargo, salário, período. Inclua TUDO que estiver nos documentos no campo objeto_da_acao.
+
+Liste CADA valor individual pleiteado pelo autor com sua descrição, valor exato e fundamento jurídico. Inclua: danos materiais, danos morais, lucros cessantes, multas, honorários, custas, correção monetária, juros — TUDO que constar nos pedidos.
+
+Para CADA prova/documento fornecido pelo autor, explique: (1) o que o documento contém, (2) como o autor utiliza essa prova no caso, (3) qual tese jurídica ele embasa, (4) pontos de atenção ou possíveis fragilidades dessa prova.
 
 PETIÇÃO INICIAL EXTRAÍDA:
 ${JSON.stringify(peticao, null, 2)}
@@ -177,11 +201,17 @@ Com base em TODOS os documentos acima, retorne APENAS um JSON válido (sem markd
       "advogados": []
     }
   },
+  "objeto_da_acao": {
+    "tipo": "Seguro de Veículo / Imóvel / Contrato / Relação de Trabalho / Responsabilidade Civil / etc",
+    "descricao": "Descrição detalhada do bem, relação jurídica ou objeto central da disputa",
+    "detalhes": [
+      {"campo": "nome do atributo", "valor": "valor encontrado nos documentos"}
+    ]
+  },
   "valores": {
-    "valor_causa": "R$ X.XXX,XX ou 'Não identificado'",
-    "danos_materiais": "R$ X.XXX,XX ou 'Não requerido'",
-    "danos_morais": "R$ X.XXX,XX ou 'Não requerido'",
-    "outros": "outros valores mencionados ou 'Não identificado'",
+    "itens": [
+      {"descricao": "nome do item pleiteado", "valor": "R$ X.XXX,XX", "fundamento": "fundamento jurídico ou contratual do pedido"}
+    ],
     "total": "R$ X.XXX,XX ou 'Não identificado'"
   },
   "alegacao_principal": "Resumo objetivo em 2-3 parágrafos da alegação central do autor. O que aconteceu, qual é o prejuízo alegado, o que o autor quer.",
@@ -198,8 +228,11 @@ Com base em TODOS os documentos acima, retorne APENAS um JSON válido (sem markd
     {
       "documento": "nome do arquivo ou documento",
       "tipo": "Contrato / Nota Fiscal / Laudo / Foto / Outro",
-      "resumo": "o que o documento contém",
-      "relevancia": "como o autor pretende usar esse documento"
+      "resumo": "resumo em 1-2 linhas do que é o documento",
+      "conteudo_principal": "descrição do conteúdo principal: cláusulas relevantes, valores, datas, obrigações",
+      "como_autor_usa": "como o autor utiliza especificamente este documento para embasar seus pedidos",
+      "tese_que_embasa": "qual tese jurídica ou pedido específico este documento fundamenta",
+      "pontos_de_atencao": "possíveis fragilidades, inconsistências ou pontos críticos que a defesa deve verificar"
     }
   ],
   "datas_importantes": [
@@ -222,7 +255,9 @@ REGRAS OBRIGATÓRIAS:
 - documentos_necessarios_cliente: liste entre 3 e 8 documentos específicos e relevantes
 - fatos_narrados: mínimo 4 fatos concretos narrados pelo autor
 - fundamento_juridico.pedidos: liste TODOS os pedidos específicos feitos ao juiz
-- provas_fornecidas: inclua CADA documento apresentado pelo autor com análise
+- objeto_da_acao.detalhes: liste TODOS os atributos identificáveis do objeto (mínimo 3 quando identificável)
+- valores.itens: liste CADA item de valor individualmente com fundamento — não agrupe
+- provas_fornecidas: inclua CADA documento com análise completa de todos os 7 campos
 - datas_importantes: inclua TODAS as datas relevantes mencionadas na cronologia dos fatos
 - Seja técnico, objetivo e orientado à defesa do réu
 - Se algum campo não puder ser identificado nos documentos, use string vazia "" ou "Não identificado"
@@ -257,7 +292,7 @@ export async function POST(req: NextRequest) {
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 6000,
       }),
     })
 

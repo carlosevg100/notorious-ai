@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/theme-context'
 import { getColors } from '@/lib/theme-colors'
-import type { CaseAnalysis, DocumentoNecessario } from '@/app/api/analyze-case/route'
+import type { CaseAnalysis, DocumentoNecessario, ProvaFornecida } from '@/app/api/analyze-case/route'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -1007,16 +1007,27 @@ export default function NovoProcessoModal({
     </div>
   </div>
 
+  <h2>OBJETO DA AÇÃO</h2>
+  ${caseAnalysis.objeto_da_acao ? `
+  <div class="card">
+    <div style="margin-bottom:10px">
+      <span class="badge badge-alta" style="background:#dbeafe;color:#1d4ed8;border:none">${caseAnalysis.objeto_da_acao.tipo || 'Não identificado'}</span>
+    </div>
+    <div class="prose">${caseAnalysis.objeto_da_acao.descricao || ''}</div>
+    ${(caseAnalysis.objeto_da_acao.detalhes || []).length > 0 ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      ${(caseAnalysis.objeto_da_acao.detalhes || []).map(d => `
+      <div class="field"><div class="label">${d.campo}</div><div class="value">${d.valor}</div></div>`).join('')}
+    </div>` : ''}
+  </div>` : '<div class="card"><div class="prose" style="color:#aaa;font-style:italic">Não identificado</div></div>'}
+
   <h2>VALORES ENVOLVIDOS</h2>
   <div class="card">
-    ${[
-      ['Valor da Causa', caseAnalysis.valores?.valor_causa],
-      ['Danos Materiais', caseAnalysis.valores?.danos_materiais],
-      ['Danos Morais', caseAnalysis.valores?.danos_morais],
-      ['Outros valores', caseAnalysis.valores?.outros],
-      ['TOTAL PLEITEADO', caseAnalysis.valores?.total],
-    ].filter(([, v]) => v && v !== 'Não identificado' && v !== 'Não requerido' && v !== '—' && v !== '')
-      .map(([l, v], i, arr) => `<div class="row-value"${i === arr.length - 1 ? ' style="font-weight:700"' : ''}><span class="row-label">${l}</span><span class="row-amount">${v}</span></div>`).join('')}
+    ${(caseAnalysis.valores?.itens || []).filter(it => it.valor && it.valor !== 'Não identificado' && it.valor !== '')
+      .map(it => `<div class="row-value"><span class="row-label"><strong>${it.descricao}</strong>${it.fundamento ? `<br><span style="font-size:10px;color:#888">${it.fundamento}</span>` : ''}</span><span class="row-amount">${it.valor}</span></div>`).join('')}
+    ${caseAnalysis.valores?.total && caseAnalysis.valores.total !== 'Não identificado' && caseAnalysis.valores.total !== ''
+      ? `<div class="row-value" style="font-weight:700;background:#fef3c7;padding:8px 10px;border-radius:6px;margin-top:6px"><span class="row-label">TOTAL PLEITEADO</span><span class="row-amount" style="color:#d97706">${caseAnalysis.valores.total}</span></div>`
+      : ''}
   </div>
 
   <h2>ALEGAÇÃO PRINCIPAL</h2>
@@ -1043,10 +1054,13 @@ export default function NovoProcessoModal({
   <h2>PROVAS FORNECIDAS</h2>
   ${(caseAnalysis.provas_fornecidas || []).map(p => `
   <div class="proof-card">
-    <div class="proof-doc">${p.documento}</div>
+    <div class="proof-doc">📄 ${p.documento}</div>
     <div class="proof-type">${p.tipo}</div>
     <div class="prose">${p.resumo}</div>
-    <div class="proof-relevancia">→ ${p.relevancia}</div>
+    ${p.conteudo_principal ? `<div style="margin-top:6px;font-size:11px;color:#444;line-height:1.5"><strong>Conteúdo:</strong> ${p.conteudo_principal}</div>` : ''}
+    ${p.como_autor_usa ? `<div style="margin-top:6px;font-size:11px;color:#1d4ed8;line-height:1.5"><strong>Como o autor usa:</strong> ${p.como_autor_usa}</div>` : ''}
+    ${p.tese_que_embasa ? `<div class="proof-relevancia">→ ${p.tese_que_embasa}</div>` : ''}
+    ${p.pontos_de_atencao ? `<div style="margin-top:6px;font-size:11px;color:#d97706;background:#fef3c7;padding:6px 8px;border-radius:4px;line-height:1.5">⚠ ${p.pontos_de_atencao}</div>` : ''}
   </div>`).join('')}
 
   <h2>DATAS IMPORTANTES</h2>
@@ -1781,28 +1795,66 @@ export default function NovoProcessoModal({
                       />
                     </div>
 
+                    {/* ── OBJETO DA AÇÃO ── */}
+                    {caseAnalysis.objeto_da_acao && (
+                      <Card>
+                        <SectionHeader icon={<List size={13} style={{ color: C.blue, flexShrink: 0 }} />} label="Objeto da Ação" sub="Bem, relação jurídica ou objeto central da disputa" />
+                        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {/* tipo badge + descrição */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
+                            {caseAnalysis.objeto_da_acao.tipo && caseAnalysis.objeto_da_acao.tipo !== '' && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                                {caseAnalysis.objeto_da_acao.tipo}
+                              </span>
+                            )}
+                          </div>
+                          {caseAnalysis.objeto_da_acao.descricao && caseAnalysis.objeto_da_acao.descricao !== '' && (
+                            <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.6, padding: '10px 12px', borderRadius: '7px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+                              {caseAnalysis.objeto_da_acao.descricao}
+                            </div>
+                          )}
+                          {/* detail grid */}
+                          {(caseAnalysis.objeto_da_acao.detalhes || []).length > 0 && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px 16px' }}>
+                              {caseAnalysis.objeto_da_acao.detalhes.map((d, i) => (
+                                <div key={i}>
+                                  <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{d.campo}</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 600, color: C.text1, marginTop: '2px', lineHeight: 1.4 }}>{d.valor}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {(!caseAnalysis.objeto_da_acao.tipo && !caseAnalysis.objeto_da_acao.descricao && (caseAnalysis.objeto_da_acao.detalhes || []).length === 0) && (
+                            <div style={{ fontSize: '11px', color: C.text4, fontStyle: 'italic' }}>Objeto da ação não identificado nos documentos</div>
+                          )}
+                        </div>
+                      </Card>
+                    )}
+
                     {/* ── VALORES ── */}
                     <Card>
                       <SectionHeader icon={<Banknote size={13} style={{ color: C.amber, flexShrink: 0 }} />} label="Valores Envolvidos" />
                       <div style={{ padding: '0 16px' }}>
-                        {[
-                          { l: 'Valor da Causa', v: caseAnalysis.valores?.valor_causa },
-                          { l: 'Danos Materiais', v: caseAnalysis.valores?.danos_materiais },
-                          { l: 'Danos Morais', v: caseAnalysis.valores?.danos_morais },
-                          { l: 'Outros valores', v: caseAnalysis.valores?.outros },
-                        ].filter(({ v }) => v && v !== 'Não identificado' && v !== 'Não requerido' && v !== '').map(({ l, v }, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: `1px solid ${C.border1}` }}>
-                            <span style={{ fontSize: '12px', color: C.text3 }}>{l}</span>
-                            <span style={{ fontSize: '12px', color: C.text1, fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}>{v}</span>
+                        {(caseAnalysis.valores?.itens || []).filter(it => it.valor && it.valor !== 'Não identificado' && it.valor !== '').map((it, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '9px 0', borderBottom: `1px solid ${C.border1}`, gap: '12px' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500 }}>{it.descricao}</div>
+                              {it.fundamento && it.fundamento !== '' && (
+                                <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px', lineHeight: 1.4 }}>{it.fundamento}</div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '12px', color: C.text1, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{it.valor}</span>
                           </div>
                         ))}
+                        {(caseAnalysis.valores?.itens || []).length === 0 && (
+                          <div style={{ padding: '12px 0', fontSize: '11px', color: C.text4, fontStyle: 'italic' }}>Valores não identificados</div>
+                        )}
                         {caseAnalysis.valores?.total && caseAnalysis.valores.total !== 'Não identificado' && caseAnalysis.valores.total !== '' && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 12px', margin: '8px 0 12px', borderRadius: '7px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
                             <span style={{ fontSize: '12px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>TOTAL PLEITEADO</span>
                             <span style={{ fontSize: '14px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>{caseAnalysis.valores.total}</span>
                           </div>
                         )}
-                        {!caseAnalysis.valores?.total && <div style={{ padding: '12px 0', fontSize: '11px', color: C.text4, fontStyle: 'italic' }}>Valores não identificados</div>}
                       </div>
                     </Card>
 
@@ -1881,13 +1933,14 @@ export default function NovoProcessoModal({
                       <Card>
                         <SectionHeader icon={<FileText size={13} style={{ color: C.blue, flexShrink: 0 }} />} label={`Provas Fornecidas (${caseAnalysis.provas_fornecidas.length})`} sub="Documentos apresentados pela parte autora" />
                         <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {caseAnalysis.provas_fornecidas.map((prova, i) => {
+                          {caseAnalysis.provas_fornecidas.map((prova: ProvaFornecida, i: number) => {
                             const isExp = expandedDocCards.has(String(i))
                             return (
                               <div
                                 key={i}
                                 style={{ borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border2}`, overflow: 'hidden', transition: 'all 150ms ease' }}
                               >
+                                {/* Header — always visible */}
                                 <button
                                   onClick={() => setExpandedDocCards(prev => {
                                     const next = new Set(prev)
@@ -1898,18 +1951,53 @@ export default function NovoProcessoModal({
                                 >
                                   <FileText size={12} style={{ color: C.blue, flexShrink: 0 }} />
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>{prova.documento}</div>
-                                    <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{prova.tipo}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>📄 {prova.documento}</span>
+                                      {prova.tipo && prova.tipo !== '' && (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: '4px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                                          {prova.tipo}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* resumo — always visible */}
+                                    {prova.resumo && prova.resumo !== '' && (
+                                      <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5, marginTop: '3px', display: '-webkit-box', WebkitLineClamp: isExp ? undefined : 2, WebkitBoxOrient: 'vertical' as const, overflow: isExp ? 'visible' : 'hidden' }}>
+                                        {prova.resumo}
+                                      </div>
+                                    )}
                                   </div>
                                   <ChevronRight size={12} style={{ color: C.text4, flexShrink: 0, transform: isExp ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
                                 </button>
+                                {/* Expandable deep analysis */}
                                 {isExp && (
-                                  <div style={{ padding: '0 12px 12px', borderTop: `1px solid ${C.border1}` }}>
-                                    <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.6, marginTop: '10px' }}>{prova.resumo}</div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', marginTop: '8px', fontSize: '11px', color: C.blue }}>
-                                      <span style={{ flexShrink: 0 }}>→</span>
-                                      <span>{prova.relevancia}</span>
-                                    </div>
+                                  <div style={{ padding: '0 12px 12px', borderTop: `1px solid ${C.border1}`, display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px' }}>
+                                    {prova.conteudo_principal && prova.conteudo_principal !== '' && (
+                                      <div>
+                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Conteúdo Principal</div>
+                                        <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>{prova.conteudo_principal}</div>
+                                      </div>
+                                    )}
+                                    {prova.como_autor_usa && prova.como_autor_usa !== '' && (
+                                      <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.blueBg, border: `1px solid ${C.blueBorder}` }}>
+                                        <div style={{ fontSize: '9px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Como o Autor Usa</div>
+                                        <div style={{ fontSize: '12px', color: C.blue, lineHeight: 1.6 }}>{prova.como_autor_usa}</div>
+                                      </div>
+                                    )}
+                                    {prova.tese_que_embasa && prova.tese_que_embasa !== '' && (
+                                      <div>
+                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Tese que Embasa</div>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>
+                                          <span style={{ color: C.amber, flexShrink: 0 }}>→</span>
+                                          <span>{prova.tese_que_embasa}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {prova.pontos_de_atencao && prova.pontos_de_atencao !== '' && (
+                                      <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
+                                        <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>⚠ Pontos de Atenção</div>
+                                        <div style={{ fontSize: '12px', color: C.amber, lineHeight: 1.6 }}>{prova.pontos_de_atencao}</div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
