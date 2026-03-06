@@ -14,6 +14,34 @@ export interface DocumentoNecessario {
   prioridade: 'alta' | 'media' | 'baixa'
 }
 
+export interface ChecklistDocumento {
+  nome: string
+  justificativa: string
+  prioridade: 'alta' | 'media' | 'baixa'
+  recebido: boolean
+  digitalizado: boolean
+  juntado: boolean
+}
+
+export interface ChecklistGrupo {
+  nome: string
+  classificacao: 'OBRIGATÓRIO' | 'IMPORTANTE' | 'COMPLEMENTAR' | 'REQUERIMENTO JUDICIAL'
+  documentos: ChecklistDocumento[]
+}
+
+export interface ObservacaoEstrategica {
+  tipo: string
+  descricao: string
+}
+
+export interface ChecklistDocumentos {
+  titulo: string
+  subtitulo: string
+  processo: string
+  grupos: ChecklistGrupo[]
+  observacoes_estrategicas: ObservacaoEstrategica[]
+}
+
 export interface AdvogadoDetalhado {
   nome: string
   oab: string
@@ -100,6 +128,7 @@ export interface CaseAnalysis {
   datas_importantes: Array<{ data: string; evento: string }>
   prazo_contestacao: string
   documentos_necessarios_cliente: DocumentoNecessario[]
+  checklist_documentos?: ChecklistDocumentos
   risco_preliminar: 'baixo' | 'medio' | 'alto'
 }
 
@@ -257,6 +286,71 @@ Com base em TODOS os documentos acima, retorne APENAS um JSON válido (sem markd
       "prioridade": "alta"
     }
   ],
+  "checklist_documentos": {
+    "titulo": "CHECKLIST DE DOCUMENTOS DO CLIENTE",
+    "subtitulo": "Ação de [tipo exato da ação] — [nome do autor] vs [nome do réu]",
+    "processo": "número CNJ ou vazio",
+    "grupos": [
+      {
+        "nome": "DOCUMENTOS PESSOAIS DO CLIENTE (RÉU)",
+        "classificacao": "OBRIGATÓRIO",
+        "documentos": [
+          {
+            "nome": "RG e CPF (cópias frente e verso)",
+            "justificativa": "Identificação e qualificação completa do réu para a contestação",
+            "prioridade": "alta",
+            "recebido": false,
+            "digitalizado": false,
+            "juntado": false
+          }
+        ]
+      },
+      {
+        "nome": "DOCUMENTOS DO CONTRATO / RELAÇÃO JURÍDICA",
+        "classificacao": "OBRIGATÓRIO",
+        "documentos": []
+      },
+      {
+        "nome": "DOCUMENTOS DO FATO / SINISTRO / EVENTO",
+        "classificacao": "OBRIGATÓRIO",
+        "documentos": []
+      },
+      {
+        "nome": "DOCUMENTOS DO BEM / OBJETO",
+        "classificacao": "IMPORTANTE",
+        "documentos": []
+      },
+      {
+        "nome": "DOCUMENTOS PARA COMPROVAR DANOS (MATERIAIS / LUCROS CESSANTES)",
+        "classificacao": "IMPORTANTE",
+        "documentos": []
+      },
+      {
+        "nome": "DOCUMENTOS PARA DANO MORAL",
+        "classificacao": "COMPLEMENTAR",
+        "documentos": []
+      },
+      {
+        "nome": "DOCUMENTOS A SOLICITAR À PARTE CONTRÁRIA (REQUERIMENTO JUDICIAL)",
+        "classificacao": "REQUERIMENTO JUDICIAL",
+        "documentos": []
+      }
+    ],
+    "observacoes_estrategicas": [
+      {
+        "tipo": "PEDIR IMEDIATAMENTE",
+        "descricao": "Ação urgente concreta baseada nos fatos do caso"
+      },
+      {
+        "tipo": "CONTRADIÇÃO CENTRAL",
+        "descricao": "Principal contradição identificada que os documentos podem comprovar"
+      },
+      {
+        "tipo": "JURISPRUDÊNCIA FAVORÁVEL",
+        "descricao": "Linha jurisprudencial favorável já identificada para a defesa"
+      }
+    ]
+  },
   "risco_preliminar": "baixo"
 }
 
@@ -264,6 +358,22 @@ REGRAS OBRIGATÓRIAS:
 - risco_preliminar deve ser exatamente: "baixo", "medio" ou "alto"
 - prioridade deve ser exatamente: "alta", "media" ou "baixa"
 - documentos_necessarios_cliente: liste entre 3 e 8 documentos específicos e relevantes
+
+REGRAS OBRIGATÓRIAS PARA O CHECKLIST_DOCUMENTOS:
+- Gere PELO MENOS 25 a 40 documentos distribuídos em 5 a 7 grupos
+- Adapte os grupos ao tipo ESPECÍFICO do caso:
+  * Seguro de veículo: inclua grupo "DOCUMENTOS DO VEÍCULO" (CRLV, nota fiscal, histórico manutenção)
+  * Relação de trabalho: inclua "DOCUMENTOS DO VÍNCULO EMPREGATÍCIO" (CTPS, holerites, ponto eletrônico)
+  * Contrato de serviços: inclua "DOCUMENTOS DO CONTRATO" (contrato, aditivos, notas fiscais de serviço)
+  * Responsabilidade civil: inclua "DOCUMENTOS DO EVENTO DANOSO" (BO, laudos, fotos)
+  * Imóvel: inclua "DOCUMENTOS DO IMÓVEL" (matrícula, escritura, IPTU, vistoria)
+- Não crie grupos que não fazem sentido para o caso — adapte ao tipo de ação
+- Cada documento deve ter justificativa ESPECÍFICA vinculada aos fatos narrados
+- O grupo "REQUERIMENTO JUDICIAL" deve conter documentos em posse da parte contrária
+- classificacao deve ser exatamente: "OBRIGATÓRIO", "IMPORTANTE", "COMPLEMENTAR" ou "REQUERIMENTO JUDICIAL"
+- As observacoes_estrategicas devem ser 3 a 5 observações concretas e específicas para o caso
+- Cada observação deve ter tipo curto (ex: "PEDIR IMEDIATAMENTE", "CONTRADIÇÃO CENTRAL", "JURISPRUDÊNCIA FAVORÁVEL", "PRAZO CRÍTICO", "PONTO FRACO DO AUTOR") e descricao detalhada
+
 - fatos_narrados: mínimo 4 fatos concretos narrados pelo autor
 - fundamento_juridico.pedidos: liste TODOS os pedidos específicos feitos ao juiz
 - objeto_da_acao.detalhes: liste TODOS os atributos identificáveis do objeto (mínimo 3 quando identificável)
@@ -303,7 +413,7 @@ export async function POST(req: NextRequest) {
           { role: 'user', content: prompt },
         ],
         temperature: 0,   // zero temperature = precision extraction, no hallucination
-        max_tokens: 6000,
+        max_tokens: 8000,
       }),
     })
 

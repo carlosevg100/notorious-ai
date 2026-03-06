@@ -10,6 +10,7 @@ import { formatDate, formatFileSize, statusLabel, diasUteisRestantes } from '@/l
 import type { Project, Document, Client } from '@/lib/types'
 import type {
   CaseAnalysis, DocumentoNecessario, ProvaFornecida, ParteDetalhada,
+  ChecklistDocumentos, ChecklistGrupo, ChecklistDocumento, ObservacaoEstrategica,
 } from '@/app/api/analyze-case/route'
 import Link from 'next/link'
 import {
@@ -215,6 +216,109 @@ function RiskBadge({ risco, C }: { risco: string; C: ReturnType<typeof getColors
   )
 }
 
+/* ─── Checklist HTML helpers ─── */
+function classifBadgeStyle(classificacao: string): string {
+  switch (classificacao) {
+    case 'OBRIGATÓRIO': return 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5'
+    case 'IMPORTANTE': return 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d'
+    case 'COMPLEMENTAR': return 'background:#dbeafe;color:#2563eb;border:1px solid #93c5fd'
+    case 'REQUERIMENTO JUDICIAL': return 'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd'
+    default: return 'background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db'
+  }
+}
+
+function obsStyle(tipo: string): string {
+  if (tipo.includes('IMEDIATA') || tipo.includes('IMEDIATAMENTE') || tipo.includes('URGENTE') || tipo.includes('PRAZO'))
+    return 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5'
+  if (tipo.includes('CONTRADIÇÃO') || tipo.includes('FRACO'))
+    return 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d'
+  if (tipo.includes('JURISPRUDÊNCIA'))
+    return 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7'
+  return 'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd'
+}
+
+function buildChecklistSection(checklist: ChecklistDocumentos): string {
+  const grupos = (checklist.grupos || []).filter(g => g.documentos && g.documentos.length > 0)
+  if (grupos.length === 0) return ''
+  const totalDocs = grupos.reduce((s, g) => s + g.documentos.length, 0)
+  return `
+  <h2>CHECKLIST DE DOCUMENTOS — ${checklist.subtitulo || ''}</h2>
+  <div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">
+    Total: ${totalDocs} documentos em ${grupos.length} grupos
+  </div>
+  ${grupos.map(g => `
+  <div class="card" style="margin-bottom:14px;page-break-inside:avoid">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.08em;font-family:monospace">${g.nome}</div>
+      <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;letter-spacing:0.06em;${classifBadgeStyle(g.classificacao)}">${g.classificacao}</span>
+    </div>
+    ${g.documentos.map(d => `
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f5f5f5">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:#1a1a1a;margin-bottom:3px">${d.nome}</div>
+        <div style="font-size:11px;color:#555;line-height:1.5">${d.justificativa}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="badge badge-${d.prioridade}">${d.prioridade}</span>
+        <div style="display:flex;gap:4px;font-size:10px;font-family:monospace;color:#888">
+          <span style="border:1px solid #ccc;border-radius:3px;padding:1px 6px">Rec ☐</span>
+          <span style="border:1px solid #ccc;border-radius:3px;padding:1px 6px">Dig ☐</span>
+          <span style="border:1px solid #ccc;border-radius:3px;padding:1px 6px">Jun ☐</span>
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>`).join('')}
+  ${(checklist.observacoes_estrategicas || []).length > 0 ? `
+  <div class="card" style="border-left:4px solid #f59e0b;background:#fffbeb">
+    <div class="card-header" style="color:#92400e">OBSERVAÇÕES ESTRATÉGICAS DO ADVOGADO</div>
+    ${(checklist.observacoes_estrategicas || []).map(o => `
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
+      <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;flex-shrink:0;${obsStyle(o.tipo)}">${o.tipo}</span>
+      <div style="font-size:12px;color:#333;line-height:1.6">${o.descricao}</div>
+    </div>`).join('')}
+  </div>` : ''}`
+}
+
+function buildChecklistHTML(
+  checklist: ChecklistDocumentos,
+  clientName: string,
+  caseRef: string,
+  dateStr: string,
+  timeStr: string,
+): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Checklist de Documentos — ${caseRef}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; color: #1a1a1a; background: #fff; padding: 40px; max-width: 900px; margin: 0 auto; font-size: 13px; }
+  .header { border-bottom: 3px solid #1a1a1a; padding-bottom: 16px; margin-bottom: 24px; }
+  .header h1 { font-size: 18px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+  .header p { font-size: 11px; color: #555; margin-top: 6px; font-family: monospace; }
+  h2 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #1a1a1a; margin: 22px 0 10px; }
+  .card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 14px 16px; margin-bottom: 12px; }
+  .card-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #555; margin-bottom: 10px; font-family: monospace; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; font-family: monospace; letter-spacing: 0.05em; }
+  .badge-alta { background: #fee2e2; color: #dc2626; }
+  .badge-media { background: #fef3c7; color: #d97706; }
+  .badge-baixa { background: #f3f4f6; color: #6b7280; }
+  .footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid #ddd; font-size: 10px; color: #aaa; text-align: center; font-family: monospace; }
+  @media print { body { padding: 20px; } .card { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>LITIGATOR AI — CHECKLIST DE DOCUMENTOS DO CLIENTE</h1>
+    <p>${checklist.subtitulo || ''} &nbsp;|&nbsp; Processo: ${caseRef} &nbsp;|&nbsp; Cliente: ${clientName} &nbsp;|&nbsp; Gerado em: ${dateStr}</p>
+  </div>
+  ${buildChecklistSection(checklist)}
+  <div class="footer">Gerado por Litigator AI em ${dateStr} às ${timeStr} — Uso interno do escritório</div>
+</body>
+</html>`
+}
+
 /* ─── Export report function (standalone, called from page) ─── */
 function buildExportHTML(
   caseAnalysis: CaseAnalysis,
@@ -391,6 +495,8 @@ function buildExportHTML(
     </div>`).join('')}
   </div>
 
+  ${caseAnalysis.checklist_documentos ? buildChecklistSection(caseAnalysis.checklist_documentos) : ''}
+
   <div class="footer">Gerado por Litigator AI em ${dateStr} às ${timeStr}</div>
 </body>
 </html>`
@@ -505,6 +611,23 @@ export default function ProjectDetailPage() {
     }
   }, [caseAnalysis, project])
 
+  const exportChecklist = useCallback(() => {
+    if (!caseAnalysis?.checklist_documentos || !project) return
+    const clientName = project.client?.name || ''
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('pt-BR')
+    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const caseRef = caseAnalysis.dados_processo?.numero_cnj || project.numero_processo || 'Processo não identificado'
+    const html = buildChecklistHTML(caseAnalysis.checklist_documentos, clientName, caseRef, dateStr, timeStr)
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+      win.focus()
+      setTimeout(() => win.print(), 500)
+    }
+  }, [caseAnalysis, project])
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px' }}>
       <div className="spinner" />
@@ -584,6 +707,23 @@ export default function ProjectDetailPage() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              {caseAnalysis?.checklist_documentos && (
+                <button
+                  onClick={exportChecklist}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 14px', borderRadius: '7px',
+                    background: C.bg3, border: `1px solid ${C.border3}`,
+                    color: C.text2, cursor: 'pointer', fontSize: '12px',
+                    fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace',
+                    transition: 'all 150ms ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text2 }}
+                >
+                  <ClipboardList size={13} /> Exportar Checklist
+                </button>
+              )}
               {caseAnalysis && (
                 <button
                   onClick={exportRelatorio}
@@ -1048,47 +1188,210 @@ function AnaliseInicialTab({
         </Card>
       )}
 
-      {/* DOCUMENTOS NECESSÁRIOS */}
-      {(caseAnalysis.documentos_necessarios_cliente || []).length > 0 && (
-        <Card>
-          <SectionHeader
-            icon={<ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />}
-            label="Documentos Necessários do Cliente"
-            sub="Solicite estes documentos antes de prosseguir"
-          />
-          <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
-              {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
-            </span>
-          </div>
-          <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {caseAnalysis.documentos_necessarios_cliente.map((doc, i) => {
-              const isChecked = checkedDocs.has(i)
-              return (
-                <div
-                  key={i}
-                  onClick={() => {
-                    const next = new Set(checkedDocs)
-                    next.has(i) ? next.delete(i) : next.add(i)
-                    setCheckedDocs(next)
-                  }}
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: isChecked ? C.greenBg : C.bg3, border: `1px solid ${isChecked ? C.greenBorder : C.border1}`, cursor: 'pointer', transition: 'all 150ms ease' }}
-                >
-                  <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${isChecked ? C.green : C.border3}`, background: isChecked ? C.green : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 150ms ease' }}>
-                    {isChecked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>}
+      {/* CHECKLIST RICO DE DOCUMENTOS (novo — agrupado por categoria) */}
+      {caseAnalysis.checklist_documentos
+        ? <ChecklistDocumentosCard checklist={caseAnalysis.checklist_documentos} C={C} />
+        : /* fallback: old simple list */
+        (caseAnalysis.documentos_necessarios_cliente || []).length > 0 && (
+          <Card>
+            <SectionHeader
+              icon={<ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />}
+              label="Documentos Necessários do Cliente"
+              sub="Solicite estes documentos antes de prosseguir"
+            />
+            <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+                {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
+              </span>
+            </div>
+            <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {caseAnalysis.documentos_necessarios_cliente.map((doc, i) => {
+                const isChecked = checkedDocs.has(i)
+                return (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      const next = new Set(checkedDocs)
+                      next.has(i) ? next.delete(i) : next.add(i)
+                      setCheckedDocs(next)
+                    }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: isChecked ? C.greenBg : C.bg3, border: `1px solid ${isChecked ? C.greenBorder : C.border1}`, cursor: 'pointer', transition: 'all 150ms ease' }}
+                  >
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${isChecked ? C.green : C.border3}`, background: isChecked ? C.green : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 150ms ease' }}>
+                      {isChecked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: isChecked ? C.text3 : C.text1, textDecoration: isChecked ? 'line-through' : 'none' }}>{doc.documento}</span>
+                        <PriorityBadge prioridade={doc.prioridade} C={C} />
+                      </div>
+                      <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.motivo}</div>
+                    </div>
                   </div>
+                )
+              })}
+            </div>
+          </Card>
+        )
+      }
+    </div>
+  )
+}
+
+/* ─── Classification badge colors ─── */
+function classifBadgeColors(classificacao: string): { bg: string; color: string; border: string } {
+  switch (classificacao) {
+    case 'OBRIGATÓRIO':          return { bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' }
+    case 'IMPORTANTE':           return { bg: '#fef3c7', color: '#d97706', border: '#fcd34d' }
+    case 'COMPLEMENTAR':         return { bg: '#dbeafe', color: '#2563eb', border: '#93c5fd' }
+    case 'REQUERIMENTO JUDICIAL': return { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd' }
+    default:                     return { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' }
+  }
+}
+
+function obsBadgeColors(tipo: string): { bg: string; color: string; border: string } {
+  if (tipo.includes('IMEDIATA') || tipo.includes('IMEDIATAMENTE') || tipo.includes('PRAZO') || tipo.includes('URGENTE'))
+    return { bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' }
+  if (tipo.includes('CONTRADIÇÃO') || tipo.includes('FRACO'))
+    return { bg: '#fef3c7', color: '#d97706', border: '#fcd34d' }
+  if (tipo.includes('JURISPRUDÊNCIA'))
+    return { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }
+  return { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd' }
+}
+
+/* ─── Rich grouped checklist card ─── */
+function ChecklistDocumentosCard({
+  checklist, C,
+}: {
+  checklist: ChecklistDocumentos
+  C: ReturnType<typeof getColors>
+}) {
+  const grupos = (checklist.grupos || []).filter(g => g.documentos && g.documentos.length > 0)
+  const totalDocs = grupos.reduce((s, g) => s + g.documentos.length, 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Header */}
+      <div style={{
+        borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`,
+        overflow: 'hidden',
+      }}>
+        <div style={{ padding: '11px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                {checklist.titulo || 'CHECKLIST DE DOCUMENTOS DO CLIENTE'}
+              </div>
+              {checklist.subtitulo && (
+                <div style={{ fontSize: '10px', color: C.text4, marginTop: '1px' }}>{checklist.subtitulo}</div>
+              )}
+            </div>
+          </div>
+          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+            {totalDocs} documentos · {grupos.length} grupos
+          </span>
+        </div>
+      </div>
+
+      {/* Groups */}
+      {grupos.map((grupo, gi) => {
+        const bc = classifBadgeColors(grupo.classificacao)
+        return (
+          <div key={gi} style={{
+            borderRadius: '10px', background: C.bg2,
+            border: `1px solid ${C.border2}`,
+            overflow: 'hidden',
+          }}>
+            {/* Group header */}
+            <div style={{
+              padding: '10px 14px', background: C.bg3,
+              borderBottom: `1px solid ${C.border2}`,
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
+                {grupo.nome}
+              </div>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center',
+                padding: '2px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
+                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`,
+                flexShrink: 0,
+              }}>
+                {grupo.classificacao}
+              </span>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                {grupo.documentos.length} doc{grupo.documentos.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Documents */}
+            <div style={{ padding: '8px 14px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {grupo.documentos.map((doc, di) => (
+                <div key={di} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  padding: '10px 12px', borderRadius: '8px',
+                  background: C.bg3, border: `1px solid ${C.border1}`,
+                }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: isChecked ? C.text3 : C.text1, textDecoration: isChecked ? 'line-through' : 'none' }}>{doc.documento}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>{doc.nome}</span>
                       <PriorityBadge prioridade={doc.prioridade} C={C} />
                     </div>
-                    <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.motivo}</div>
+                    <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.justificativa}</div>
                   </div>
+                  {/* Status checkboxes */}
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', marginTop: '2px' }}>
+                    {(['Rec', 'Dig', 'Jun'] as const).map(label => (
+                      <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <div style={{
+                          width: '16px', height: '16px', borderRadius: '3px',
+                          border: `1.5px solid ${C.border3}`, background: C.bg2,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }} />
+                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Strategic observations */}
+      {(checklist.observacoes_estrategicas || []).length > 0 && (
+        <div style={{
+          borderRadius: '10px', background: C.amberBg,
+          border: `2px solid ${C.amberBorder}`, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <AlertCircle size={13} style={{ color: C.amber, flexShrink: 0 }} />
+            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Observações Estratégicas do Advogado
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {checklist.observacoes_estrategicas.map((obs, oi) => {
+              const obc = obsBadgeColors(obs.tipo)
+              return (
+                <div key={oi} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', flexShrink: 0,
+                    padding: '3px 9px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
+                    fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', marginTop: '1px',
+                    background: obc.bg, color: obc.color, border: `1px solid ${obc.border}`,
+                  }}>
+                    {obs.tipo}
+                  </span>
+                  <div style={{ fontSize: '12px', color: C.text1, lineHeight: 1.6 }}>{obs.descricao}</div>
                 </div>
               )
             })}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   )

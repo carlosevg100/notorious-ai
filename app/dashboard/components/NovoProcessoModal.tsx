@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/lib/theme-context'
 import { getColors } from '@/lib/theme-colors'
-import type { CaseAnalysis, DocumentoNecessario, ProvaFornecida } from '@/app/api/analyze-case/route'
+import type { CaseAnalysis, DocumentoNecessario, ProvaFornecida, ChecklistDocumentos } from '@/app/api/analyze-case/route'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -378,6 +378,174 @@ function PriorityBadge({ prioridade, C }: { prioridade: DocumentoNecessario['pri
     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', flexShrink: 0 }}>
       {s.label}
     </span>
+  )
+}
+
+/* ─── Checklist HTML export helper (pure string, no React) ─── */
+function buildChecklistSectionHTML(checklist: ChecklistDocumentos): string {
+  const grupos = (checklist.grupos || []).filter(g => g.documentos && g.documentos.length > 0)
+  if (grupos.length === 0) return ''
+  const totalDocs = grupos.reduce((s, g) => s + g.documentos.length, 0)
+  const classifStyle = (c: string) => {
+    if (c === 'OBRIGATÓRIO') return 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5'
+    if (c === 'IMPORTANTE') return 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d'
+    if (c === 'COMPLEMENTAR') return 'background:#dbeafe;color:#2563eb;border:1px solid #93c5fd'
+    if (c === 'REQUERIMENTO JUDICIAL') return 'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd'
+    return 'background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db'
+  }
+  const obsStyle = (t: string) => {
+    if (t.includes('IMEDIATA') || t.includes('IMEDIATAMENTE') || t.includes('PRAZO') || t.includes('URGENTE'))
+      return 'background:#fee2e2;color:#dc2626;border:1px solid #fca5a5'
+    if (t.includes('CONTRADIÇÃO') || t.includes('FRACO'))
+      return 'background:#fef3c7;color:#d97706;border:1px solid #fcd34d'
+    if (t.includes('JURISPRUDÊNCIA'))
+      return 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7'
+    return 'background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd'
+  }
+  return `
+<h2>CHECKLIST DE DOCUMENTOS — ${checklist.subtitulo || ''}</h2>
+<div style="font-size:11px;color:#555;margin-bottom:12px;font-family:monospace">Total: ${totalDocs} documentos em ${grupos.length} grupos</div>
+${grupos.map(g => `
+<div class="card" style="margin-bottom:14px;page-break-inside:avoid">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-family:monospace;flex:1">${g.nome}</div>
+    <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;${classifStyle(g.classificacao)}">${g.classificacao}</span>
+  </div>
+  ${g.documentos.map(d => `
+  <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f5f5f5">
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:600;margin-bottom:3px">${d.nome}</div>
+      <div style="font-size:11px;color:#555;line-height:1.5">${d.justificativa}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <span class="badge badge-${d.prioridade}">${d.prioridade}</span>
+      <div style="display:flex;gap:4px;font-size:10px;font-family:monospace;color:#888">
+        <span style="border:1px solid #ccc;border-radius:3px;padding:1px 5px">Rec ☐</span>
+        <span style="border:1px solid #ccc;border-radius:3px;padding:1px 5px">Dig ☐</span>
+        <span style="border:1px solid #ccc;border-radius:3px;padding:1px 5px">Jun ☐</span>
+      </div>
+    </div>
+  </div>`).join('')}
+</div>`).join('')}
+${(checklist.observacoes_estrategicas || []).length > 0 ? `
+<div class="card" style="border-left:4px solid #f59e0b;background:#fffbeb;margin-top:14px">
+  <div class="card-header" style="color:#92400e">OBSERVAÇÕES ESTRATÉGICAS DO ADVOGADO</div>
+  ${(checklist.observacoes_estrategicas).map(o => `
+  <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
+    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;flex-shrink:0;${obsStyle(o.tipo)}">${o.tipo}</span>
+    <div style="font-size:12px;color:#333;line-height:1.6">${o.descricao}</div>
+  </div>`).join('')}
+</div>` : ''}`
+}
+
+/* ─── Checklist badge color helpers ─────────────────────────── */
+function classifBadgeColors(classificacao: string): { bg: string; color: string; border: string } {
+  switch (classificacao) {
+    case 'OBRIGATÓRIO':           return { bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' }
+    case 'IMPORTANTE':            return { bg: '#fef3c7', color: '#d97706', border: '#fcd34d' }
+    case 'COMPLEMENTAR':          return { bg: '#dbeafe', color: '#2563eb', border: '#93c5fd' }
+    case 'REQUERIMENTO JUDICIAL': return { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd' }
+    default:                      return { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' }
+  }
+}
+
+function obsBadgeColors(tipo: string): { bg: string; color: string; border: string } {
+  if (tipo.includes('IMEDIATA') || tipo.includes('IMEDIATAMENTE') || tipo.includes('PRAZO') || tipo.includes('URGENTE'))
+    return { bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' }
+  if (tipo.includes('CONTRADIÇÃO') || tipo.includes('FRACO'))
+    return { bg: '#fef3c7', color: '#d97706', border: '#fcd34d' }
+  if (tipo.includes('JURISPRUDÊNCIA'))
+    return { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' }
+  return { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd' }
+}
+
+function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumentos; C: ReturnType<typeof getColors> }) {
+  const grupos = (checklist.grupos || []).filter(g => g.documentos && g.documentos.length > 0)
+  const totalDocs = grupos.reduce((s, g) => s + g.documentos.length, 0)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Header */}
+      <div style={{ borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, overflow: 'hidden' }}>
+        <div style={{ padding: '11px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                {checklist.titulo || 'CHECKLIST DE DOCUMENTOS DO CLIENTE'}
+              </div>
+              {checklist.subtitulo && (
+                <div style={{ fontSize: '10px', color: C.text4, marginTop: '1px' }}>{checklist.subtitulo}</div>
+              )}
+            </div>
+          </div>
+          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+            {totalDocs} documentos · {grupos.length} grupos
+          </span>
+        </div>
+      </div>
+      {grupos.map((grupo, gi) => {
+        const bc = classifBadgeColors(grupo.classificacao)
+        return (
+          <div key={gi} style={{ borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
+                {grupo.nome}
+              </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`, flexShrink: 0 }}>
+                {grupo.classificacao}
+              </span>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                {grupo.documentos.length} doc{grupo.documentos.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div style={{ padding: '8px 14px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {grupo.documentos.map((doc, di) => (
+                <div key={di} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>{doc.nome}</span>
+                      <PriorityBadge prioridade={doc.prioridade} C={C} />
+                    </div>
+                    <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.justificativa}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', marginTop: '2px' }}>
+                    {(['Rec', 'Dig', 'Jun'] as const).map(label => (
+                      <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '3px', border: `1.5px solid ${C.border3}`, background: C.bg2, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+      {(checklist.observacoes_estrategicas || []).length > 0 && (
+        <div style={{ borderRadius: '10px', background: C.amberBg, border: `2px solid ${C.amberBorder}`, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <AlertCircle size={13} style={{ color: C.amber, flexShrink: 0 }} />
+            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Observações Estratégicas do Advogado
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {checklist.observacoes_estrategicas.map((obs, oi) => {
+              const obc = obsBadgeColors(obs.tipo)
+              return (
+                <div key={oi} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '3px 9px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', marginTop: '1px', background: obc.bg, color: obc.color, border: `1px solid ${obc.border}` }}>
+                    {obs.tipo}
+                  </span>
+                  <div style={{ fontSize: '12px', color: C.text1, lineHeight: 1.6 }}>{obs.descricao}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1250,6 +1418,8 @@ export default function NovoProcessoModal({
       </div>
     </div>`).join('')}
   </div>
+
+  ${caseAnalysis.checklist_documentos ? buildChecklistSectionHTML(caseAnalysis.checklist_documentos) : ''}
 
   <div class="footer">Gerado por Litigator AI em ${dateStr} às ${timeStr}</div>
 </body>
@@ -2224,54 +2394,67 @@ export default function NovoProcessoModal({
                       </Card>
                     )}
 
-                    {/* ── DOCUMENTOS NECESSÁRIOS ── */}
-                    {(caseAnalysis.documentos_necessarios_cliente || []).length > 0 && (
-                      <Card>
-                        <SectionHeader
-                          icon={<ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />}
-                          label="Documentos Necessários do Cliente"
-                          sub="Solicite estes documentos antes de prosseguir"
-                        />
-                        <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
-                            {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
-                          </span>
+                    {/* ── CHECKLIST DE DOCUMENTOS (rich grouped) ── */}
+                    {caseAnalysis.checklist_documentos
+                      ? (
+                        <div>
+                          <ChecklistDocumentosCard checklist={caseAnalysis.checklist_documentos} C={C} />
+                          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 0' }}>
+                            <Users size={13} style={{ color: C.text4, flexShrink: 0, marginTop: '1px' }} />
+                            <p style={{ margin: 0, fontSize: '11px', color: C.text4, lineHeight: 1.6 }}>
+                              <strong style={{ color: C.text3 }}>Próximo passo:</strong> Solicite os documentos acima ao cliente. Você pode salvar agora e retornar quando tiver os documentos, ou continuar imediatamente.
+                            </p>
+                          </div>
                         </div>
-                        <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {caseAnalysis.documentos_necessarios_cliente.map((doc, i) => {
-                            const isChecked = checkedDocs.has(i)
-                            return (
-                              <div
-                                key={i}
-                                onClick={() => setCheckedDocs(prev => {
-                                  const next = new Set(prev)
-                                  next.has(i) ? next.delete(i) : next.add(i)
-                                  return next
-                                })}
-                                style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: isChecked ? C.greenBg : C.bg3, border: `1px solid ${isChecked ? C.greenBorder : C.border1}`, cursor: 'pointer', transition: 'all 150ms ease' }}
-                              >
-                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${isChecked ? C.green : C.border3}`, background: isChecked ? C.green : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 150ms ease' }}>
-                                  {isChecked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>}
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 600, color: isChecked ? C.text3 : C.text1, textDecoration: isChecked ? 'line-through' : 'none' }}>{doc.documento}</span>
-                                    <PriorityBadge prioridade={doc.prioridade} C={C} />
+                      )
+                      : (caseAnalysis.documentos_necessarios_cliente || []).length > 0 && (
+                        <Card>
+                          <SectionHeader
+                            icon={<ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />}
+                            label="Documentos Necessários do Cliente"
+                            sub="Solicite estes documentos antes de prosseguir"
+                          />
+                          <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+                              {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
+                            </span>
+                          </div>
+                          <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {caseAnalysis.documentos_necessarios_cliente.map((doc, i) => {
+                              const isChecked = checkedDocs.has(i)
+                              return (
+                                <div
+                                  key={i}
+                                  onClick={() => setCheckedDocs(prev => {
+                                    const next = new Set(prev)
+                                    next.has(i) ? next.delete(i) : next.add(i)
+                                    return next
+                                  })}
+                                  style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: isChecked ? C.greenBg : C.bg3, border: `1px solid ${isChecked ? C.greenBorder : C.border1}`, cursor: 'pointer', transition: 'all 150ms ease' }}
+                                >
+                                  <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: `2px solid ${isChecked ? C.green : C.border3}`, background: isChecked ? C.green : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px', transition: 'all 150ms ease' }}>
+                                    {isChecked && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>}
                                   </div>
-                                  <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.motivo}</div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 600, color: isChecked ? C.text3 : C.text1, textDecoration: isChecked ? 'line-through' : 'none' }}>{doc.documento}</span>
+                                      <PriorityBadge prioridade={doc.prioridade} C={C} />
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: C.text3, lineHeight: 1.5 }}>{doc.motivo}</div>
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div style={{ padding: '10px 16px 14px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                          <Users size={13} style={{ color: C.text4, flexShrink: 0, marginTop: '1px' }} />
-                          <p style={{ margin: 0, fontSize: '11px', color: C.text4, lineHeight: 1.6 }}>
-                            <strong style={{ color: C.text3 }}>Próximo passo:</strong> Solicite os documentos acima ao cliente. Você pode salvar agora e retornar quando tiver os documentos, ou continuar imediatamente.
-                          </p>
-                        </div>
-                      </Card>
-                    )}
+                              )
+                            })}
+                          </div>
+                          <div style={{ padding: '10px 16px 14px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <Users size={13} style={{ color: C.text4, flexShrink: 0, marginTop: '1px' }} />
+                            <p style={{ margin: 0, fontSize: '11px', color: C.text4, lineHeight: 1.6 }}>
+                              <strong style={{ color: C.text3 }}>Próximo passo:</strong> Solicite os documentos acima ao cliente. Você pode salvar agora e retornar quando tiver os documentos, ou continuar imediatamente.
+                            </p>
+                          </div>
+                        </Card>
+                      )
+                    }
 
                     {/* ── Action buttons ── */}
                     <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
