@@ -20,9 +20,9 @@ export interface ThemeColors {
 }
 
 export const darkColors: ThemeColors = {
-  bg0: '#0f1d32', bg1: '#142847', bg2: '#1a3055', bg3: '#213a62',
-  border1: 'rgba(74, 118, 180, 0.18)', border2: 'rgba(74, 118, 180, 0.25)', border3: 'rgba(74, 118, 180, 0.35)',
-  text1: '#e8edf4', text2: '#8a9bb5', text3: '#5a7a9a', text4: '#3a5a7a',
+  bg0: '#0b1829', bg1: '#112240', bg2: '#1a3358', bg3: '#234470',
+  border1: 'rgba(100, 150, 220, 0.22)', border2: 'rgba(100, 150, 220, 0.32)', border3: 'rgba(100, 150, 220, 0.45)',
+  text1: '#edf2f9', text2: '#9bb0cc', text3: '#6888aa', text4: '#3a5a7a',
 
   amber: '#c9a84c', amberBg: 'rgba(201, 168, 76, 0.12)', amberBorder: 'rgba(201, 168, 76, 0.30)',
   red:   '#EF4444', redBg:   'rgba(239, 68, 68, 0.12)', redBorder:   'rgba(239, 68, 68, 0.30)',
