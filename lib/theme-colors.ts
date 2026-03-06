@@ -20,15 +20,15 @@ export interface ThemeColors {
 }
 
 export const darkColors: ThemeColors = {
-  bg0: '#08080A', bg1: '#0F0F12', bg2: '#141418', bg3: '#1A1A20',
-  border1: '#1F1F26', border2: '#252530', border3: '#2D2D3A',
-  text1: '#F4F4F6', text2: '#A0A0B0', text3: '#606070', text4: '#303040',
+  bg0: '#0f1d32', bg1: '#142847', bg2: '#1a3055', bg3: '#213a62',
+  border1: 'rgba(74, 118, 180, 0.18)', border2: 'rgba(74, 118, 180, 0.25)', border3: 'rgba(74, 118, 180, 0.35)',
+  text1: '#e8edf4', text2: '#8a9bb5', text3: '#5a7a9a', text4: '#3a5a7a',
 
-  amber: '#F0A500', amberBg: '#F0A50015', amberBorder: '#F0A50030',
-  red:   '#EF4444', redBg:   '#EF444415', redBorder:   '#EF444430',
-  yellow: '#F59E0B', yellowBg: '#F59E0B15', yellowBorder: '#F59E0B30',
-  blue:  '#3B82F6', blueBg:  '#3B82F615', blueBorder:  '#3B82F630',
-  green: '#10B981', greenBg: '#10B98115', greenBorder: '#10B98130',
+  amber: '#c9a84c', amberBg: 'rgba(201, 168, 76, 0.12)', amberBorder: 'rgba(201, 168, 76, 0.30)',
+  red:   '#EF4444', redBg:   'rgba(239, 68, 68, 0.12)', redBorder:   'rgba(239, 68, 68, 0.30)',
+  yellow: '#F59E0B', yellowBg: 'rgba(245, 158, 11, 0.12)', yellowBorder: 'rgba(245, 158, 11, 0.30)',
+  blue:  '#4da6ff', blueBg:  'rgba(77, 166, 255, 0.12)', blueBorder:  'rgba(77, 166, 255, 0.30)',
+  green: '#10B981', greenBg: 'rgba(16, 185, 129, 0.12)', greenBorder: 'rgba(16, 185, 129, 0.30)',
 
   stages: {
     analise: '#60A5FA', contestacao: '#F59E0B',
