@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY || ''
 
@@ -132,11 +133,15 @@ REQUISITOS PARA O DRAFT (campo "draft"):
 
 export async function POST(req: NextRequest) {
   try {
-    const body: StrategyPayload = await req.json()
-    const { project_id, firm_id, case_context, research_results, lawyer_feedback } = body
+    const auth = await getAuthenticatedFirmId(req)
+    if (isAuthError(auth)) return auth
 
-    if (!project_id || !firm_id) {
-      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    const body: StrategyPayload = await req.json()
+    const { project_id, case_context, research_results, lawyer_feedback } = body
+    const firm_id = auth.firm_id
+
+    if (!project_id) {
+      return NextResponse.json({ error: 'project_id é obrigatório' }, { status: 400 })
     }
 
     const prompt = buildStrategyPrompt({ project_id, firm_id, case_context, research_results, lawyer_feedback })

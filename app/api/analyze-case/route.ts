@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY || ''
 
@@ -387,11 +388,15 @@ REGRAS OBRIGATÓRIAS PARA O CHECKLIST_DOCUMENTOS:
 
 export async function POST(req: NextRequest) {
   try {
-    const body: AnalyzeCasePayload = await req.json()
-    const { project_id, firm_id, peticao_extracted, supporting_docs } = body
+    const auth = await getAuthenticatedFirmId(req)
+    if (isAuthError(auth)) return auth
 
-    if (!project_id || !firm_id) {
-      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    const body: AnalyzeCasePayload = await req.json()
+    const { project_id, peticao_extracted, supporting_docs } = body
+    const firm_id = auth.firm_id
+
+    if (!project_id) {
+      return NextResponse.json({ error: 'project_id é obrigatório' }, { status: 400 })
     }
 
     const prompt = buildPrompt(peticao_extracted, supporting_docs || [])

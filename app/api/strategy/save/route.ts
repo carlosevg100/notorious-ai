@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const SUPABASE_URL = 'https://fbgqzouxbagmmlzibyhl.supabase.co'
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -47,17 +48,21 @@ function parseBRCurrency(value: string | number | null | undefined): number | nu
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await getAuthenticatedFirmId(req)
+    if (isAuthError(auth)) return auth
+
     const body: SavePayload = await req.json()
     const {
-      project_id, firm_id,
+      project_id,
       tese_principal, teses_subsidiarias,
       jurisprudencia_favoravel, jurisprudencia_desfavoravel,
       probabilidade_exito, risco_estimado, valor_risco_estimado,
       recomendacao, draft,
     } = body
+    const firm_id = auth.firm_id
 
-    if (!project_id || !firm_id) {
-      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    if (!project_id) {
+      return NextResponse.json({ error: 'project_id é obrigatório' }, { status: 400 })
     }
 
     const adminSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
