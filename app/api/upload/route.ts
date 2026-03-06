@@ -1,19 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const SUPABASE_URL = 'https://fbgqzouxbagmmlzibyhl.supabase.co'
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 export async function POST(req: NextRequest) {
+  const auth = await getAuthenticatedFirmId(req)
+  if (isAuthError(auth)) return auth
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   const formData = await req.formData()
   const file = formData.get('file') as File
   const projectId = formData.get('project_id') as string
-  const firmId = formData.get('firm_id') as string
+  const firmId = auth.firm_id // always from JWT — never from formData
 
-  if (!file || !projectId || !firmId) {
-    return NextResponse.json({ error: 'Campos obrigatórios: file, project_id, firm_id' }, { status: 400 })
+  if (!file || !projectId) {
+    return NextResponse.json({ error: 'Campos obrigatórios: file, project_id' }, { status: 400 })
   }
 
   const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf'
