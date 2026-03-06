@@ -33,12 +33,13 @@ const NAV_ITEMS = [
   { href: '/dashboard/projects', label: 'Processos',          icon: '⊡', exact: false },
   { href: '/dashboard/prazos',   label: 'Prazos',             icon: '◷', exact: false },
   { href: '/dashboard/pecas',    label: 'Peças',              icon: '◧', exact: false },
+  { href: '/dashboard/equipe',   label: 'Equipe',             icon: '◉', exact: false },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router   = useRouter()
-  const { user, signOut, firmId, userName } = useAuth()
+  const { user, signOut, firmId, userName, role } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
   const C = getColors(theme)
@@ -466,7 +467,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   fontSize: '9px', color: C.text3,
                   fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
                 }}>
-                  ADMIN
+                  {(role || 'admin').toUpperCase()}
                 </div>
               </div>
               <span style={{ fontSize: '14px', color: C.text3, cursor: 'pointer', flexShrink: 0 }}>⋯</span>
