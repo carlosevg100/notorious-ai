@@ -915,9 +915,11 @@ export default function NovoProcessoModal({
       const uploadFormData = new FormData()
       uploadFormData.append('project_id', newProjectId)
       uploadFormData.append('firm_id', firmId)
+      uploadFormData.append('doc_source', 'parte_autora')
       taggedFiles.forEach((tf, i) => {
         uploadFormData.append(`file_${i}`, tf.file)
         uploadFormData.append(`category_${i}`, tf.category)
+        uploadFormData.append(`doc_source_${i}`, 'parte_autora')
       })
 
       const uploadRes = await fetch('/api/upload-documents', { method: 'POST', body: uploadFormData })
@@ -1331,9 +1333,11 @@ export default function NovoProcessoModal({
       const uploadFd = new FormData()
       uploadFd.append('project_id', projectId)
       uploadFd.append('firm_id', firmId)
+      uploadFd.append('doc_source', 'cliente')
       clientTaggedFiles.forEach((tf, i) => {
         uploadFd.append(`file_${i}`, tf.file)
         uploadFd.append(`category_${i}`, tf.category)
+        uploadFd.append(`doc_source_${i}`, 'cliente')
       })
       const uploadRes = await fetch('/api/upload-documents', { method: 'POST', body: uploadFd })
       const uploadData = await uploadRes.json()

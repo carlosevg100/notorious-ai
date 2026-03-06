@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       // key format: file_0, file_1, etc.
       const idx = key.replace('file_', '')
       const category = (formData.get(`category_${idx}`) as string) || 'Outro'
+      const docSource = (formData.get(`doc_source_${idx}`) as string) || (formData.get('doc_source') as string) || 'parte_autora'
 
       // Upload to Supabase Storage
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -60,22 +61,42 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Insert document record
-      const { data: docRow, error: docError } = await adminSupabase
+      // Insert document record — try with doc_source first, fall back if column missing
+      let docRow: { id: string } | null = null
+      let docError: { message: string } | null = null
+
+      const baseInsert = {
+        firm_id: firmId,
+        project_id: projectId,
+        name: file.name,
+        storage_path: storagePath,
+        file_type: 'pdf',
+        file_size_bytes: file.size,
+        document_category: category,
+        processing_status: 'processing',
+        processing_started_at: new Date().toISOString(),
+      }
+
+      // Try with doc_source column
+      const { data: docRowWithSource, error: docErrorWithSource } = await adminSupabase
         .from('documents')
-        .insert({
-          firm_id: firmId,
-          project_id: projectId,
-          name: file.name,
-          storage_path: storagePath,
-          file_type: 'pdf',
-          file_size_bytes: file.size,
-          document_category: category,
-          processing_status: 'processing',
-          processing_started_at: new Date().toISOString(),
-        })
+        .insert({ ...baseInsert, doc_source: docSource })
         .select('id')
         .single()
+
+      if (docErrorWithSource && docErrorWithSource.message.includes('doc_source')) {
+        // Column doesn't exist yet — insert without it
+        const { data: docRowFallback, error: docErrorFallback } = await adminSupabase
+          .from('documents')
+          .insert(baseInsert)
+          .select('id')
+          .single()
+        docRow = docRowFallback
+        docError = docErrorFallback
+      } else {
+        docRow = docRowWithSource
+        docError = docErrorWithSource
+      }
 
       if (docError || !docRow) {
         console.error('Document insert error:', docError)

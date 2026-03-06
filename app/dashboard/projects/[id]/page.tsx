@@ -1095,8 +1095,75 @@ function AnaliseInicialTab({
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DOCUMENTOS TAB
+   DOCUMENTOS TAB — REDESIGNED
+   Split: Parte Autora (plaintiff) | Cliente (our side)
    ═══════════════════════════════════════════════════════════════ */
+
+const CLIENT_CATEGORIES = [
+  'Contrato Assinado',
+  'Correspondência (WhatsApp/Email)',
+  'Comprovante de Pagamento',
+  'Recibo',
+  'Gravação/Áudio',
+  'Documento de Identidade',
+  'Procuração',
+  'Outro',
+]
+
+function DocStatusIcon({ status, C }: { status: string; C: ReturnType<typeof getColors> }) {
+  switch (status) {
+    case 'pending': return <Clock size={14} style={{ color: C.text3 }} />
+    case 'processing': return <Loader2 size={14} style={{ color: C.blue, animation: 'spin 1s linear infinite' }} />
+    case 'completed': return <CheckCircle2 size={14} style={{ color: C.green }} />
+    case 'error': return <XCircle size={14} style={{ color: C.red }} />
+    default: return <Clock size={14} style={{ color: C.text3 }} />
+  }
+}
+
+function DocStatusBadge({ status, C }: { status: string; C: ReturnType<typeof getColors> }): React.CSSProperties {
+  switch (status) {
+    case 'pending': return { background: C.bg3, color: C.text3, border: `1px solid ${C.border2}` }
+    case 'processing': return { background: C.blueBg, color: C.blue, border: `1px solid ${C.blueBorder}` }
+    case 'completed': return { background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }
+    case 'error': return { background: C.redBg, color: C.red, border: `1px solid ${C.redBorder}` }
+    default: return { background: C.bg3, color: C.text3, border: `1px solid ${C.border2}` }
+  }
+}
+
+function DocRow({ doc, C }: { doc: Document; C: ReturnType<typeof getColors> }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '10px',
+      padding: '10px 14px', borderRadius: '7px',
+      background: C.bg1, border: `1px solid ${C.border1}`,
+    }}>
+      <DocStatusIcon status={doc.processing_status} C={C} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {doc.name}
+        </p>
+        <p style={{ fontSize: '10px', color: C.text4, margin: '2px 0 0', fontFamily: 'IBM Plex Mono, monospace' }}>
+          {doc.file_size_bytes ? formatFileSize(doc.file_size_bytes) : ''}
+          {doc.document_category && (
+            <span style={{ marginLeft: '8px', color: C.text3 }}>{doc.document_category}</span>
+          )}
+          {doc.created_at && (
+            <span style={{ marginLeft: '8px' }}>{formatDate(doc.created_at)}</span>
+          )}
+          {doc.processing_error && <span style={{ color: C.red }}> — {doc.processing_error}</span>}
+        </p>
+      </div>
+      <span style={{
+        padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+        flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace',
+        ...DocStatusBadge({ status: doc.processing_status, C }),
+      }}>
+        {statusLabel(doc.processing_status)}
+      </span>
+    </div>
+  )
+}
+
 function DocumentosTab({
   projectId, firmId, C, onAnalysisRerun, setToast,
 }: {
@@ -1106,33 +1173,50 @@ function DocumentosTab({
   onAnalysisRerun: (analysis: CaseAnalysis) => void
   setToast: (t: { message: string; type: 'success' | 'error' } | null) => void
 }) {
-  const [documents, setDocuments] = useState<(Document & { document_category?: string })[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
+  const [clientDragOver, setClientDragOver] = useState(false)
+  const [plaintiffDragOver, setPlaintiffDragOver] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [clientCategory, setClientCategory] = useState('Contrato Assinado')
+  const clientFileRef = useRef<HTMLInputElement>(null)
+  const plaintiffFileRef = useRef<HTMLInputElement>(null)
 
   const loadDocs = useCallback(async () => {
     const { data } = await supabase
       .from('documents')
       .select('*')
       .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-    setDocuments(data || [])
+      .order('created_at', { ascending: true })
+    setDocuments((data || []) as Document[])
     setLoading(false)
   }, [projectId])
 
   useEffect(() => { loadDocs() }, [loadDocs])
 
-  const uploadFiles = useCallback(async (files: FileList | File[]) => {
+  // Determine doc source: prefer doc_source column, fall back to category heuristic
+  const isClientDoc = (doc: Document): boolean => {
+    if (doc.doc_source === 'cliente') return true
+    if (doc.doc_source === 'parte_autora') return false
+    // Fallback: if category exactly matches a client-only category
+    const clientOnlyCategories = ['Contrato Assinado', 'Correspondência (WhatsApp/Email)', 'Comprovante de Pagamento', 'Recibo', 'Gravação/Áudio', 'Documento de Identidade']
+    return clientOnlyCategories.includes(doc.document_category || '')
+  }
+
+  const plaintiffDocs = documents.filter(d => !isClientDoc(d))
+  const clientDocs = documents.filter(d => isClientDoc(d))
+
+  const uploadFiles = useCallback(async (files: FileList | File[], source: 'parte_autora' | 'cliente', category: string) => {
     setUploading(true)
     const formData = new FormData()
     formData.append('project_id', projectId)
     formData.append('firm_id', firmId)
+    formData.append('doc_source', source)
     Array.from(files).forEach((file, i) => {
       formData.append(`file_${i}`, file)
-      formData.append(`category_${i}`, 'Outro')
+      formData.append(`category_${i}`, category)
+      formData.append(`doc_source_${i}`, source)
     })
     await fetch('/api/upload-documents', { method: 'POST', body: formData })
     await loadDocs()
@@ -1140,16 +1224,9 @@ function DocumentosTab({
     setToast({ message: `${files.length} documento(s) enviados com sucesso`, type: 'success' })
   }, [projectId, firmId, loadDocs, setToast])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files)
-  }, [uploadFiles])
-
   const handleReanalyze = useCallback(async () => {
     setReanalyzing(true)
     try {
-      // Load document extractions
       const { data: docs } = await supabase
         .from('documents')
         .select('*, document_extractions(*)')
@@ -1160,14 +1237,12 @@ function DocumentosTab({
         return
       }
 
-      // Find petição inicial
       const peticaoDoc = docs.find((d: Record<string, unknown>) =>
         (d.document_category as string | null) === 'Petição Inicial'
       )
       const peticaoExts = (peticaoDoc?.document_extractions || []) as { raw_extraction: Record<string, unknown> }[]
       const peticaoExtracted = peticaoExts?.[0]?.raw_extraction || {}
 
-      // Build supporting docs
       const supportingDocs = docs
         .filter((d: Record<string, unknown>) =>
           (d.document_category as string | null) !== 'Petição Inicial' &&
@@ -1196,8 +1271,6 @@ function DocumentosTab({
       if (!res.ok || !data.analysis) throw new Error(data.error || 'Falha na análise')
 
       const newAnalysis = data.analysis as CaseAnalysis
-
-      // Save new analysis to case_strategies
       await supabase.from('case_strategies').delete().eq('project_id', projectId).eq('status', 'analise_inicial')
       await supabase.from('case_strategies').insert({
         project_id: projectId,
@@ -1221,127 +1294,286 @@ function DocumentosTab({
     }
   }, [projectId, firmId, onAnalysisRerun, setToast])
 
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock size={16} style={{ color: C.text3 }} />
-      case 'processing': return <Loader2 size={16} style={{ color: C.blue, animation: 'spin 1s linear infinite' }} />
-      case 'completed': return <CheckCircle2 size={16} style={{ color: C.green }} />
-      case 'error': return <XCircle size={16} style={{ color: C.red }} />
-      default: return <Clock size={16} style={{ color: C.text3 }} />
-    }
-  }
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+      <Loader2 size={24} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
+    </div>
+  )
 
-  const statusBadge = (status: string): React.CSSProperties => {
-    switch (status) {
-      case 'pending': return { background: C.bg3, color: C.text3, border: `1px solid ${C.border2}` }
-      case 'processing': return { background: C.blueBg, color: C.blue, border: `1px solid ${C.blueBorder}` }
-      case 'completed': return { background: C.greenBg, color: C.green, border: `1px solid ${C.greenBorder}` }
-      case 'error': return { background: C.redBg, color: C.red, border: `1px solid ${C.redBorder}` }
-      default: return { background: C.bg3, color: C.text3, border: `1px solid ${C.border2}` }
-    }
-  }
+  const hasPlaintiffDocs = plaintiffDocs.length > 0
+  const hasClientDocs = clientDocs.length > 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Action buttons */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button
-          onClick={handleReanalyze}
-          disabled={reanalyzing || loading}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 16px', borderRadius: '7px',
-            background: reanalyzing ? C.bg3 : C.amberBg,
-            border: `1px solid ${reanalyzing ? C.border2 : C.amberBorder}`,
-            color: reanalyzing ? C.text4 : C.amber,
-            cursor: reanalyzing ? 'not-allowed' : 'pointer',
-            fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
-            transition: 'all 150ms ease',
-          }}
-        >
-          {reanalyzing ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={14} />}
-          {reanalyzing ? 'Reanalisando...' : 'Rodar Análise Novamente'}
-        </button>
-        <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
-          {documents.length} documento(s)
-        </span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      {/* Upload area */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        style={{
-          padding: '24px',
-          borderRadius: '10px',
-          textAlign: 'center',
-          cursor: 'pointer',
-          transition: 'border-color 200ms ease, background 200ms ease',
-          background: dragOver ? C.amberBg : C.bg2,
-          border: `2px dashed ${dragOver ? C.amber : C.border3}`,
-        }}
-      >
-        <Upload size={24} style={{ margin: '0 auto 10px', color: dragOver ? C.amber : C.text4, display: 'block' }} />
-        <p style={{ fontSize: '13px', fontWeight: 500, color: dragOver ? C.amber : C.text2, margin: 0 }}>
-          {uploading ? 'Enviando...' : '+ Adicionar Documentos'}
-        </p>
-        <p style={{ fontSize: '11px', color: C.text4, marginTop: '4px' }}>PDF, DOCX, TXT — arraste ou clique</p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.docx,.txt"
-          style={{ display: 'none' }}
-          onChange={e => e.target.files && uploadFiles(e.target.files)}
-        />
-      </div>
-
-      {/* Document list */}
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-          <Loader2 size={24} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
-        </div>
-      ) : documents.length === 0 ? (
-        <p style={{ color: C.text4, fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>Nenhum documento enviado.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {documents.map(doc => (
-            <div key={doc.id} style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '12px 16px', borderRadius: '8px',
-              background: C.bg2, border: `1px solid ${C.border2}`,
-            }}>
-              {statusIcon(doc.processing_status)}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '13px', fontWeight: 500, margin: 0, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {doc.name}
-                </p>
-                <p style={{ fontSize: '11px', color: C.text4, margin: '2px 0 0', fontFamily: 'IBM Plex Mono, monospace' }}>
-                  {doc.file_size_bytes ? formatFileSize(doc.file_size_bytes) : ''}
-                  {(doc as unknown as { document_category?: string }).document_category && (
-                    <span style={{ marginLeft: '8px', color: C.text3 }}>
-                      {(doc as unknown as { document_category?: string }).document_category}
-                    </span>
-                  )}
-                  {doc.created_at && (
-                    <span style={{ marginLeft: '8px' }}>{formatDate(doc.created_at)}</span>
-                  )}
-                  {doc.processing_error && <span style={{ color: C.red }}> — {doc.processing_error}</span>}
-                </p>
-              </div>
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 1: Documentos da Parte Autora
+          ────────────────────────────────────────────────────────── */}
+      <div style={{
+        borderRadius: '10px',
+        background: C.bg2,
+        border: `1px solid ${C.border2}`,
+        borderLeft: `4px solid #EF4444`,
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '14px 16px',
+          background: '#EF444408',
+          borderBottom: `1px solid ${C.border2}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: C.text1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📁</span>
+              <span>Documentos da Parte Autora</span>
               <span style={{
-                padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace',
-                ...statusBadge(doc.processing_status),
+                fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                background: '#EF444415', color: '#EF4444', border: '1px solid #EF444430',
+                fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
               }}>
-                {statusLabel(doc.processing_status)}
+                {plaintiffDocs.length} doc{plaintiffDocs.length !== 1 ? 's' : ''}
               </span>
             </div>
-          ))}
+            <div style={{ fontSize: '11px', color: C.text4, marginTop: '3px' }}>
+              Petição inicial + anexos recebidos da parte adversa
+            </div>
+          </div>
+          {/* Small "add more" link for court additional docs */}
+          <button
+            onClick={() => plaintiffFileRef.current?.click()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              fontSize: '11px', color: C.text3, background: 'none', border: 'none',
+              cursor: 'pointer', padding: '4px 8px', borderRadius: '5px',
+              transition: 'color 150ms', flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#EF4444' }}
+            onMouseLeave={e => { e.currentTarget.style.color = C.text3 }}
+          >
+            <Plus size={11} />+ Adicionar
+          </button>
+          <input
+            ref={plaintiffFileRef}
+            type="file"
+            multiple
+            accept=".pdf,.docx,.txt"
+            style={{ display: 'none' }}
+            onChange={e => e.target.files && uploadFiles(e.target.files, 'parte_autora', 'Petição Inicial')}
+          />
         </div>
-      )}
+
+        {/* Doc list */}
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {plaintiffDocs.length === 0 ? (
+            <p style={{ fontSize: '12px', color: C.text4, fontStyle: 'italic', textAlign: 'center', padding: '16px 0', margin: 0 }}>
+              Nenhum documento da parte autora encontrado.
+            </p>
+          ) : (
+            plaintiffDocs.map(doc => <DocRow key={doc.id} doc={doc} C={C} />)
+          )}
+        </div>
+      </div>
+
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 2: Documentos do Cliente (Polo Passivo)
+          ────────────────────────────────────────────────────────── */}
+      <div style={{
+        borderRadius: '10px',
+        background: C.bg2,
+        border: `1px solid ${C.border2}`,
+        borderLeft: `4px solid #22C55E`,
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '14px 16px',
+          background: '#22C55E08',
+          borderBottom: `1px solid ${C.border2}`,
+          display: 'flex', alignItems: 'center', gap: '12px',
+        }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: C.text1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📁</span>
+              <span>Documentos do Nosso Cliente</span>
+              <span style={{
+                fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                background: '#22C55E15', color: '#22C55E', border: '1px solid #22C55E30',
+                fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
+              }}>
+                {clientDocs.length} doc{clientDocs.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div style={{ fontSize: '11px', color: C.text4, marginTop: '3px' }}>
+              Documentos fornecidos pelo cliente para embasar a defesa
+            </div>
+          </div>
+        </div>
+
+        {/* Upload area for client docs */}
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border1}` }}>
+          {/* Category selector */}
+          <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+              Tipo de documento:
+            </label>
+            <select
+              value={clientCategory}
+              onChange={e => setClientCategory(e.target.value)}
+              style={{
+                fontSize: '12px', color: C.text1, background: C.bg3,
+                border: `1px solid ${C.border2}`, borderRadius: '6px',
+                padding: '5px 10px', flex: 1, maxWidth: '280px',
+                cursor: 'pointer', outline: 'none',
+              }}
+            >
+              {CLIENT_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Drag-and-drop upload zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setClientDragOver(true) }}
+            onDragLeave={() => setClientDragOver(false)}
+            onDrop={e => {
+              e.preventDefault()
+              setClientDragOver(false)
+              if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files, 'cliente', clientCategory)
+            }}
+            onClick={() => clientFileRef.current?.click()}
+            style={{
+              padding: '28px 20px',
+              borderRadius: '10px',
+              textAlign: 'center',
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              transition: 'border-color 200ms ease, background 200ms ease',
+              background: clientDragOver ? '#22C55E10' : C.bg3,
+              border: `2px dashed ${clientDragOver ? '#22C55E' : '#22C55E50'}`,
+            }}
+          >
+            <Upload size={26} style={{ margin: '0 auto 10px', color: clientDragOver ? '#22C55E' : '#22C55E80', display: 'block' }} />
+            <p style={{ fontSize: '14px', fontWeight: 600, color: clientDragOver ? '#22C55E' : C.text2, margin: 0 }}>
+              {uploading ? 'Enviando...' : '⬆ Enviar Documentos do Cliente'}
+            </p>
+            <p style={{ fontSize: '11px', color: C.text4, marginTop: '5px', margin: '5px 0 0' }}>
+              PDF, DOCX, TXT — arraste aqui ou clique para selecionar
+            </p>
+            <input
+              ref={clientFileRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt"
+              style={{ display: 'none' }}
+              onChange={e => e.target.files && uploadFiles(e.target.files, 'cliente', clientCategory)}
+            />
+          </div>
+        </div>
+
+        {/* Client doc list */}
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {clientDocs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <p style={{ fontSize: '12px', color: C.text4, margin: 0 }}>
+                {hasPlaintiffDocs
+                  ? '⏳ Aguardando documentos do cliente para iniciar análise cruzada'
+                  : 'Nenhum documento do cliente enviado ainda.'}
+              </p>
+            </div>
+          ) : (
+            clientDocs.map(doc => <DocRow key={doc.id} doc={doc} C={C} />)
+          )}
+        </div>
+      </div>
+
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 3: Action Buttons
+          ────────────────────────────────────────────────────────── */}
+      <div style={{
+        padding: '16px',
+        borderRadius: '10px',
+        background: C.bg2,
+        border: `1px solid ${C.border2}`,
+        display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+      }}>
+        {hasPlaintiffDocs && hasClientDocs ? (
+          <>
+            <button
+              onClick={handleReanalyze}
+              disabled={reanalyzing}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 16px', borderRadius: '7px',
+                background: reanalyzing ? C.bg3 : C.amberBg,
+                border: `1px solid ${reanalyzing ? C.border2 : C.amberBorder}`,
+                color: reanalyzing ? C.text4 : C.amber,
+                cursor: reanalyzing ? 'not-allowed' : 'pointer',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                transition: 'all 150ms ease',
+              }}
+            >
+              {reanalyzing
+                ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                : <RefreshCw size={14} />}
+              {reanalyzing ? 'Reanalisando...' : '🔄 Rodar Análise Completa'}
+            </button>
+            <button
+              disabled
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 16px', borderRadius: '7px',
+                background: C.blueBg,
+                border: `1px solid ${C.blueBorder}`,
+                color: C.blue,
+                cursor: 'not-allowed',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                opacity: 0.7,
+              }}
+              title="Em breve — conectará os documentos do cliente com os da parte autora"
+            >
+              <BookOpen size={14} />
+              🔍 Iniciar Análise Cruzada
+            </button>
+            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginLeft: 'auto' }}>
+              {documents.length} doc(s) total · {plaintiffDocs.length} autora · {clientDocs.length} cliente
+            </span>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleReanalyze}
+              disabled={reanalyzing || documents.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 16px', borderRadius: '7px',
+                background: reanalyzing ? C.bg3 : C.amberBg,
+                border: `1px solid ${reanalyzing ? C.border2 : C.amberBorder}`,
+                color: reanalyzing ? C.text4 : C.amber,
+                cursor: (reanalyzing || documents.length === 0) ? 'not-allowed' : 'pointer',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                transition: 'all 150ms ease',
+              }}
+            >
+              {reanalyzing
+                ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                : <RefreshCw size={14} />}
+              {reanalyzing ? 'Reanalisando...' : '🔄 Rodar Análise Novamente'}
+            </button>
+            {hasPlaintiffDocs && !hasClientDocs && (
+              <span style={{
+                fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
+                display: 'flex', alignItems: 'center', gap: '5px',
+              }}>
+                ⏳ Aguardando documentos do cliente para iniciar análise cruzada
+              </span>
+            )}
+            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginLeft: 'auto' }}>
+              {documents.length} doc(s)
+            </span>
+          </>
+        )}
+      </div>
     </div>
   )
 }
