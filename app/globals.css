@@ -3,11 +3,11 @@
 /* ─── Design Tokens ──────────────────────────────────────────── */
 :root {
   /* Dark mode is DEFAULT */
-  --bg-primary: #0a1628;
-  --bg-secondary: #0d1f3c;
-  --bg-card: #132238;
-  --bg-input: #1b2d45;
-  --bg-elevated: #1b2d45;
+  --bg-primary: #0f1d32;
+  --bg-secondary: #142847;
+  --bg-card: #1a3055;
+  --bg-input: #213a62;
+  --bg-elevated: #213a62;
   --accent: #c9a84c;
   --accent-hover: #b8963e;
   --accent-subtle: rgba(201, 168, 76, 0.10);
