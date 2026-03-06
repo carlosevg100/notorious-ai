@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { diasUteisRestantes, formatDate } from '@/lib/utils'
 import type { Client } from '@/lib/types'
 import Link from 'next/link'
-import { Plus, Building2, X, Search } from 'lucide-react'
+import { Plus, Building2, X, Search, Trash2 } from 'lucide-react'
+import DeleteModal from '@/app/dashboard/components/DeleteModal'
+import Toast from '@/app/dashboard/components/Toast'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -34,8 +37,10 @@ function riskBadgeStyle(risk: string | null): React.CSSProperties {
   return {}
 }
 
-export default function ClientsPage() {
+function ClientsPageInner() {
   const { firmId } = useAuth()
+  const searchParams = useSearchParams()
+  const action = searchParams.get('action')
   const [clients, setClients] = useState<ClientWithMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
@@ -43,6 +48,16 @@ export default function ClientsPage() {
   const [saving, setSaving]   = useState(false)
   const [search, setSearch]   = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [deleteTarget, setDeleteTarget] = useState<ClientWithMeta | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // Auto-open "Novo Cliente" modal when navigated with ?action=new
+  useEffect(() => {
+    if (action === 'new') {
+      setShowNew(true)
+    }
+  }, [action])
 
   useEffect(() => { loadClients() }, [firmId])
 
@@ -107,6 +122,22 @@ export default function ClientsPage() {
     loadClients()
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/clients/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Falha ao excluir')
+      setToast({ message: 'Cliente excluído com sucesso', type: 'success' })
+      setDeleteTarget(null)
+      loadClients()
+    } catch {
+      setToast({ message: 'Erro ao excluir cliente', type: 'error' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const filteredClients = useMemo(() => {
     return clients.filter(c => {
       if (typeFilter !== 'all' && c.type !== typeFilter) return false
@@ -128,6 +159,19 @@ export default function ClientsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Banner: new-process guidance */}
+      {action === 'new-process' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '12px 16px', borderRadius: '8px',
+          background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+          color: 'var(--text-primary)', fontSize: '13px',
+        }}>
+          <span style={{ fontSize: '18px' }}>⚖️</span>
+          <span><strong>Novo Processo:</strong> selecione um cliente abaixo para abrir a ficha e criar o processo.</span>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
@@ -259,61 +303,114 @@ export default function ClientsPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {filteredClients.map(client => (
-            <Link
+            <div
               key={client.id}
-              href={`/dashboard/clients/${client.id}`}
-              style={{
-                display: 'block',
-                padding: '20px',
-                borderRadius: '8px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                textDecoration: 'none',
-                transition: 'border-color 150ms ease',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              style={{ position: 'relative' }}
+              className="client-card-wrapper"
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-                  {client.name}
-                </h3>
-                {client._risk_level && (
-                  <span className="font-mono" style={{
-                    padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                    textTransform: 'uppercase', flexShrink: 0,
-                    ...riskBadgeStyle(client._risk_level),
+              <Link
+                href={`/dashboard/clients/${client.id}`}
+                style={{
+                  display: 'block',
+                  padding: '20px',
+                  paddingRight: '44px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  textDecoration: 'none',
+                  transition: 'border-color 150ms ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                    {client.name}
+                  </h3>
+                  {client._risk_level && (
+                    <span className="font-mono" style={{
+                      padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                      textTransform: 'uppercase', flexShrink: 0,
+                      ...riskBadgeStyle(client._risk_level),
+                    }}>
+                      {client._risk_level}
+                    </span>
+                  )}
+                </div>
+                {client.cnpj && (
+                  <p className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {client.cnpj}
+                  </p>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                    background: 'var(--accent-subtle)', color: 'var(--accent)',
+                    border: '1px solid var(--accent-border)',
+                    fontFamily: 'var(--font-mono)',
                   }}>
-                    {client._risk_level}
+                    {client._project_count || 0} processo{(client._project_count || 0) !== 1 ? 's' : ''}
                   </span>
-                )}
-              </div>
-              {client.cnpj && (
-                <p className="font-mono" style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {client.cnpj}
-                </p>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
-                <span style={{
-                  padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                  background: 'var(--accent-subtle)', color: 'var(--accent)',
-                  border: '1px solid var(--accent-border)',
-                  fontFamily: 'var(--font-mono)',
-                }}>
-                  {client._project_count || 0} processo{(client._project_count || 0) !== 1 ? 's' : ''}
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                  {client.type?.replace('_', ' ')}
-                </span>
-                {client._next_prazo && (
-                  <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    Prazo: {formatDate(client._next_prazo)}
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                    {client.type?.replace('_', ' ')}
                   </span>
-                )}
-              </div>
-            </Link>
+                  {client._next_prazo && (
+                    <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Prazo: {formatDate(client._next_prazo)}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              {/* Delete button — overlaid top-right */}
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(client) }}
+                title="Excluir cliente"
+                style={{
+                  position: 'absolute', top: '12px', right: '12px',
+                  width: '28px', height: '28px', borderRadius: '6px',
+                  background: 'transparent', border: '1px solid transparent',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 150ms ease',
+                  zIndex: 1,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(239,68,68,0.12)'
+                  e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'
+                  e.currentTarget.style.color = '#EF4444'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.borderColor = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-muted)'
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
           ))}
         </div>
+      )}
+      {/* Delete confirmation modal */}
+      <DeleteModal
+        open={!!deleteTarget}
+        title="Excluir Cliente"
+        message={deleteTarget
+          ? `Tem certeza que deseja excluir o cliente "${deleteTarget.name}"? Todos os processos associados a este cliente também serão removidos.`
+          : ''}
+        confirmLabel="Excluir Cliente"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
       )}
     </div>
   )
@@ -324,4 +421,12 @@ function riskPriority(risk: string): number {
   if (risk === 'medio') return 2
   if (risk === 'baixo') return 1
   return 0
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px' }}><div className="spinner" /></div>}>
+      <ClientsPageInner />
+    </Suspense>
+  )
 }

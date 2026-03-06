@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
-  const { signIn } = useAuth()
+  const { signIn, error: authError } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,9 +133,9 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
+          {(error || authError) && (
             <p style={{ color: 'var(--error)', fontSize: '13px', margin: 0 }}>
-              {error}
+              {error || authError}
             </p>
           )}
 

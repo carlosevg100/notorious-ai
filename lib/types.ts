@@ -53,6 +53,8 @@ export interface Document {
   extracted_data: ExtractedData | null
   created_at: string
   updated_at: string
+  document_category?: string | null
+  doc_source?: 'parte_autora' | 'cliente' | null
 }
 
 export interface ExtractedData {
