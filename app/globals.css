@@ -157,21 +157,7 @@ a {
   color: var(--accent);
 }
 
-.glass-card {
-  background: rgba(19, 34, 56, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(74, 118, 180, 0.12);
-  transition: border-color 150ms ease;
-}
-
-.glass-card:hover {
-  border-color: rgba(74, 118, 180, 0.25);
-}
-
-.header-gradient {
-  background: linear-gradient(180deg, #0d1f3c 0%, #0a1628 100%);
-}
+/* glass-card and header-gradient removed — spec prohibits glassmorphism and gradients */
 
 .btn-primary-glow:hover {
   box-shadow: 0 0 20px rgba(77, 166, 255, 0.15);
