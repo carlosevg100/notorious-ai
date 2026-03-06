@@ -40,7 +40,7 @@ const ROLE_OPTIONS = [
 ]
 
 export default function EquipePage() {
-  const { firmId, role, session } = useAuth()
+  const { firmId, role, session, user } = useAuth()
   const { theme } = useTheme()
   const C = getColors(theme)
 
@@ -55,6 +55,22 @@ export default function EquipePage() {
   const [success, setSuccess] = useState('')
 
   const isAdmin = role === 'admin'
+
+  async function handleDeactivate(userId: string) {
+    if (!isAdmin) return
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ is_active: false })
+      .eq('id', userId)
+      .eq('firm_id', firmId)
+
+    if (updateError) {
+      setError('Erro ao desativar membro: ' + updateError.message)
+    } else {
+      setSuccess('Membro desativado com sucesso')
+      loadTeam()
+    }
+  }
 
   async function loadTeam() {
     if (!firmId) return
@@ -186,7 +202,7 @@ export default function EquipePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: C.bg1 }}>
-                {['Nome', 'Email', 'Cargo', 'Status', 'Desde'].map(h => (
+                {[...['Nome', 'Email', 'Cargo', 'Status', 'Desde'], ...(isAdmin ? ['Ações'] : [])].map(h => (
                   <th key={h} style={{
                     padding: '10px 14px',
                     textAlign: 'left',
@@ -243,6 +259,27 @@ export default function EquipePage() {
                   <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
                     {formatDate(m.created_at)}
                   </td>
+                  {isAdmin && (
+                    <td style={{ padding: '12px 14px' }}>
+                      {m.id !== user?.id && m.is_active !== false && (
+                        <button
+                          onClick={() => handleDeactivate(m.id)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            background: 'transparent',
+                            border: `1px solid ${C.redBorder}`,
+                            color: C.red,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Desativar
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

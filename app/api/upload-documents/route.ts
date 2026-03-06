@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
       // Upload to Supabase Storage
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const storagePath = `documents/${projectId}/${Date.now()}_${safeName}`
+      const storagePath = `${firmId}/${projectId}/${Date.now()}_${safeName}`
 
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)

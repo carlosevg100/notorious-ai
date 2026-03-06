@@ -34,6 +34,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Check if active user when accessing protected routes
+  if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const { data: userRecord } = await supabase
+      .from('users')
+      .select('is_active')
+      .eq('id', user.id)
+      .single()
+
+    if (userRecord && userRecord.is_active === false) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/suspended'
+      return NextResponse.redirect(url)
+    }
+  }
+
   return supabaseResponse
 }
 

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf'
   const fileType = fileExt === 'pdf' ? 'pdf' : fileExt === 'docx' ? 'docx' : 'txt'
-  const storagePath = `firms/${firmId}/projects/${projectId}/${Date.now()}-${file.name}`
+  const storagePath = `${firmId}/${projectId}/${Date.now()}-${file.name}`
 
   // Upload to Storage
   const bytes = await file.arrayBuffer()
