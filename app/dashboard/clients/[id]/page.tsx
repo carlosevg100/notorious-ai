@@ -8,8 +8,7 @@ import { formatDate, diasUteisRestantes } from '@/lib/utils'
 import type { Client, Project, Prazo } from '@/lib/types'
 import Link from 'next/link'
 import {
-  ArrowLeft, Plus, X, Folder, TrendingUp, FileText, CalendarClock,
-  AlertTriangle, Search, Clock, Shield, DollarSign, MapPin, Activity,
+  ArrowLeft, Plus, X, Folder, Search, Clock, MapPin,
   Download, ChevronRight, Trash2
 } from 'lucide-react'
 import NovoProcessoModal from '@/app/dashboard/components/NovoProcessoModal'
@@ -382,16 +381,15 @@ export default function ClientDetailPage() {
           {/* Row 2: Financial KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             {[
-              { label: 'Valor Total das Causas', value: 'R$ 0', sub: 'soma dos valores de causa', color: 'var(--text-primary)', icon: DollarSign },
-              { label: 'Risco Financeiro Estimado', value: 'R$ 0', sub: 'estimativa AI de exposição real', color: '#F59E0B', icon: Shield },
-              { label: 'Condenações Acumuladas', value: 'R$ 0', sub: 'processos encerrados desfavoráveis', color: '#EF4444', icon: AlertTriangle },
+              { label: 'Valor Total das Causas', value: 'R$ 0', sub: 'soma dos valores de causa', color: 'var(--text-primary)' },
+              { label: 'Risco Financeiro Estimado', value: 'R$ 0', sub: 'estimativa AI de exposição real', color: '#F59E0B' },
+              { label: 'Condenações Acumuladas', value: 'R$ 0', sub: 'processos encerrados desfavoráveis', color: '#EF4444' },
             ].map(kpi => (
               <div key={kpi.label} style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ marginBottom: '10px' }}>
                   <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0 }}>
                     {kpi.label}
                   </p>
-                  <kpi.icon size={14} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
                 </div>
                 <p className="font-mono" style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 4px', lineHeight: 1, color: kpi.color }}>
                   {kpi.value}
