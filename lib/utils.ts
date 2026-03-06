@@ -73,5 +73,3 @@ export function statusLabel(status: string): string {
     default: return status
   }
 }
-
-export const FIRM_ID = '1f430c10-550a-4267-9193-e03c831fc394'
