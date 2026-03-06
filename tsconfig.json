@@ -39,6 +39,7 @@
     "node_modules",
     "scripts",
     "supabase",
-    "supabase/**/*"
+    "supabase/**/*",
+    "**/__tests__/**"
   ]
 }
