@@ -529,6 +529,10 @@ export default function ProjectDetailPage() {
   // Strategy state
   const [strategyRecord, setStrategyRecord] = useState<Record<string, unknown> | null>(null)
 
+  // JUDIT process consultation state
+  const [processData, setProcessData] = useState<any>(null)
+  const [processLoading, setProcessLoading] = useState(false)
+
   async function handleDeleteProject() {
     if (!project) return
     setDeleting(true)
@@ -593,6 +597,16 @@ export default function ProjectDetailPage() {
     }
     loadAnalysis()
   }, [projectId])
+
+  // Fetch JUDIT data when project has a CNJ (numero_processo)
+  useEffect(() => {
+    if (!project?.numero_processo) return
+    setProcessLoading(true)
+    fetch(`/api/judit?cnj=${encodeURIComponent(project.numero_processo)}`)
+      .then(r => r.json())
+      .then(data => { setProcessData(data); setProcessLoading(false) })
+      .catch(() => setProcessLoading(false))
+  }, [project?.numero_processo])
 
   const exportRelatorio = useCallback(() => {
     if (!caseAnalysis || !project) return
@@ -790,6 +804,51 @@ export default function ProjectDetailPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* JUDIT Process Consultation */}
+      <div style={{ borderRadius: '10px', border: `1px solid ${C.border2}`, padding: '16px', marginTop: '16px', background: C.bg2 }}>
+        <h3 style={{ fontSize: '10px', fontWeight: 700, color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          CONSULTA PROCESSUAL
+          {processLoading && <span style={{ fontSize: '10px', color: C.amber, fontWeight: 600 }}>consultando JUDIT...</span>}
+        </h3>
+        {processData && !processData.error && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span style={{ color: C.text3 }}>Vara</span>
+              <span style={{ fontWeight: 500, fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', color: C.text1 }}>{processData.court}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span style={{ color: C.text3 }}>Última movimentação</span>
+              <span style={{ color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px' }}>
+                {processData.lastMovement?.date ? new Date(processData.lastMovement.date).toLocaleDateString('pt-BR') : '—'}
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: C.text3, background: C.bg3, borderRadius: '6px', padding: '8px 10px', marginTop: '4px' }}>
+              {processData.lastMovement?.description}
+            </div>
+            {processData.movements?.length > 1 && (
+              <details style={{ fontSize: '12px' }}>
+                <summary style={{ cursor: 'pointer', color: C.amber, marginTop: '4px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px' }}>Ver movimentações anteriores</summary>
+                <ul style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', listStyle: 'none', padding: 0 }}>
+                  {processData.movements.slice(1, 5).map((m: any, i: number) => (
+                    <li key={i} style={{ display: 'flex', gap: '8px', color: C.text3, fontSize: '12px' }}>
+                      <span style={{ fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{new Date(m.date).toLocaleDateString('pt-BR')}</span>
+                      <span>{m.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            <p style={{ fontSize: '11px', color: C.text4, marginTop: '4px', fontStyle: 'italic' }}>Dados: JUDIT API • atualizado em tempo real</p>
+          </div>
+        )}
+        {!processLoading && !processData && project?.numero_processo && (
+          <p style={{ fontSize: '12px', color: C.text4 }}>Número CNJ cadastrado. Aguardando integração JUDIT (em configuração).</p>
+        )}
+        {!project?.numero_processo && (
+          <p style={{ fontSize: '12px', color: C.text4 }}>Adicione o número CNJ do processo para consulta automática.</p>
+        )}
       </div>
 
       {/* Tab Content */}
