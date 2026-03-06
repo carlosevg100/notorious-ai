@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const OPENAI_KEY      = process.env.OPENAI_API_KEY   || ''
 const PERPLEXITY_KEY  = process.env.PERPLEXITY_API_KEY || ''
@@ -481,11 +482,15 @@ function buildSourceLog(result: SourceResult, isLabor: boolean): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const body: ResearchPayload = await req.json()
-    const { project_id, firm_id, case_context } = body
+    const auth = await getAuthenticatedFirmId(req)
+    if (isAuthError(auth)) return auth
 
-    if (!project_id || !firm_id) {
-      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    const body: ResearchPayload = await req.json()
+    const { project_id, case_context } = body
+    const firm_id = auth.firm_id
+
+    if (!project_id) {
+      return NextResponse.json({ error: 'project_id é obrigatório' }, { status: 400 })
     }
 
     const query = buildResearchQuery(case_context)

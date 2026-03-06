@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const SUPABASE_URL = 'https://fbgqzouxbagmmlzibyhl.supabase.co'
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -7,12 +8,15 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await getAuthenticatedFirmId(req)
+    if (isAuthError(auth)) return auth
+
     const formData = await req.formData()
     const projectId = formData.get('project_id') as string
-    const firmId = formData.get('firm_id') as string
+    const firmId = auth.firm_id // always from JWT — never from formData
 
-    if (!projectId || !firmId) {
-      return NextResponse.json({ error: 'project_id e firm_id são obrigatórios' }, { status: 400 })
+    if (!projectId) {
+      return NextResponse.json({ error: 'project_id é obrigatório' }, { status: 400 })
     }
 
     // Collect all files from formData

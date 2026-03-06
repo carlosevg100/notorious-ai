@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
 
 const SUPABASE_URL = 'https://fbgqzouxbagmmlzibyhl.supabase.co'
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -16,7 +17,11 @@ Inclua: endereçamento, qualificação, fatos, direito, pedidos, valor da causa,
 }
 
 export async function POST(req: NextRequest) {
-  const { project_id, firm_id, tipo } = await req.json()
+  const authCtx = await getAuthenticatedFirmId(req)
+  if (isAuthError(authCtx)) return authCtx
+
+  const { project_id, tipo } = await req.json()
+  const firm_id = authCtx.firm_id
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   // Get all extracted data from project documents
