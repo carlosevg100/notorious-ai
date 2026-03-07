@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getAuthenticatedFirmId, isAuthError } from '@/lib/get-firm-id'
+import { fetchJuit, fetchJuitViaPerplexity, type JuitDecision } from '@/lib/juit'
 
 const OPENAI_KEY      = process.env.OPENAI_API_KEY   || ''
 const PERPLEXITY_KEY  = process.env.PERPLEXITY_API_KEY || ''
@@ -19,7 +20,7 @@ export interface NormalizedPrecedent {
   ementa: string
   relevancia: 'alta' | 'media' | 'baixa'
   favoravel: boolean
-  source: 'stj' | 'stf' | 'tst' | 'perplexity'
+  source: 'stj' | 'stf' | 'tst' | 'perplexity' | 'juit'
 }
 
 interface JurisprudenciaItem {
@@ -49,7 +50,7 @@ interface ResearchPayload {
 }
 
 interface SourceResult {
-  source: 'stj' | 'stf' | 'tst' | 'perplexity'
+  source: 'stj' | 'stf' | 'tst' | 'perplexity' | 'juit'
   items: NormalizedPrecedent[]
   count: number
   error?: string
@@ -473,8 +474,12 @@ function buildSourceLog(result: SourceResult, isLabor: boolean): string {
       ? `⚠ ${tribunal}: API indisponível — usando fontes alternativas`
       : `⚠ ${tribunal}: ${result.error.slice(0, 60)}`
   }
-  const tribunal = result.source === 'perplexity' ? 'Jurisprudência complementar' : result.source.toUpperCase()
-  const unit = result.source === 'perplexity' ? 'resultados' : result.source === 'stf' ? 'decisões' : 'acórdãos'
+  const tribunal = result.source === 'perplexity'
+    ? 'Jurisprudência complementar'
+    : result.source === 'juit'
+    ? 'JUIT Jurisprudência'
+    : result.source.toUpperCase()
+  const unit = result.source === 'perplexity' || result.source === 'juit' ? 'resultados' : result.source === 'stf' ? 'decisões' : 'acórdãos'
   return `✓ ${tribunal}: ${result.count} ${unit} encontrados`
 }
 
@@ -509,11 +514,22 @@ export async function POST(req: NextRequest) {
       ? fetchTST(keyword)
       : Promise.resolve<SourceResult>({ source: 'tst', items: [], count: 0, skipped: true, skipReason: 'caso cível' })
 
-    const [stfResult, stjResult, tstResult, perplexityResult] = await Promise.all([
+    const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY || ''
+
+    const juitPromise = fetchJuit(keyword).then(result => {
+      // If JUIT API key not set, fall back to Perplexity+JUIT
+      if (result.skipped) {
+        return fetchJuitViaPerplexity(keyword, PERPLEXITY_KEY)
+      }
+      return result
+    })
+
+    const [stfResult, stjResult, tstResult, perplexityResult, juitResult] = await Promise.all([
       fetchSTF(keyword),
       fetchSTJ(keyword),
       tstPromise,
       fetchPerplexity(query),
+      juitPromise,
     ])
 
     // ── 2. Merge all raw precedents ────────────────────────────
@@ -522,9 +538,19 @@ export async function POST(req: NextRequest) {
       ...stjResult.items,
       ...tstResult.items,
       ...perplexityResult.items,
+      ...(juitResult.items as JuitDecision[]).map((j): NormalizedPrecedent => ({
+        tribunal: j.tribunal || 'JUIT',
+        data: j.data_julgamento || '',
+        ementa: j.ementa || '',
+        relator: j.relator || '',
+        numero: j.numero_processo || '',
+        source: 'juit' as const,
+        favoravel: false,
+        relevancia: 'media' as const,
+      })),
     ]
 
-    console.log(`[research] collected: STF=${stfResult.count} STJ=${stjResult.count} TST=${tstResult.count} Perplexity=${perplexityResult.count} total=${allPrecedents.length}`)
+    console.log(`[research] collected: STF=${stfResult.count} STJ=${stjResult.count} TST=${tstResult.count} Perplexity=${perplexityResult.count} JUIT=${juitResult.count} total=${allPrecedents.length}`)
 
     // ── 3. GPT-4o analysis and classification ─────────────────
     const { analyzed, probabilidade_exito, fundamentacao } = await analyzeWithGPT4o(allPrecedents, query)
@@ -561,6 +587,7 @@ export async function POST(req: NextRequest) {
       buildSourceLog(stfResult, isLabor),
       buildSourceLog(tstResult, isLabor),
       buildSourceLog(perplexityResult, isLabor),
+      buildSourceLog(juitResult as unknown as SourceResult, isLabor),
       '✓ Analisando e classificando precedentes...',
       '✓ Calculando probabilidade de êxito...',
       `▸ Pesquisa concluída — ${analyzed.length} precedentes analisados.`,
@@ -582,6 +609,7 @@ export async function POST(req: NextRequest) {
       { source: 'stj', data: stjResult },
       { source: 'tst', data: tstResult },
       { source: 'perplexity', data: perplexityResult },
+      { source: 'juit', data: juitResult as unknown as SourceResult },
     ].map(({ source, data }) =>
       adminSupabase
         .from('research_results')
@@ -624,6 +652,7 @@ export async function POST(req: NextRequest) {
         stj: { count: stjResult.count, error: stjResult.error },
         tst: { count: tstResult.count, skipped: tstResult.skipped, error: tstResult.error },
         perplexity: { count: perplexityResult.count, error: perplexityResult.error },
+        juit: { count: juitResult.count, skipped: juitResult.skipped, error: juitResult.error },
         total: analyzed.length,
       },
     })
