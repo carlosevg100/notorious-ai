@@ -43,9 +43,9 @@ export default function LoginPage() {
       }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{
+          <h1 className="font-serif" style={{
             fontSize: '26px',
-            fontWeight: 700,
+            fontWeight: 400,
             letterSpacing: '-0.02em',
             margin: 0,
             color: 'var(--text-primary)',

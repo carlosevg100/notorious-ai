@@ -44,7 +44,7 @@ function DetailField({ label, value, C, span }: {
   const empty = !value || value.trim() === ''
   return (
     <div style={{ marginBottom: '8px', gridColumn: span ? '1 / -1' : undefined }}>
-      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
       <div style={{ fontSize: '12px', fontWeight: empty ? 400 : 500, marginTop: '2px', lineHeight: 1.4, color: empty ? C.text4 : C.text1, fontStyle: empty ? 'italic' : 'normal' }}>
         {empty ? 'Não informado' : value}
       </div>
@@ -106,22 +106,22 @@ function ExpandablePartyCard({ label, party, accent, icon, C }: {
       >
         {icon}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
           <div style={{ fontSize: '13px', color: C.text1, fontWeight: 600, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {p.nome || <span style={{ color: C.text4, fontStyle: 'italic', fontWeight: 400 }}>Não identificado</span>}
           </div>
         </div>
         {p.cpf_cnpj && (
-          <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{p.cpf_cnpj}</span>
+          <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{p.cpf_cnpj}</span>
         )}
         <ChevronRight size={12} style={{ color: C.text4, transform: expanded ? 'rotate(90deg)' : 'none', transition: '200ms', flexShrink: 0, marginLeft: '4px' }} />
       </button>
 
       {!expanded && (
         <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {p.estado_civil && <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{p.estado_civil}</span>}
+          {p.estado_civil && <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)' }}>{p.estado_civil}</span>}
           {p.profissao && <span style={{ fontSize: '11px', color: C.text3 }}>{p.profissao}</span>}
-          <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)' }}>
             {(p.advogados || []).length > 0 ? `${p.advogados.length} adv.` : 'sem advogado'}
           </span>
         </div>
@@ -142,12 +142,12 @@ function ExpandablePartyCard({ label, party, accent, icon, C }: {
           <DetailField label="Endereço" value={addrStr} C={C} span />
           {p.outras_info && p.outras_info.trim() !== '' && (
             <div style={{ marginTop: '4px', marginBottom: '8px', padding: '8px 10px', borderRadius: '6px', background: C.bg3, border: `1px solid ${C.border1}` }}>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Outras Informações</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Outras Informações</div>
               <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{p.outras_info}</div>
             </div>
           )}
           <div style={{ marginTop: '12px', borderTop: `1px solid ${C.border1}`, paddingTop: '12px' }}>
-            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>
+            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>
               Advogados {(p.advogados || []).length > 0 ? `(${p.advogados.length})` : ''}
             </div>
             {(!p.advogados || p.advogados.length === 0) && (
@@ -164,7 +164,7 @@ function ExpandablePartyCard({ label, party, accent, icon, C }: {
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '12px', color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adv.nome || '—'}</div>
-                      {oabLabel && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{oabLabel}</div>}
+                      {oabLabel && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '1px' }}>{oabLabel}</div>}
                     </div>
                     <ChevronRight size={11} style={{ color: C.text4, flexShrink: 0, transform: advExp ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
                   </button>
@@ -197,7 +197,7 @@ function PriorityBadge({ prioridade, C }: { prioridade: DocumentoNecessario['pri
   }
   const s = config[prioridade] || config.baixa
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', flexShrink: 0 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', flexShrink: 0 }}>
       {s.label}
     </span>
   )
@@ -210,7 +210,7 @@ function RiskBadge({ risco, C }: { risco: string; C: ReturnType<typeof getColors
   const border = lower === 'alto' ? C.redBorder : lower === 'medio' ? C.amberBorder : C.greenBorder
   const label = lower === 'alto' ? '⚠ Risco Alto' : lower === 'medio' ? '◈ Risco Médio' : '✓ Risco Baixo'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', background: bg, border: `1px solid ${border}`, color, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', background: bg, border: `1px solid ${border}`, color, fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
       {label}
     </span>
   )
@@ -689,7 +689,7 @@ export default function ProjectDetailPage() {
                 <span style={{
                   padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
                   background: `${faseColor}18`, color: faseColor, border: `1px solid ${faseColor}30`,
-                  textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'IBM Plex Mono, monospace',
+                  textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)',
                 }}>
                   {FASE_LABELS[project.fase] || project.fase}
                 </span>
@@ -697,7 +697,7 @@ export default function ProjectDetailPage() {
                   <span style={{
                     padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
                     background: C.amberBg, color: C.amber, border: `1px solid ${C.amberBorder}`,
-                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                   }}>
                     📎 Aguardando Docs do Cliente
                   </span>
@@ -710,7 +710,7 @@ export default function ProjectDetailPage() {
                   </Link>
                 )}
                 {project.numero_processo && (
-                  <span style={{ color: C.text3, fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px' }}>
+                  <span style={{ color: C.text3, fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
                     CNJ: {project.numero_processo}
                   </span>
                 )}
@@ -729,7 +729,7 @@ export default function ProjectDetailPage() {
                     padding: '8px 14px', borderRadius: '7px',
                     background: C.bg3, border: `1px solid ${C.border3}`,
                     color: C.text2, cursor: 'pointer', fontSize: '12px',
-                    fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace',
+                    fontWeight: 600, fontFamily: 'var(--font-mono)',
                     transition: 'all 150ms ease',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed' }}
@@ -746,7 +746,7 @@ export default function ProjectDetailPage() {
                     padding: '8px 14px', borderRadius: '7px',
                     background: C.bg3, border: `1px solid ${C.border3}`,
                     color: C.text2, cursor: 'pointer', fontSize: '12px',
-                    fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace',
+                    fontWeight: 600, fontFamily: 'var(--font-mono)',
                     transition: 'all 150ms ease',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.blue; e.currentTarget.style.color = C.blue }}
@@ -808,7 +808,7 @@ export default function ProjectDetailPage() {
 
       {/* JUDIT Process Consultation */}
       <div style={{ borderRadius: '10px', border: `1px solid ${C.border2}`, padding: '16px', marginTop: '16px', background: C.bg2 }}>
-        <h3 style={{ fontSize: '10px', fontWeight: 700, color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '10px', fontWeight: 700, color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           CONSULTA PROCESSUAL
           {processLoading && <span style={{ fontSize: '10px', color: C.amber, fontWeight: 600 }}>consultando JUDIT...</span>}
         </h3>
@@ -816,11 +816,11 @@ export default function ProjectDetailPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
               <span style={{ color: C.text3 }}>Vara</span>
-              <span style={{ fontWeight: 500, fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', color: C.text1 }}>{processData.court}</span>
+              <span style={{ fontWeight: 500, fontFamily: 'var(--font-mono)', fontSize: '12px', color: C.text1 }}>{processData.court}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
               <span style={{ color: C.text3 }}>Última movimentação</span>
-              <span style={{ color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px' }}>
+              <span style={{ color: C.amber, fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
                 {processData.lastMovement?.date ? new Date(processData.lastMovement.date).toLocaleDateString('pt-BR') : '—'}
               </span>
             </div>
@@ -829,11 +829,11 @@ export default function ProjectDetailPage() {
             </div>
             {processData.movements?.length > 1 && (
               <details style={{ fontSize: '12px' }}>
-                <summary style={{ cursor: 'pointer', color: C.amber, marginTop: '4px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px' }}>Ver movimentações anteriores</summary>
+                <summary style={{ cursor: 'pointer', color: C.amber, marginTop: '4px', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>Ver movimentações anteriores</summary>
                 <ul style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', listStyle: 'none', padding: 0 }}>
                   {processData.movements.slice(1, 5).map((m: any, i: number) => (
                     <li key={i} style={{ display: 'flex', gap: '8px', color: C.text3, fontSize: '12px' }}>
-                      <span style={{ fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{new Date(m.date).toLocaleDateString('pt-BR')}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{new Date(m.date).toLocaleDateString('pt-BR')}</span>
                       <span>{m.description}</span>
                     </li>
                   ))}
@@ -958,7 +958,7 @@ function AnaliseInicialTab({
     <div style={{ padding: '11px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
       {icon}
       <div>
-        <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+        <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
         {sub && <div style={{ fontSize: '10px', color: C.text4, marginTop: '1px' }}>{sub}</div>}
       </div>
     </div>
@@ -973,7 +973,7 @@ function AnaliseInicialTab({
   const LabelValue = ({ label, value }: { label: string; value: string | undefined | null }) =>
     value && value !== '' && value !== 'Não identificado' ? (
       <div style={{ marginBottom: '8px' }}>
-        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
         <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500, marginTop: '2px', lineHeight: 1.4 }}>{value}</div>
       </div>
     ) : null
@@ -984,7 +984,7 @@ function AnaliseInicialTab({
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: C.text1 }}>Ficha do Processo</div>
-          <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>Extração e análise estruturada por IA Jurídica</div>
+          <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', marginTop: '1px' }}>Extração e análise estruturada por IA Jurídica</div>
         </div>
         {caseAnalysis.risco_preliminar && <RiskBadge risco={caseAnalysis.risco_preliminar} C={C} />}
       </div>
@@ -1029,7 +1029,7 @@ function AnaliseInicialTab({
           <SectionHeader icon={<List size={13} style={{ color: C.blue, flexShrink: 0 }} />} label="Objeto da Ação" sub="Bem, relação jurídica ou objeto central da disputa" />
           <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {caseAnalysis.objeto_da_acao.tipo && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', width: 'fit-content' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)', width: 'fit-content' }}>
                 {caseAnalysis.objeto_da_acao.tipo}
               </span>
             )}
@@ -1042,7 +1042,7 @@ function AnaliseInicialTab({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px 16px' }}>
                 {caseAnalysis.objeto_da_acao.detalhes.map((d, i) => (
                   <div key={i}>
-                    <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{d.campo}</div>
+                    <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{d.campo}</div>
                     <div style={{ fontSize: '12px', fontWeight: 600, color: C.text1, marginTop: '2px', lineHeight: 1.4 }}>{d.valor}</div>
                   </div>
                 ))}
@@ -1061,10 +1061,10 @@ function AnaliseInicialTab({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500 }}>{it.descricao}</div>
                 {it.fundamento && it.fundamento !== '' && (
-                  <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>{it.fundamento}</div>
+                  <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', marginTop: '2px' }}>{it.fundamento}</div>
                 )}
               </div>
-              <span style={{ fontSize: '12px', color: C.text1, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{it.valor}</span>
+              <span style={{ fontSize: '12px', color: C.text1, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{it.valor}</span>
             </div>
           ))}
           {(caseAnalysis.valores?.itens || []).length === 0 && (
@@ -1072,8 +1072,8 @@ function AnaliseInicialTab({
           )}
           {caseAnalysis.valores?.total && caseAnalysis.valores.total !== 'Não identificado' && caseAnalysis.valores.total !== '' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 12px', margin: '8px 0 12px', borderRadius: '7px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>TOTAL PLEITEADO</span>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>{caseAnalysis.valores.total}</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)' }}>TOTAL PLEITEADO</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)' }}>{caseAnalysis.valores.total}</span>
             </div>
           )}
         </div>
@@ -1090,11 +1090,11 @@ function AnaliseInicialTab({
           )}
           {(caseAnalysis.fatos_narrados || []).length > 0 && (
             <div>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Fatos Narrados pelo Autor</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Fatos Narrados pelo Autor</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 {caseAnalysis.fatos_narrados.map((f, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '7px 10px', borderRadius: '6px', background: C.bg3, border: `1px solid ${C.border1}` }}>
-                    <span style={{ color: C.amber, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
+                    <span style={{ color: C.amber, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
                     <span>{f}</span>
                   </div>
                 ))}
@@ -1110,10 +1110,10 @@ function AnaliseInicialTab({
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {(caseAnalysis.fundamento_juridico?.base_legal || []).length > 0 && (
             <div>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Base Legal</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Base Legal</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {caseAnalysis.fundamento_juridico.base_legal.map((b, i) => (
-                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, fontSize: '11px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, fontSize: '11px', color: C.blue, fontFamily: 'var(--font-mono)' }}>
                     <LinkIcon size={9} /> {b}
                   </span>
                 ))}
@@ -1122,11 +1122,11 @@ function AnaliseInicialTab({
           )}
           {(caseAnalysis.fundamento_juridico?.teses || []).length > 0 && (
             <div>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Teses do Autor</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Teses do Autor</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {caseAnalysis.fundamento_juridico.teses.map((t, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '6px 10px', borderRadius: '6px', background: C.bg3 }}>
-                    <span style={{ color: C.blue, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
+                    <span style={{ color: C.blue, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
                     <span>{t}</span>
                   </div>
                 ))}
@@ -1135,11 +1135,11 @@ function AnaliseInicialTab({
           )}
           {(caseAnalysis.fundamento_juridico?.pedidos || []).length > 0 && (
             <div>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Pedidos ao Juiz</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Pedidos ao Juiz</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {caseAnalysis.fundamento_juridico.pedidos.map((p, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '7px 10px', borderRadius: '6px', background: C.redBg, border: `1px solid ${C.redBorder}` }}>
-                    <span style={{ color: C.red, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px', fontWeight: 700 }}>{i + 1}.</span>
+                    <span style={{ color: C.red, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px', fontWeight: 700 }}>{i + 1}.</span>
                     <span>{p}</span>
                   </div>
                 ))}
@@ -1175,7 +1175,7 @@ function AnaliseInicialTab({
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>📄 {prova.documento}</span>
                         {prova.tipo && prova.tipo !== '' && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: '4px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: '4px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '10px', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                             {prova.tipo}
                           </span>
                         )}
@@ -1192,19 +1192,19 @@ function AnaliseInicialTab({
                     <div style={{ padding: '0 12px 12px', borderTop: `1px solid ${C.border1}`, display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px' }}>
                       {prova.conteudo_principal && (
                         <div>
-                          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Conteúdo Principal</div>
+                          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Conteúdo Principal</div>
                           <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>{prova.conteudo_principal}</div>
                         </div>
                       )}
                       {prova.como_autor_usa && (
                         <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.blueBg, border: `1px solid ${C.blueBorder}` }}>
-                          <div style={{ fontSize: '9px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Como o Autor Usa</div>
+                          <div style={{ fontSize: '9px', color: C.blue, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Como o Autor Usa</div>
                           <div style={{ fontSize: '12px', color: C.blue, lineHeight: 1.6 }}>{prova.como_autor_usa}</div>
                         </div>
                       )}
                       {prova.tese_que_embasa && (
                         <div>
-                          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Tese que Embasa</div>
+                          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Tese que Embasa</div>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>
                             <span style={{ color: C.amber, flexShrink: 0 }}>→</span>
                             <span>{prova.tese_que_embasa}</span>
@@ -1213,7 +1213,7 @@ function AnaliseInicialTab({
                       )}
                       {prova.pontos_de_atencao && (
                         <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
-                          <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>⚠ Pontos de Atenção</div>
+                          <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>⚠ Pontos de Atenção</div>
                           <div style={{ fontSize: '12px', color: C.amber, lineHeight: 1.6 }}>{prova.pontos_de_atencao}</div>
                         </div>
                       )}
@@ -1233,13 +1233,13 @@ function AnaliseInicialTab({
           <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '0' }}>
             {(caseAnalysis.datas_importantes || []).map((d, i) => (
               <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${C.border1}` }}>
-                <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, minWidth: '110px', paddingTop: '1px', flexShrink: 0 }}>{d.data}</div>
+                <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'var(--font-mono)', fontWeight: 600, minWidth: '110px', paddingTop: '1px', flexShrink: 0 }}>{d.data}</div>
                 <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{d.evento}</div>
               </div>
             ))}
             {caseAnalysis.prazo_contestacao && caseAnalysis.prazo_contestacao !== 'A verificar' && (
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 12px', margin: '8px 0 4px', borderRadius: '7px', background: C.redBg, border: `1px solid ${C.redBorder}` }}>
-                <div style={{ fontSize: '10px', color: C.red, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, minWidth: '110px', flexShrink: 0 }}>⚠ PRAZO CONTES.</div>
+                <div style={{ fontSize: '10px', color: C.red, fontFamily: 'var(--font-mono)', fontWeight: 700, minWidth: '110px', flexShrink: 0 }}>⚠ PRAZO CONTES.</div>
                 <div style={{ fontSize: '12px', color: C.red, fontWeight: 600 }}>{caseAnalysis.prazo_contestacao}</div>
               </div>
             )}
@@ -1259,7 +1259,7 @@ function AnaliseInicialTab({
               sub="Solicite estes documentos antes de prosseguir"
             />
             <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)' }}>
                 {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
               </span>
             </div>
@@ -1339,7 +1339,7 @@ function ChecklistDocumentosCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
             <ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {checklist.titulo || 'CHECKLIST DE DOCUMENTOS DO CLIENTE'}
               </div>
               {checklist.subtitulo && (
@@ -1347,7 +1347,7 @@ function ChecklistDocumentosCard({
               )}
             </div>
           </div>
-          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             {totalDocs} documentos · {grupos.length} grupos
           </span>
         </div>
@@ -1368,19 +1368,19 @@ function ChecklistDocumentosCard({
               borderBottom: `1px solid ${C.border2}`,
               display: 'flex', alignItems: 'center', gap: '10px',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
                 {grupo.nome}
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center',
                 padding: '2px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
                 background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`,
                 flexShrink: 0,
               }}>
                 {grupo.classificacao}
               </span>
-              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                 {grupo.documentos.length} doc{grupo.documentos.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -1409,7 +1409,7 @@ function ChecklistDocumentosCard({
                           border: `1.5px solid ${C.border3}`, background: C.bg2,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }} />
-                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>{label}</span>
+                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'var(--font-mono)' }}>{label}</span>
                       </div>
                     ))}
                   </div>
@@ -1428,7 +1428,7 @@ function ChecklistDocumentosCard({
         }}>
           <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
             <AlertCircle size={13} style={{ color: C.amber, flexShrink: 0 }} />
-            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Observações Estratégicas do Advogado
             </div>
           </div>
@@ -1440,7 +1440,7 @@ function ChecklistDocumentosCard({
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', flexShrink: 0,
                     padding: '3px 9px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
-                    fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', marginTop: '1px',
+                    fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', marginTop: '1px',
                     background: obc.bg, color: obc.color, border: `1px solid ${obc.border}`,
                   }}>
                     {obs.tipo}
@@ -1504,7 +1504,7 @@ function DocRow({ doc, C }: { doc: Document; C: ReturnType<typeof getColors> }) 
         <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {doc.name}
         </p>
-        <p style={{ fontSize: '10px', color: C.text4, margin: '2px 0 0', fontFamily: 'IBM Plex Mono, monospace' }}>
+        <p style={{ fontSize: '10px', color: C.text4, margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
           {doc.file_size_bytes ? formatFileSize(doc.file_size_bytes) : ''}
           {doc.document_category && (
             <span style={{ marginLeft: '8px', color: C.text3 }}>{doc.document_category}</span>
@@ -1517,7 +1517,7 @@ function DocRow({ doc, C }: { doc: Document; C: ReturnType<typeof getColors> }) 
       </div>
       <span style={{
         padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-        flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace',
+        flexShrink: 0, fontFamily: 'var(--font-mono)',
         ...DocStatusBadge({ status: doc.processing_status, C }),
       }}>
         {statusLabel(doc.processing_status)}
@@ -1692,7 +1692,7 @@ function DocumentosTab({
               <span style={{
                 fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
                 background: '#EF444415', color: '#EF4444', border: '1px solid #EF444430',
-                fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
+                fontFamily: 'var(--font-mono)', fontWeight: 700,
               }}>
                 {plaintiffDocs.length} doc{plaintiffDocs.length !== 1 ? 's' : ''}
               </span>
@@ -1761,7 +1761,7 @@ function DocumentosTab({
               <span style={{
                 fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
                 background: '#22C55E15', color: '#22C55E', border: '1px solid #22C55E30',
-                fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700,
+                fontFamily: 'var(--font-mono)', fontWeight: 700,
               }}>
                 {clientDocs.length} doc{clientDocs.length !== 1 ? 's' : ''}
               </span>
@@ -1776,7 +1776,7 @@ function DocumentosTab({
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border1}` }}>
           {/* Category selector */}
           <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <label style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+            <label style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
               Tipo de documento:
             </label>
             <select
@@ -1871,7 +1871,7 @@ function DocumentosTab({
                 border: `1px solid ${reanalyzing ? C.border2 : C.amberBorder}`,
                 color: reanalyzing ? C.text4 : C.amber,
                 cursor: reanalyzing ? 'not-allowed' : 'pointer',
-                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'var(--font-mono)',
                 transition: 'all 150ms ease',
               }}
             >
@@ -1889,7 +1889,7 @@ function DocumentosTab({
                 border: `1px solid ${C.blueBorder}`,
                 color: C.blue,
                 cursor: 'not-allowed',
-                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'var(--font-mono)',
                 opacity: 0.7,
               }}
               title="Em breve — conectará os documentos do cliente com os da parte autora"
@@ -1897,7 +1897,7 @@ function DocumentosTab({
               <BookOpen size={14} />
               🔍 Iniciar Análise Cruzada
             </button>
-            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
               {documents.length} doc(s) total · {plaintiffDocs.length} autora · {clientDocs.length} cliente
             </span>
           </>
@@ -1913,7 +1913,7 @@ function DocumentosTab({
                 border: `1px solid ${reanalyzing ? C.border2 : C.amberBorder}`,
                 color: reanalyzing ? C.text4 : C.amber,
                 cursor: (reanalyzing || documents.length === 0) ? 'not-allowed' : 'pointer',
-                fontWeight: 600, fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace',
+                fontWeight: 600, fontSize: '12px', fontFamily: 'var(--font-mono)',
                 transition: 'all 150ms ease',
               }}
             >
@@ -1924,13 +1924,13 @@ function DocumentosTab({
             </button>
             {hasPlaintiffDocs && !hasClientDocs && (
               <span style={{
-                fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace',
+                fontSize: '11px', color: C.amber, fontFamily: 'var(--font-mono)',
                 display: 'flex', alignItems: 'center', gap: '5px',
               }}>
                 ⏳ Aguardando documentos do cliente para iniciar análise cruzada
               </span>
             )}
-            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '11px', color: C.text4, fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
               {documents.length} doc(s)
             </span>
           </>
@@ -1999,29 +1999,29 @@ function EstratégiaTab({
             padding: '16px 20px', borderRadius: '10px',
             background: C.bg2, border: `1px solid ${C.border2}`, textAlign: 'center',
           }}>
-            <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Êxito</div>
-            <div style={{ fontSize: '40px', fontWeight: 800, color: prob >= 70 ? C.green : prob >= 40 ? C.amber : C.red, lineHeight: 1, fontFamily: 'IBM Plex Mono, monospace' }}>
+            <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Êxito</div>
+            <div style={{ fontSize: '40px', fontWeight: 800, color: prob >= 70 ? C.green : prob >= 40 ? C.amber : C.red, lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
               {prob}%
             </div>
           </div>
         )}
         {/* Recomendação */}
         <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}` }}>
-          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Recomendação</div>
+          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Recomendação</div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: C.amber }}>{recomendacao || '—'}</div>
         </div>
         {/* Risco */}
         <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}` }}>
-          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Risco Estimado</div>
+          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Risco Estimado</div>
           {risco && <RiskBadge risco={risco} C={C} />}
-          {valorRisco && <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '6px' }}>Valor: {String(valorRisco)}</div>}
+          {valorRisco && <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '6px' }}>Valor: {String(valorRisco)}</div>}
         </div>
       </div>
 
       {/* Tese principal */}
       {tese && (
         <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.amberBg, border: `2px solid ${C.amberBorder}` }}>
-          <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Tese Principal de Defesa</div>
+          <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Tese Principal de Defesa</div>
           <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.6, fontWeight: 500 }}>{tese}</div>
         </div>
       )}
@@ -2029,11 +2029,11 @@ function EstratégiaTab({
       {/* Teses subsidiárias */}
       {tesesSub.length > 0 && (
         <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}` }}>
-          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700 }}>Teses Subsidiárias ({tesesSub.length})</div>
+          <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', fontWeight: 700 }}>Teses Subsidiárias ({tesesSub.length})</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {tesesSub.map((t, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '9px 12px', borderRadius: '8px', background: C.bg3, border: `1px solid ${C.border1}` }}>
-                <span style={{ color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fontWeight: 700, flexShrink: 0, marginTop: '1px' }}>{i + 1}.</span>
+                <span style={{ color: C.amber, fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, flexShrink: 0, marginTop: '1px' }}>{i + 1}.</span>
                 <span style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{t}</span>
               </div>
             ))}
@@ -2046,7 +2046,7 @@ function EstratégiaTab({
         <div style={{ borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, overflow: 'hidden' }}>
           <div style={{ padding: '11px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
             <Gavel size={13} style={{ color: C.blue, flexShrink: 0 }} />
-            <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Minuta da Contestação</div>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Minuta da Contestação</div>
           </div>
           <div style={{
             padding: '20px 24px',

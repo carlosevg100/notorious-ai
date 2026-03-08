@@ -204,8 +204,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}>
           {!isCollapsed && (
             <div>
-              <div style={{
-                fontSize: '17px', fontWeight: 700, letterSpacing: '-0.02em',
+              <div className="font-serif" style={{
+                fontSize: '17px', fontWeight: 400, letterSpacing: '-0.02em',
                 color: C.text1, userSelect: 'none',
               }}>
                 Litigator<span style={{ color: C.amber }}>AI</span>
