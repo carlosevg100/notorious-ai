@@ -211,7 +211,7 @@ export default function EquipePage() {
                     color: C.text3,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
-                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     borderBottom: `1px solid ${C.border1}`,
                   }}>
                     {h}
@@ -256,7 +256,7 @@ export default function EquipePage() {
                       {m.is_active !== false ? 'Ativo' : 'Suspenso'}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                  <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'var(--font-mono)' }}>
                     {formatDate(m.created_at)}
                   </td>
                   {isAdmin && (
@@ -310,7 +310,7 @@ export default function EquipePage() {
                       color: C.text3,
                       textTransform: 'uppercase',
                       letterSpacing: '0.08em',
-                      fontFamily: 'IBM Plex Mono, monospace',
+                      fontFamily: 'var(--font-mono)',
                       borderBottom: `1px solid ${C.border1}`,
                     }}>
                       {h}
@@ -338,10 +338,10 @@ export default function EquipePage() {
                         {inv.status === 'pending' ? 'Pendente' : inv.status === 'accepted' ? 'Aceito' : inv.status}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'var(--font-mono)' }}>
                       {formatDate(inv.created_at)}
                     </td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: C.text3, fontFamily: 'var(--font-mono)' }}>
                       {formatDate(inv.expires_at)}
                     </td>
                   </tr>

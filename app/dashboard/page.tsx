@@ -114,7 +114,7 @@ function SLabel({ children, color }: { children: React.ReactNode; color: string 
   return (
     <div style={{
       fontSize: 9, color, letterSpacing: '0.1em',
-      fontFamily: 'IBM Plex Mono, monospace',
+      fontFamily: 'var(--font-mono)',
       textTransform: 'uppercase' as const,
       marginBottom: 14,
     }}>
@@ -365,20 +365,20 @@ export default function DashboardPage() {
           <div>
             <div style={{
               fontSize: '9px', color: C.text3, letterSpacing: '0.1em',
-              fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase',
+              fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
               marginBottom: '6px',
             }}>
               {formatDateBR()} · {formatCurrentTime()}
             </div>
-            <h1 style={{
-              fontSize: '24px', fontWeight: 700, margin: 0,
+            <h1 className="font-serif" style={{
+              fontSize: '24px', fontWeight: 400, margin: 0,
               color: C.text1, letterSpacing: '-0.01em', lineHeight: 1.2,
             }}>
               {getGreeting()}, {greetingName}
             </h1>
             <div style={{
               fontSize: '11px', color: C.text3, marginTop: '5px',
-              fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
+              fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
             }}>
               {stats.totalProcessos} processos · {stats.totalClientes} clientes
             </div>
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                 }} />
                 <span style={{
                   fontSize: '10px', fontWeight: 700, color: C.red,
-                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                  fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
                 }}>
                   {stats.prazosVencidos} PRAZO{stats.prazosVencidos > 1 ? 'S' : ''} VENCIDO{stats.prazosVencidos > 1 ? 'S' : ''}
                 </span>
@@ -413,7 +413,7 @@ export default function DashboardPage() {
                 background: C.amberBg, border: `1px solid ${C.amberBorder}`,
                 color: C.amber, fontSize: '11px', fontWeight: 700,
                 textDecoration: 'none', transition: 'all 150ms ease',
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
+                fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
               }}
             >
               + CLIENTE
@@ -427,7 +427,7 @@ export default function DashboardPage() {
                 background: C.bg2, border: `1px solid ${C.border2}`,
                 color: C.text2, fontSize: '11px', fontWeight: 500,
                 cursor: 'pointer', transition: 'all 150ms ease',
-                fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em',
+                fontFamily: 'var(--font-mono)', letterSpacing: '0.04em',
               }}
             >
               + PROCESSO
@@ -455,7 +455,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: '12px', color: C.amber }}>◆</span>
               <span style={{
                 fontSize: '10px', color: C.amber,
-                fontFamily: 'IBM Plex Mono, monospace',
+                fontFamily: 'var(--font-mono)',
                 textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700,
               }}>
                 Briefing Executivo · IA
@@ -463,7 +463,7 @@ export default function DashboardPage() {
               <span style={{
                 fontSize: '9px', background: C.amberBg, color: C.amber,
                 border: `1px solid ${C.amberBorder}`, padding: '2px 8px',
-                borderRadius: '4px', fontFamily: 'IBM Plex Mono, monospace',
+                borderRadius: '4px', fontFamily: 'var(--font-mono)',
                 letterSpacing: '0.06em',
               }}>
                 Gerado {formatCurrentTime()}
@@ -471,7 +471,7 @@ export default function DashboardPage() {
             </div>
             <span style={{
               fontSize: '9px', color: C.text3,
-              fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.08em',
+              fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             }}>
               {briefingAberto ? '▲ RECOLHER' : '▼ EXPANDIR'}
             </span>
@@ -487,7 +487,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
                   <span style={{ color: C.red, fontSize: '13px' }}>⚡</span>
                   <span style={{
-                    fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                    fontSize: '9px', fontFamily: 'var(--font-mono)',
                     textTransform: 'uppercase', letterSpacing: '0.1em', color: C.red, fontWeight: 700,
                   }}>Ação Imediata</span>
                 </div>
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
                   <span style={{ color: C.amber, fontSize: '12px' }}>◈</span>
                   <span style={{
-                    fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                    fontSize: '9px', fontFamily: 'var(--font-mono)',
                     textTransform: 'uppercase', letterSpacing: '0.1em', color: C.text2, fontWeight: 700,
                   }}>Situação da Carteira</span>
                 </div>
@@ -561,7 +561,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px' }}>
                   <span style={{ color: C.green, fontSize: '12px' }}>✓</span>
                   <span style={{
-                    fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                    fontSize: '9px', fontFamily: 'var(--font-mono)',
                     textTransform: 'uppercase', letterSpacing: '0.1em', color: C.green, fontWeight: 700,
                   }}>Resultados</span>
                 </div>
@@ -609,14 +609,14 @@ export default function DashboardPage() {
             >
               <div style={{
                 fontSize: '9px', color: C.text3, letterSpacing: '0.1em',
-                fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase',
+                fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
                 marginBottom: '12px',
               }}>
                 {kpi.label}
               </div>
               <div style={{
                 fontSize: '38px', fontWeight: 700, color: kpi.color,
-                fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1,
+                fontFamily: 'var(--font-mono)', lineHeight: 1,
               }}>
                 {kpi.value}
               </div>
@@ -670,7 +670,7 @@ export default function DashboardPage() {
                     }} />
                     <span style={{
                       fontSize: '11px', color: C.text2, flex: 1,
-                      fontFamily: 'IBM Plex Mono, monospace',
+                      fontFamily: 'var(--font-mono)',
                     }}>
                       {stage.label}
                     </span>
@@ -686,7 +686,7 @@ export default function DashboardPage() {
                     <span style={{
                       fontSize: '14px', fontWeight: 700,
                       color: count > 0 ? stage.color : C.text4,
-                      fontFamily: 'IBM Plex Mono, monospace',
+                      fontFamily: 'var(--font-mono)',
                       width: '24px', textAlign: 'right',
                     }}>
                       {count}
@@ -718,13 +718,13 @@ export default function DashboardPage() {
                 }}>
                   <div style={{
                     fontSize: '24px', fontWeight: 700, color: r.color,
-                    fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1,
+                    fontFamily: 'var(--font-mono)', lineHeight: 1,
                   }}>
                     {r.count}
                   </div>
                   <div style={{
                     fontSize: '8px', color: r.color,
-                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     letterSpacing: '0.1em', marginTop: '5px',
                   }}>
                     {r.label}
@@ -758,7 +758,7 @@ export default function DashboardPage() {
                       border: `1px solid ${avatarColor(c.name)}40`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '9px', fontWeight: 700, color: avatarColor(c.name),
-                      flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace',
+                      flexShrink: 0, fontFamily: 'var(--font-mono)',
                     }}>
                       {getInitials(c.name)}
                     </span>
@@ -772,7 +772,7 @@ export default function DashboardPage() {
                       padding: '2px 7px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
                       textTransform: 'uppercase', flexShrink: 0,
                       background: rb, color: rc, border: `1px solid ${rd}`,
-                      fontFamily: 'IBM Plex Mono, monospace',
+                      fontFamily: 'var(--font-mono)',
                     }}>
                       {c._risk_level}
                     </span>
@@ -808,7 +808,7 @@ export default function DashboardPage() {
                     borderRadius: '6px', background: C.bg3,
                     border: `1px solid ${C.border2}`, color: C.text1,
                     fontSize: '11px', outline: 'none', width: '175px',
-                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                   }}
                 />
               </div>
@@ -818,7 +818,7 @@ export default function DashboardPage() {
                 style={{
                   fontSize: '9px', color: C.text3, textDecoration: 'none',
                   display: 'flex', alignItems: 'center', gap: '4px',
-                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                  fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
                   transition: 'color 150ms ease',
                 }}
               >
@@ -858,7 +858,7 @@ export default function DashboardPage() {
                         background: ac + '20', border: `1px solid ${ac}40`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '11px', fontWeight: 700, color: ac,
-                        flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace',
+                        flexShrink: 0, fontFamily: 'var(--font-mono)',
                       }}>
                         {getInitials(client.name)}
                       </span>
@@ -871,7 +871,7 @@ export default function DashboardPage() {
                         </div>
                         <div style={{
                           fontSize: '10px', color: C.text3, marginTop: '2px',
-                          fontFamily: 'IBM Plex Mono, monospace',
+                          fontFamily: 'var(--font-mono)',
                         }}>
                           {client._project_count} proc{client._next_prazo ? ` · próx. ${formatDate(client._next_prazo)}` : ''}
                         </div>
@@ -881,7 +881,7 @@ export default function DashboardPage() {
                           padding: '2px 7px', borderRadius: '4px', fontSize: '8px', fontWeight: 700,
                           textTransform: 'uppercase', flexShrink: 0,
                           background: rb, color: rc, border: `1px solid ${rd}`,
-                          fontFamily: 'IBM Plex Mono, monospace',
+                          fontFamily: 'var(--font-mono)',
                         }}>
                           {client._risk_level}
                         </span>
@@ -906,10 +906,10 @@ export default function DashboardPage() {
                         ))}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                        <span style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+                        <span style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)' }}>
                           PIPELINE
                         </span>
-                        <span style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>
+                        <span style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)' }}>
                           {client._project_count} proc.
                         </span>
                       </div>
@@ -937,7 +937,7 @@ export default function DashboardPage() {
                 style={{
                   fontSize: '9px', color: C.text3, textDecoration: 'none',
                   display: 'flex', alignItems: 'center', gap: '4px',
-                  fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em',
+                  fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
                   transition: 'color 150ms ease', marginTop: '-14px',
                 }}
               >
@@ -968,7 +968,7 @@ export default function DashboardPage() {
                         padding: '2px 7px', borderRadius: '4px', fontSize: '8px', fontWeight: 700,
                         minWidth: '52px', textAlign: 'center', flexShrink: 0,
                         color: urg.cor, border: `1px solid ${urg.border}`,
-                        fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em',
+                        fontFamily: 'var(--font-mono)', letterSpacing: '0.05em',
                         background: 'transparent',
                       }}>
                         {dias < 0 ? 'VENCIDO' : dias === 0 ? 'HOJE' : dias === 1 ? 'AMANHÃ' : `${dias}d`}
@@ -982,14 +982,14 @@ export default function DashboardPage() {
                         </div>
                         <div style={{
                           fontSize: '9px', color: C.text3, marginTop: '2px',
-                          fontFamily: 'IBM Plex Mono, monospace',
+                          fontFamily: 'var(--font-mono)',
                         }}>
                           {p.project_name || '—'}
                         </div>
                       </div>
                       <span style={{
                         fontSize: '9px', color: C.text3, flexShrink: 0,
-                        fontFamily: 'IBM Plex Mono, monospace',
+                        fontFamily: 'var(--font-mono)',
                       }}>
                         {formatDate(p.data_prazo)}
                       </span>
@@ -1038,7 +1038,7 @@ export default function DashboardPage() {
                           </div>
                           <div style={{
                             fontSize: '9px', color: C.text3, marginTop: '4px',
-                            fontFamily: 'IBM Plex Mono, monospace',
+                            fontFamily: 'var(--font-mono)',
                           }}>
                             {relativeTime(a.created_at)}
                           </div>

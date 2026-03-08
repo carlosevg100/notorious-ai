@@ -211,7 +211,7 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
                 width: '32px', height: '32px', borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '13px', fontWeight: 700,
-                fontFamily: 'IBM Plex Mono, monospace',
+                fontFamily: 'var(--font-mono)',
                 background: isDone ? C.green : isActive ? C.amber : C.bg3,
                 color: isDone ? '#fff' : isActive ? '#fff' : C.text3,
                 border: `2px solid ${isDone ? C.green : isActive ? C.amber : C.border2}`,
@@ -220,7 +220,7 @@ function StepIndicator({ step, C }: { step: number; C: ReturnType<typeof getColo
                 {isDone ? '✓' : s.n}
               </div>
               <span style={{
-                fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace',
+                fontSize: '9px', fontFamily: 'var(--font-mono)',
                 textTransform: 'uppercase', letterSpacing: '0.08em',
                 color: isActive ? C.amber : isDone ? C.green : C.text3,
                 whiteSpace: 'nowrap',
@@ -275,7 +275,7 @@ function CategoryDropdown({
           border: `1px solid ${highlighted ? C.amber : C.border2}`,
           color: disabled ? C.text3 : C.text1,
           fontSize: '11px',
-          fontFamily: 'IBM Plex Mono, monospace',
+          fontFamily: 'var(--font-mono)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           minWidth: '140px',
@@ -311,7 +311,7 @@ function TribunalBadge({ tribunal, C }: { tribunal: string; C: ReturnType<typeof
       padding: '2px 8px', borderRadius: '4px',
       background: bg, border: `1px solid ${border}`,
       color, fontSize: '10px', fontWeight: 700,
-      fontFamily: 'IBM Plex Mono, monospace',
+      fontFamily: 'var(--font-mono)',
       letterSpacing: '0.06em', flexShrink: 0,
     }}>
       {tribunal}
@@ -329,8 +329,8 @@ function JurisprudenciaCard({ item, type, C }: { item: JurisprudenciaItem; type:
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <TribunalBadge tribunal={item.tribunal} C={C} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.numero}</div>
-          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{item.data}</div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: C.text1, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.numero}</div>
+          <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '1px' }}>{item.data}</div>
         </div>
         <button onClick={() => setExpanded(e => !e)} style={{ background: badgeBg, border: 'none', color: type === 'favorable' ? C.green : C.red, cursor: 'pointer', padding: '2px 4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
           <ChevronRight size={12} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
@@ -356,8 +356,8 @@ function ProbabilityDisplay({ value, C }: { value: number; C: ReturnType<typeof 
   const label = value >= 70 ? 'Favorável' : value >= 40 ? 'Incerto' : 'Desfavorável'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, textAlign: 'center' }}>
-      <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Probabilidade de Êxito</div>
-      <div style={{ fontSize: '48px', fontWeight: 800, color, lineHeight: 1, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '-0.02em' }}>{value}%</div>
+      <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Probabilidade de Êxito</div>
+      <div style={{ fontSize: '48px', fontWeight: 800, color, lineHeight: 1, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{value}%</div>
       <div style={{ marginTop: '6px', padding: '3px 12px', borderRadius: '20px', background: color + '20', border: `1px solid ${color}50`, fontSize: '11px', fontWeight: 700, color }}>{label}</div>
       <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: C.bg3, overflow: 'hidden', marginTop: '10px' }}>
         <div style={{ height: '100%', width: `${value}%`, borderRadius: '2px', background: color, transition: 'width 800ms ease', boxShadow: `0 0 6px ${color}66` }} />
@@ -375,7 +375,7 @@ function PriorityBadge({ prioridade, C }: { prioridade: DocumentoNecessario['pri
   }
   const s = config[prioridade] || config.baixa
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', flexShrink: 0 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', flexShrink: 0 }}>
       {s.label}
     </span>
   )
@@ -470,7 +470,7 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
           <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
             <ClipboardList size={13} style={{ color: C.blue, flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {checklist.titulo || 'CHECKLIST DE DOCUMENTOS DO CLIENTE'}
               </div>
               {checklist.subtitulo && (
@@ -478,7 +478,7 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
               )}
             </div>
           </div>
-          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+          <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             {totalDocs} documentos · {grupos.length} grupos
           </span>
         </div>
@@ -488,13 +488,13 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
         return (
           <div key={gi} style={{ borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, overflow: 'hidden' }}>
             <div style={{ padding: '10px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: C.text1, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
                 {grupo.nome}
               </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`, flexShrink: 0 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', background: bc.bg, color: bc.color, border: `1px solid ${bc.border}`, flexShrink: 0 }}>
                 {grupo.classificacao}
               </span>
-              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+              <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                 {grupo.documentos.length} doc{grupo.documentos.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -512,7 +512,7 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
                     {(['Rec', 'Dig', 'Jun'] as const).map(label => (
                       <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                         <div style={{ width: '16px', height: '16px', borderRadius: '3px', border: `1.5px solid ${C.border3}`, background: C.bg2, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>{label}</span>
+                        <span style={{ fontSize: '8px', color: C.text4, fontFamily: 'var(--font-mono)' }}>{label}</span>
                       </div>
                     ))}
                   </div>
@@ -526,7 +526,7 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
         <div style={{ borderRadius: '10px', background: C.amberBg, border: `2px solid ${C.amberBorder}`, overflow: 'hidden' }}>
           <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
             <AlertCircle size={13} style={{ color: C.amber, flexShrink: 0 }} />
-            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Observações Estratégicas do Advogado
             </div>
           </div>
@@ -535,7 +535,7 @@ function ChecklistDocumentosCard({ checklist, C }: { checklist: ChecklistDocumen
               const obc = obsBadgeColors(obs.tipo)
               return (
                 <div key={oi} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '3px 9px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.05em', marginTop: '1px', background: obc.bg, color: obc.color, border: `1px solid ${obc.border}` }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '3px 9px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', marginTop: '1px', background: obc.bg, color: obc.color, border: `1px solid ${obc.border}` }}>
                     {obs.tipo}
                   </span>
                   <div style={{ fontSize: '12px', color: C.text1, lineHeight: 1.6 }}>{obs.descricao}</div>
@@ -557,7 +557,7 @@ function RiskBadge({ risco, C }: { risco: string; C: ReturnType<typeof getColors
   const border = lower === 'alto' ? C.redBorder : lower === 'medio' ? C.amberBorder : C.greenBorder
   const label = lower === 'alto' ? '⚠ Risco Alto' : lower === 'medio' ? '◈ Risco Médio' : '✓ Risco Baixo'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', background: bg, border: `1px solid ${border}`, color, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: '6px', background: bg, border: `1px solid ${border}`, color, fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
       {label}
     </span>
   )
@@ -568,7 +568,7 @@ function DetailField({ label, value, C, span }: { label: string; value: string |
   const empty = !value || value.trim() === ''
   return (
     <div style={{ marginBottom: '8px', gridColumn: span ? '1 / -1' : undefined }}>
-      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
       <div style={{ fontSize: '12px', fontWeight: empty ? 400 : 500, marginTop: '2px', lineHeight: 1.4, color: empty ? C.text4 : C.text1, fontStyle: empty ? 'italic' : 'normal' }}>
         {empty ? 'Não informado' : value}
       </div>
@@ -642,17 +642,17 @@ function ExpandablePartyCard({
       >
         {icon}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
           <div style={{ fontSize: '13px', color: C.text1, fontWeight: 600, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {p.nome || <span style={{ color: C.text4, fontStyle: 'italic', fontWeight: 400 }}>Não identificado</span>}
           </div>
         </div>
         {p.cpf_cnpj && (
-          <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{p.cpf_cnpj}</span>
+          <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{p.cpf_cnpj}</span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '4px' }}>
           {!expanded && (
-            <span style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>detalhes</span>
+            <span style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)' }}>detalhes</span>
           )}
           <ChevronRight size={12} style={{ color: C.text4, transform: expanded ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
         </div>
@@ -662,12 +662,12 @@ function ExpandablePartyCard({
       {!expanded && (
         <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           {p.estado_civil && (
-            <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{p.estado_civil}</span>
+            <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)' }}>{p.estado_civil}</span>
           )}
           {p.profissao && (
             <span style={{ fontSize: '11px', color: C.text3 }}>{p.profissao}</span>
           )}
-          <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)' }}>
             {(p.advogados || []).length > 0 ? `${p.advogados.length} adv.` : 'sem advogado'}
           </span>
         </div>
@@ -698,14 +698,14 @@ function ExpandablePartyCard({
           {/* Outras info */}
           {p.outras_info && p.outras_info.trim() !== '' && (
             <div style={{ marginTop: '4px', marginBottom: '8px', padding: '8px 10px', borderRadius: '6px', background: C.bg3, border: `1px solid ${C.border1}` }}>
-              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Outras Informações</div>
+              <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Outras Informações</div>
               <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{p.outras_info}</div>
             </div>
           )}
 
           {/* Advogados */}
           <div style={{ marginTop: '12px', borderTop: `1px solid ${C.border1}`, paddingTop: '12px' }}>
-            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>
+            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>
               Advogados {(p.advogados || []).length > 0 ? `(${p.advogados.length})` : ''}
             </div>
 
@@ -727,7 +727,7 @@ function ExpandablePartyCard({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '12px', color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adv.nome || '—'}</div>
                       {oabLabel && (
-                        <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>{oabLabel}</div>
+                        <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '1px' }}>{oabLabel}</div>
                       )}
                     </div>
                     <ChevronRight size={11} style={{ color: C.text4, flexShrink: 0, transform: advExp ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
@@ -1831,7 +1831,7 @@ export default function NovoProcessoModal({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0', flexShrink: 0 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: C.text1, letterSpacing: '-0.01em' }}>Novo Processo</h2>
-            <p style={{ margin: '4px 0 0', fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
               {step === 1 && 'Etapa 1 de 5 — Upload de documentos do processo'}
               {step === 2 && 'Etapa 2 de 5 — Extração AI em andamento'}
               {step === 3 && 'Etapa 3 de 5 — Resumo executivo + documentos necessários'}
@@ -1883,7 +1883,7 @@ export default function NovoProcessoModal({
                       const isSelected = selectedClient === c.id
                       return (
                         <button key={c.id} onClick={() => setSelectedClient(c.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', background: isSelected ? C.amberBg : C.bg2, border: `2px solid ${isSelected ? C.amber : C.border1}`, cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 150ms ease' }}>
-                          <span style={{ width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0, background: ac + '25', border: `1px solid ${ac}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: ac, fontFamily: 'IBM Plex Mono, monospace' }}>
+                          <span style={{ width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0, background: ac + '25', border: `1px solid ${ac}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: ac, fontFamily: 'var(--font-mono)' }}>
                             {getInitials(c.name)}
                           </span>
                           <span style={{ fontSize: '12px', color: isSelected ? C.amber : C.text1, fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1928,8 +1928,8 @@ export default function NovoProcessoModal({
                   <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ padding: '9px 14px', borderRadius: '8px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: C.amber, fontWeight: 600 }}>
                       <span style={{ fontSize: '14px' }}>⚖️</span>
-                      Selecione qual documento é a <strong style={{ fontFamily: 'IBM Plex Mono, monospace' }}>Petição Inicial</strong>
-                      {hasPeticao && <span style={{ marginLeft: 'auto', fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', color: C.green, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Marcada</span>}
+                      Selecione qual documento é a <strong style={{ fontFamily: 'var(--font-mono)' }}>Petição Inicial</strong>
+                      {hasPeticao && <span style={{ marginLeft: 'auto', fontSize: '10px', fontFamily: 'var(--font-mono)', color: C.green, display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={12} /> Marcada</span>}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
                       {taggedFiles.map(tf => {
@@ -1939,10 +1939,10 @@ export default function NovoProcessoModal({
                             <FileText size={14} style={{ color: tf.category === 'Petição Inicial' ? C.amber : C.text3, flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: '12px', fontWeight: 500, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tf.file.name}</div>
-                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
+                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
                             </div>
                             {showSuggestion && (
-                              <button onClick={() => handleCategoryChange(tf.id, 'Petição Inicial')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '12px', background: C.amberBg, border: `1px solid ${C.amber}`, color: C.amber, fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600, letterSpacing: '0.02em', animation: 'pulse 2s ease-in-out infinite' }}>
+                              <button onClick={() => handleCategoryChange(tf.id, 'Petição Inicial')} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '12px', background: C.amberBg, border: `1px solid ${C.amber}`, color: C.amber, fontSize: '10px', fontFamily: 'var(--font-mono)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 600, letterSpacing: '0.02em', animation: 'pulse 2s ease-in-out infinite' }}>
                                 ✦ Sugestão: Petição Inicial?
                               </button>
                             )}
@@ -1973,7 +1973,7 @@ export default function NovoProcessoModal({
               <button
                 disabled={!canProceed}
                 onClick={runExtraction}
-                style={{ width: '100%', padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: canProceed ? 'pointer' : 'not-allowed', border: `1px solid ${canProceed ? C.amber : C.border1}`, background: canProceed ? C.amber : C.bg3, color: canProceed ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em' }}
+                style={{ width: '100%', padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: canProceed ? 'pointer' : 'not-allowed', border: `1px solid ${canProceed ? C.amber : C.border1}`, background: canProceed ? C.amber : C.bg3, color: canProceed ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}
               >
                 {canProceed ? `Enviar ${taggedFiles.length} documento${taggedFiles.length > 1 ? 's' : ''} para Análise →` : !selectedClient ? 'Selecione o cliente primeiro' : taggedFiles.length === 0 ? 'Adicione ao menos um PDF' : 'Marque a Petição Inicial'}
               </button>
@@ -2000,22 +2000,22 @@ export default function NovoProcessoModal({
                     <div style={{ fontSize: '14px', color: C.text1, lineHeight: 1.5 }}>
                       Processando <strong style={{ color: C.amber }}>{taggedFiles.length} documento(s)</strong>
                     </div>
-                    {selectedClientName && <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>{selectedClientName}</div>}
+                    {selectedClientName && <div style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '2px' }}>{selectedClientName}</div>}
                   </div>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso geral</span>
-                      <span style={{ fontSize: '11px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{overallProgress}%</span>
+                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso geral</span>
+                      <span style={{ fontSize: '11px', color: C.amber, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{overallProgress}%</span>
                     </div>
                     <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: C.bg3, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${overallProgress}%`, borderRadius: '3px', background: `linear-gradient(90deg, ${C.amber}cc, ${C.amber})`, transition: 'width 400ms ease', boxShadow: `0 0 8px ${C.amber}66` }} />
                     </div>
-                    <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '4px' }}>
+                    <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
                       {extractions.filter(e => e.status === 'done' || e.status === 'error').length} de {taggedFiles.length} documentos concluídos
                     </div>
                   </div>
                   <div style={{ borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border1}`, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Status por documento</div>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Status por documento</div>
                     {extractions.map(e => (
                       <div key={e.taggedFileId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0', borderBottom: `1px solid ${C.border1}` }}>
                         <FileStatusIcon status={e.status} C={C} />
@@ -2023,25 +2023,25 @@ export default function NovoProcessoModal({
                           <div style={{ fontSize: '11px', color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.fileName}</div>
                           {e.error && <div style={{ fontSize: '10px', color: C.red, marginTop: '1px' }}>{e.error}</div>}
                         </div>
-                        <span style={{ fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.amber : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
+                        <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.amber : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
                       </div>
                     ))}
                   </div>
                   <div style={{ borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '0', maxHeight: '200px', overflowY: 'auto' }}>
-                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: overallProgress === 100 ? C.green : C.amber, boxShadow: overallProgress === 100 ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`, animation: overallProgress === 100 ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
                       Log de Extração
                     </div>
                     {logLines.map((line, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '2px 0', animation: 'fadeInRow 200ms ease' }}>
-                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text3, fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', lineHeight: '18px', flexShrink: 0, minWidth: '10px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
-                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px' }}>{line}</span>
+                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text3, fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: '18px', flexShrink: 0, minWidth: '10px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
+                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : C.text2, fontFamily: 'var(--font-mono)', lineHeight: '18px' }}>{line}</span>
                       </div>
                     ))}
                     {overallProgress < 100 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}>
                         <Loader2 size={11} style={{ color: C.amber, animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                        <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Processando...</span>
+                        <span style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)' }}>Processando...</span>
                       </div>
                     )}
                   </div>
@@ -2062,7 +2062,7 @@ export default function NovoProcessoModal({
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: C.text1, marginBottom: '6px' }}>Extraindo dados do processo...</div>
-                    <div style={{ fontSize: '12px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Litigator AI analisando todos os documentos em profundidade</div>
+                    <div style={{ fontSize: '12px', color: C.text3, fontFamily: 'var(--font-mono)' }}>Litigator AI analisando todos os documentos em profundidade</div>
                   </div>
                 </div>
               )}
@@ -2085,7 +2085,7 @@ export default function NovoProcessoModal({
                   <div style={{ padding: '11px 14px', background: C.bg3, borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '9px' }}>
                     {icon}
                     <div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: C.text2, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
                       {sub && <div style={{ fontSize: '10px', color: C.text4, marginTop: '1px' }}>{sub}</div>}
                     </div>
                   </div>
@@ -2100,7 +2100,7 @@ export default function NovoProcessoModal({
                 const LabelValue = ({ label, value }: { label: string; value: string | undefined | null }) =>
                   value && value !== '' && value !== 'Não identificado' ? (
                     <div style={{ marginBottom: '8px' }}>
-                      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+                      <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
                       <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500, marginTop: '2px', lineHeight: 1.4 }}>{value}</div>
                     </div>
                   ) : null
@@ -2111,12 +2111,12 @@ export default function NovoProcessoModal({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: C.text1 }}>Ficha do Processo</div>
-                        <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '1px' }}>Extração estruturada por IA Jurídica</div>
+                        <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', marginTop: '1px' }}>Extração estruturada por IA Jurídica</div>
                       </div>
                       <RiskBadge risco={caseAnalysis.risco_preliminar} C={C} />
                       <button
                         onClick={exportRelatorio}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '7px', background: C.bg2, border: `1px solid ${C.border3}`, color: C.text2, cursor: 'pointer', fontSize: '11px', fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', transition: 'all 150ms ease', flexShrink: 0 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '7px', background: C.bg2, border: `1px solid ${C.border3}`, color: C.text2, cursor: 'pointer', fontSize: '11px', fontWeight: 600, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', transition: 'all 150ms ease', flexShrink: 0 }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = C.blue; e.currentTarget.style.color = C.blue }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text2 }}
                       >
@@ -2169,7 +2169,7 @@ export default function NovoProcessoModal({
                           {/* tipo badge + descrição */}
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
                             {caseAnalysis.objeto_da_acao.tipo && caseAnalysis.objeto_da_acao.tipo !== '' && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '11px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                                 {caseAnalysis.objeto_da_acao.tipo}
                               </span>
                             )}
@@ -2184,7 +2184,7 @@ export default function NovoProcessoModal({
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px 16px' }}>
                               {caseAnalysis.objeto_da_acao.detalhes.map((d, i) => (
                                 <div key={i}>
-                                  <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{d.campo}</div>
+                                  <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{d.campo}</div>
                                   <div style={{ fontSize: '12px', fontWeight: 600, color: C.text1, marginTop: '2px', lineHeight: 1.4 }}>{d.valor}</div>
                                 </div>
                               ))}
@@ -2206,10 +2206,10 @@ export default function NovoProcessoModal({
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: '12px', color: C.text1, fontWeight: 500 }}>{it.descricao}</div>
                               {it.fundamento && it.fundamento !== '' && (
-                                <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px', lineHeight: 1.4 }}>{it.fundamento}</div>
+                                <div style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)', marginTop: '2px', lineHeight: 1.4 }}>{it.fundamento}</div>
                               )}
                             </div>
-                            <span style={{ fontSize: '12px', color: C.text1, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>{it.valor}</span>
+                            <span style={{ fontSize: '12px', color: C.text1, fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{it.valor}</span>
                           </div>
                         ))}
                         {(caseAnalysis.valores?.itens || []).length === 0 && (
@@ -2217,8 +2217,8 @@ export default function NovoProcessoModal({
                         )}
                         {caseAnalysis.valores?.total && caseAnalysis.valores.total !== 'Não identificado' && caseAnalysis.valores.total !== '' && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 12px', margin: '8px 0 12px', borderRadius: '7px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
-                            <span style={{ fontSize: '12px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>TOTAL PLEITEADO</span>
-                            <span style={{ fontSize: '14px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>{caseAnalysis.valores.total}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)' }}>TOTAL PLEITEADO</span>
+                            <span style={{ fontSize: '14px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)' }}>{caseAnalysis.valores.total}</span>
                           </div>
                         )}
                       </div>
@@ -2235,11 +2235,11 @@ export default function NovoProcessoModal({
                         )}
                         {(caseAnalysis.fatos_narrados || []).length > 0 && (
                           <div>
-                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Fatos Narrados pelo Autor</div>
+                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Fatos Narrados pelo Autor</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                               {caseAnalysis.fatos_narrados.map((f, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '7px 10px', borderRadius: '6px', background: C.bg3, border: `1px solid ${C.border1}` }}>
-                                  <span style={{ color: C.amber, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
+                                  <span style={{ color: C.amber, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
                                   <span>{f}</span>
                                 </div>
                               ))}
@@ -2255,10 +2255,10 @@ export default function NovoProcessoModal({
                       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         {(caseAnalysis.fundamento_juridico?.base_legal || []).length > 0 && (
                           <div>
-                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Base Legal</div>
+                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Base Legal</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                               {caseAnalysis.fundamento_juridico.base_legal.map((b, i) => (
-                                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, fontSize: '11px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace' }}>
+                                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '5px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, fontSize: '11px', color: C.blue, fontFamily: 'var(--font-mono)' }}>
                                   <Link size={9} /> {b}
                                 </span>
                               ))}
@@ -2267,11 +2267,11 @@ export default function NovoProcessoModal({
                         )}
                         {(caseAnalysis.fundamento_juridico?.teses || []).length > 0 && (
                           <div>
-                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Teses do Autor</div>
+                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Teses do Autor</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {caseAnalysis.fundamento_juridico.teses.map((t, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '6px 10px', borderRadius: '6px', background: C.bg3 }}>
-                                  <span style={{ color: C.blue, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
+                                  <span style={{ color: C.blue, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px' }}>{String(i + 1).padStart(2, '0')}</span>
                                   <span>{t}</span>
                                 </div>
                               ))}
@@ -2280,11 +2280,11 @@ export default function NovoProcessoModal({
                         )}
                         {(caseAnalysis.fundamento_juridico?.pedidos || []).length > 0 && (
                           <div>
-                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Pedidos ao Juiz</div>
+                            <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700 }}>Pedidos ao Juiz</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {caseAnalysis.fundamento_juridico.pedidos.map((p, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px', color: C.text2, lineHeight: 1.5, padding: '7px 10px', borderRadius: '6px', background: C.redBg, border: `1px solid ${C.redBorder}` }}>
-                                  <span style={{ color: C.red, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', marginTop: '2px', minWidth: '18px', fontWeight: 700 }}>{i + 1}.</span>
+                                  <span style={{ color: C.red, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: '10px', marginTop: '2px', minWidth: '18px', fontWeight: 700 }}>{i + 1}.</span>
                                   <span>{p}</span>
                                 </div>
                               ))}
@@ -2320,7 +2320,7 @@ export default function NovoProcessoModal({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                       <span style={{ fontSize: '12px', fontWeight: 600, color: C.text1 }}>📄 {prova.documento}</span>
                                       {prova.tipo && prova.tipo !== '' && (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: '4px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', flexShrink: 0 }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: '4px', background: C.blueBg, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: '10px', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                                           {prova.tipo}
                                         </span>
                                       )}
@@ -2339,19 +2339,19 @@ export default function NovoProcessoModal({
                                   <div style={{ padding: '0 12px 12px', borderTop: `1px solid ${C.border1}`, display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px' }}>
                                     {prova.conteudo_principal && prova.conteudo_principal !== '' && (
                                       <div>
-                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Conteúdo Principal</div>
+                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Conteúdo Principal</div>
                                         <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>{prova.conteudo_principal}</div>
                                       </div>
                                     )}
                                     {prova.como_autor_usa && prova.como_autor_usa !== '' && (
                                       <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.blueBg, border: `1px solid ${C.blueBorder}` }}>
-                                        <div style={{ fontSize: '9px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Como o Autor Usa</div>
+                                        <div style={{ fontSize: '9px', color: C.blue, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>Como o Autor Usa</div>
                                         <div style={{ fontSize: '12px', color: C.blue, lineHeight: 1.6 }}>{prova.como_autor_usa}</div>
                                       </div>
                                     )}
                                     {prova.tese_que_embasa && prova.tese_que_embasa !== '' && (
                                       <div>
-                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Tese que Embasa</div>
+                                        <div style={{ fontSize: '9px', color: C.text4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Tese que Embasa</div>
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', fontSize: '12px', color: C.text2, lineHeight: 1.6 }}>
                                           <span style={{ color: C.amber, flexShrink: 0 }}>→</span>
                                           <span>{prova.tese_que_embasa}</span>
@@ -2360,7 +2360,7 @@ export default function NovoProcessoModal({
                                     )}
                                     {prova.pontos_de_atencao && prova.pontos_de_atencao !== '' && (
                                       <div style={{ padding: '8px 10px', borderRadius: '6px', background: C.amberBg, border: `1px solid ${C.amberBorder}` }}>
-                                        <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>⚠ Pontos de Atenção</div>
+                                        <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px', fontWeight: 700 }}>⚠ Pontos de Atenção</div>
                                         <div style={{ fontSize: '12px', color: C.amber, lineHeight: 1.6 }}>{prova.pontos_de_atencao}</div>
                                       </div>
                                     )}
@@ -2380,13 +2380,13 @@ export default function NovoProcessoModal({
                         <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '0' }}>
                           {(caseAnalysis.datas_importantes || []).map((d, i) => (
                             <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${C.border1}` }}>
-                              <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, minWidth: '110px', paddingTop: '1px', flexShrink: 0 }}>{d.data}</div>
+                              <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'var(--font-mono)', fontWeight: 600, minWidth: '110px', paddingTop: '1px', flexShrink: 0 }}>{d.data}</div>
                               <div style={{ fontSize: '12px', color: C.text2, lineHeight: 1.5 }}>{d.evento}</div>
                             </div>
                           ))}
                           {caseAnalysis.prazo_contestacao && caseAnalysis.prazo_contestacao !== 'A verificar' && (
                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 12px', margin: '8px 0 4px', borderRadius: '7px', background: C.redBg, border: `1px solid ${C.redBorder}` }}>
-                              <div style={{ fontSize: '10px', color: C.red, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, minWidth: '110px', flexShrink: 0 }}>⚠ PRAZO CONTES.</div>
+                              <div style={{ fontSize: '10px', color: C.red, fontFamily: 'var(--font-mono)', fontWeight: 700, minWidth: '110px', flexShrink: 0 }}>⚠ PRAZO CONTES.</div>
                               <div style={{ fontSize: '12px', color: C.red, fontWeight: 600 }}>{caseAnalysis.prazo_contestacao}</div>
                             </div>
                           )}
@@ -2415,7 +2415,7 @@ export default function NovoProcessoModal({
                             sub="Solicite estes documentos antes de prosseguir"
                           />
                           <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace' }}>
+                            <span style={{ fontSize: '10px', color: C.text4, fontFamily: 'var(--font-mono)' }}>
                               {checkedDocs.size}/{caseAnalysis.documentos_necessarios_cliente.length} coletados
                             </span>
                           </div>
@@ -2461,7 +2461,7 @@ export default function NovoProcessoModal({
                       <button
                         onClick={handleSaveAndWait}
                         disabled={isSavingAndWaiting}
-                        style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: isSavingAndWaiting ? 'not-allowed' : 'pointer', border: `1px solid ${C.border3}`, background: isSavingAndWaiting ? C.bg3 : C.bg2, color: isSavingAndWaiting ? C.text4 : C.text2, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: isSavingAndWaiting ? 'not-allowed' : 'pointer', border: `1px solid ${C.border3}`, background: isSavingAndWaiting ? C.bg3 : C.bg2, color: isSavingAndWaiting ? C.text4 : C.text2, transition: 'all 200ms ease', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         onMouseEnter={e => { if (!isSavingAndWaiting) { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text1 } }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = C.border3; e.currentTarget.style.color = C.text2 }}
                       >
@@ -2469,7 +2469,7 @@ export default function NovoProcessoModal({
                       </button>
                       <button
                         onClick={() => setStep(4)}
-                        style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.amber}`, background: C.amber, color: '#fff', transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.amber}`, background: C.amber, color: '#fff', transition: 'all 200ms ease', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                       >
                         <ShieldCheck size={14} />
                         Já Tenho os Documentos — Continuar →
@@ -2504,8 +2504,8 @@ export default function NovoProcessoModal({
                   </div>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso</span>
-                      <span style={{ fontSize: '11px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{clientProgress}%</span>
+                      <span style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso</span>
+                      <span style={{ fontSize: '11px', color: C.blue, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{clientProgress}%</span>
                     </div>
                     <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: C.bg3, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${clientProgress}%`, borderRadius: '3px', background: `linear-gradient(90deg, ${C.blue}cc, ${C.blue})`, transition: 'width 400ms ease', boxShadow: `0 0 8px ${C.blue}66` }} />
@@ -2519,22 +2519,22 @@ export default function NovoProcessoModal({
                           <div style={{ fontSize: '11px', color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.fileName}</div>
                           {e.error && <div style={{ fontSize: '10px', color: C.red }}>{e.error}</div>}
                         </div>
-                        <span style={{ fontSize: '9px', fontFamily: 'IBM Plex Mono, monospace', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.blue : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
+                        <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: e.status === 'done' ? C.green : e.status === 'error' ? C.red : e.status === 'processing' ? C.blue : C.text4, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>{e.category}</span>
                       </div>
                     ))}
                   </div>
                   <div style={{ borderRadius: '8px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '14px 16px', maxHeight: '180px', overflowY: 'auto' }}>
-                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: clientExtractionsDone ? C.green : C.blue, boxShadow: clientExtractionsDone ? `0 0 6px ${C.green}` : `0 0 6px ${C.blue}`, animation: clientExtractionsDone ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
                       Log de Extração — Documentos do Cliente
                     </div>
                     {clientLogLines.map((line, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '2px 0' }}>
-                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text3, fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
-                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '18px' }}>{line}</span>
+                        <span style={{ color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text3, fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? '' : '·'}</span>
+                        <span style={{ fontSize: '11px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.blue : C.text2, fontFamily: 'var(--font-mono)', lineHeight: '18px' }}>{line}</span>
                       </div>
                     ))}
-                    {!clientExtractionsDone && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}><Loader2 size={11} style={{ color: C.blue, animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: '11px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Processando...</span></div>}
+                    {!clientExtractionsDone && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' }}><Loader2 size={11} style={{ color: C.blue, animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: '11px', color: C.text3, fontFamily: 'var(--font-mono)' }}>Processando...</span></div>}
                   </div>
                 </div>
               ) : (
@@ -2585,7 +2585,7 @@ export default function NovoProcessoModal({
                             <FileText size={14} style={{ color: C.blue, flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: '12px', fontWeight: 500, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tf.file.name}</div>
-                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
+                              <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)' }}>{(tf.file.size / 1024).toFixed(0)} KB</div>
                             </div>
                             <CategoryDropdown
                               value={tf.category}
@@ -2606,7 +2606,7 @@ export default function NovoProcessoModal({
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                       onClick={() => resumeProject ? onClose() : setStep(3)}
-                      style={{ padding: '11px 20px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.border2}`, background: 'transparent', color: C.text3, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace' }}
+                      style={{ padding: '11px 20px', borderRadius: '8px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${C.border2}`, background: 'transparent', color: C.text3, transition: 'all 200ms ease', fontFamily: 'var(--font-mono)' }}
                     >
                       {resumeProject ? '✕ Fechar' : '← Voltar'}
                     </button>
@@ -2614,7 +2614,7 @@ export default function NovoProcessoModal({
                     <button
                       disabled={clientTaggedFiles.length === 0}
                       onClick={runClientExtraction}
-                      style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: clientTaggedFiles.length > 0 ? 'pointer' : 'not-allowed', border: `1px solid ${clientTaggedFiles.length > 0 ? C.blue : C.border1}`, background: clientTaggedFiles.length > 0 ? C.blue : C.bg3, color: clientTaggedFiles.length > 0 ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      style={{ flex: 1, padding: '13px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: clientTaggedFiles.length > 0 ? 'pointer' : 'not-allowed', border: `1px solid ${clientTaggedFiles.length > 0 ? C.blue : C.border1}`, background: clientTaggedFiles.length > 0 ? C.blue : C.bg3, color: clientTaggedFiles.length > 0 ? '#fff' : C.text4, transition: 'all 200ms ease', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
                       <ShieldCheck size={16} />
                       {clientTaggedFiles.length > 0 ? `Enviar ${clientTaggedFiles.length} documento(s) para Análise Cruzada →` : 'Adicione ao menos um PDF'}
@@ -2650,7 +2650,7 @@ export default function NovoProcessoModal({
                           <Scale size={16} style={{ color: C.amber, flexShrink: 0 }} />
                           <div>
                             <div style={{ fontSize: '12px', fontWeight: 600, color: C.amber }}>{peticaoData.tipo_acao || 'Ação em análise'}</div>
-                            <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', marginTop: '2px' }}>
+                            <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
                               {[typeof peticaoData.autor === 'object' ? peticaoData.autor?.nome : peticaoData.autor, 'x', typeof peticaoData.reu === 'object' ? peticaoData.reu?.nome : peticaoData.reu].filter(Boolean).join(' ')} — {peticaoData.comarca || 'Comarca não informada'}
                               {clientExtractions.filter(e => e.status === 'done').length > 0 && (
                                 <span style={{ color: C.blue, marginLeft: '8px' }}>· {clientExtractions.filter(e => e.status === 'done').length} doc(s) do cliente incluídos</span>
@@ -2661,17 +2661,17 @@ export default function NovoProcessoModal({
                       )}
 
                       <div style={{ borderRadius: '10px', background: C.bg0, border: `1px solid ${C.border1}`, padding: '16px 20px', minHeight: '280px' }}>
-                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: researchDone ? C.green : C.amber, boxShadow: researchDone ? `0 0 6px ${C.green}` : `0 0 6px ${C.amber}`, animation: researchDone ? 'none' : 'pulse 1.2s ease-in-out infinite' }} />
                           Pesquisa Jurisprudencial — IA{clientExtractions.filter(e => e.status === 'done').length > 0 && ' + Análise Cruzada'}
                         </div>
                         <div ref={researchLogRef} style={{ display: 'flex', flexDirection: 'column', gap: '0', maxHeight: '300px', overflowY: 'auto' }}>
                           {researchLogLines.map((line, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '5px 0', borderBottom: i < researchLogLines.length - 1 ? `1px solid ${C.border1}` : 'none', animation: 'fadeInRow 300ms ease' }}>
-                              <span style={{ fontSize: '12px', color: C.text4, fontFamily: 'IBM Plex Mono, monospace', width: '20px', flexShrink: 0 }}>
+                              <span style={{ fontSize: '12px', color: C.text4, fontFamily: 'var(--font-mono)', width: '20px', flexShrink: 0 }}>
                                 {line.startsWith('✓') ? '✓' : line.startsWith('✗') ? '✗' : line.startsWith('▸') ? '▸' : '·'}
                               </span>
-                              <span style={{ fontSize: '13px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : i === researchLogLines.length - 1 ? C.text1 : C.text2, fontFamily: 'IBM Plex Mono, monospace', lineHeight: '22px', fontWeight: line.startsWith('▸') ? 700 : 400 }}>
+                              <span style={{ fontSize: '13px', color: line.startsWith('✓') ? C.green : line.startsWith('✗') ? C.red : line.startsWith('▸') ? C.amber : i === researchLogLines.length - 1 ? C.text1 : C.text2, fontFamily: 'var(--font-mono)', lineHeight: '22px', fontWeight: line.startsWith('▸') ? 700 : 400 }}>
                                 {line.startsWith('✓') || line.startsWith('✗') || line.startsWith('▸') ? line.slice(2) : line}
                               </span>
                               {i === researchLogLines.length - 1 && !researchDone && !line.startsWith('✓') && !line.startsWith('✗') && !line.startsWith('▸') && (
@@ -2682,7 +2682,7 @@ export default function NovoProcessoModal({
                           {researchLogLines.length === 0 && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <Loader2 size={14} style={{ color: C.amber, animation: 'spin 1s linear infinite' }} />
-                              <span style={{ fontSize: '13px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Iniciando pesquisa...</span>
+                              <span style={{ fontSize: '13px', color: C.text3, fontFamily: 'var(--font-mono)' }}>Iniciando pesquisa...</span>
                             </div>
                           )}
                         </div>
@@ -2707,21 +2707,21 @@ export default function NovoProcessoModal({
                 <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
                   {/* Left column: Strategy */}
                   <div style={{ flex: '0 0 58%', overflowY: 'auto', paddingRight: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ fontSize: '10px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '10px', color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Scale size={12} /> ESTRATÉGIA DE DEFESA
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <ProbabilityDisplay value={strategyData.probabilidade_exito} C={C} />
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, textAlign: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recomendação</div>
-                        <div style={{ padding: '6px 14px', borderRadius: '20px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, fontSize: '13px', fontWeight: 700, color: C.amber, fontFamily: 'IBM Plex Mono, monospace' }}>{strategyData.recomendacao}</div>
-                        {strategyData.valor_risco_estimado && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace' }}>Risco: {strategyData.valor_risco_estimado}</div>}
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recomendação</div>
+                        <div style={{ padding: '6px 14px', borderRadius: '20px', background: C.amberBg, border: `1px solid ${C.amberBorder}`, fontSize: '13px', fontWeight: 700, color: C.amber, fontFamily: 'var(--font-mono)' }}>{strategyData.recomendacao}</div>
+                        {strategyData.valor_risco_estimado && <div style={{ fontSize: '10px', color: C.text3, fontFamily: 'var(--font-mono)' }}>Risco: {strategyData.valor_risco_estimado}</div>}
                       </div>
                     </div>
 
                     <div style={{ padding: '14px 16px', borderRadius: '10px', background: C.amberBg, border: `2px solid ${C.amberBorder}` }}>
-                      <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontSize: '9px', color: C.amber, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <TrendingUp size={10} /> TESE PRINCIPAL
                       </div>
                       <div style={{ fontSize: '13px', color: C.text1, lineHeight: 1.6, fontWeight: 500 }}>{strategyData.tese_principal}</div>
@@ -2729,11 +2729,11 @@ export default function NovoProcessoModal({
 
                     {strategyData.teses_subsidiarias?.length > 0 && (
                       <div>
-                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Teses Subsidiárias ({strategyData.teses_subsidiarias.length})</div>
+                        <div style={{ fontSize: '9px', color: C.text3, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Teses Subsidiárias ({strategyData.teses_subsidiarias.length})</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {strategyData.teses_subsidiarias.map((tese, i) => (
                             <button key={i} onClick={() => setExpandedTese(expandedTese === i ? null : i)} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', background: C.bg2, border: `1px solid ${C.border2}`, cursor: 'pointer', color: C.text1, display: 'flex', alignItems: 'flex-start', gap: '8px', transition: 'all 150ms ease' }} onMouseEnter={e => (e.currentTarget.style.borderColor = C.border3)} onMouseLeave={e => (e.currentTarget.style.borderColor = C.border2)}>
-                              <span style={{ fontSize: '10px', fontFamily: 'IBM Plex Mono, monospace', color: C.amber, fontWeight: 700, flexShrink: 0, marginTop: '1px' }}>{String(i + 1).padStart(2, '0')}</span>
+                              <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: C.amber, fontWeight: 700, flexShrink: 0, marginTop: '1px' }}>{String(i + 1).padStart(2, '0')}</span>
                               <span style={{ fontSize: '12px', color: C.text2, flex: 1, lineHeight: 1.5, textAlign: 'left', display: expandedTese === i ? 'block' : '-webkit-box', WebkitLineClamp: expandedTese === i ? undefined : 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>{tese}</span>
                               <ChevronRight size={12} style={{ color: C.text3, flexShrink: 0, marginTop: '2px', transform: expandedTese === i ? 'rotate(90deg)' : 'none', transition: '200ms' }} />
                             </button>
@@ -2744,7 +2744,7 @@ export default function NovoProcessoModal({
 
                     {strategyData.jurisprudencia_favoravel?.length > 0 && (
                       <div>
-                        <div style={{ fontSize: '9px', color: C.green, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ fontSize: '9px', color: C.green, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <BookOpen size={10} /> JURISPRUDÊNCIA FAVORÁVEL ({strategyData.jurisprudencia_favoravel.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2755,7 +2755,7 @@ export default function NovoProcessoModal({
 
                     {strategyData.jurisprudencia_desfavoravel?.length > 0 && (
                       <div>
-                        <div style={{ fontSize: '9px', color: C.red, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ fontSize: '9px', color: C.red, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <TrendingDown size={10} /> RISCOS — JURISPRUDÊNCIA DESFAVORÁVEL ({strategyData.jurisprudencia_desfavoravel.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -2770,7 +2770,7 @@ export default function NovoProcessoModal({
 
                   {/* Right column: Draft */}
                   <div style={{ flex: '0 0 40%', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: 0 }}>
-                    <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'IBM Plex Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <div style={{ fontSize: '10px', color: C.blue, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <FileText size={12} /> MINUTA DA CONTESTAÇÃO
                     </div>
                     <div ref={draftRef} style={{ flex: 1, overflowY: 'auto', padding: '16px', borderRadius: '10px', background: C.bg2, border: `1px solid ${C.border2}`, fontSize: '12px', color: C.text2, lineHeight: '1.7', fontFamily: 'Georgia, serif', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -2806,14 +2806,14 @@ export default function NovoProcessoModal({
         {/* ── Step 5 Action Bar ─────────────────────────────── */}
         {step === 5 && strategyData && (
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 24px', background: C.bg1, borderTop: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: '10px', borderRadius: '0 0 14px 14px' }}>
-            <button onClick={() => setStep(4)} style={{ padding: '10px 16px', borderRadius: '7px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => setStep(4)} style={{ padding: '10px 16px', borderRadius: '7px', background: 'transparent', border: `1px solid ${C.border2}`, color: C.text3, cursor: 'pointer', fontSize: '12px', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               ← Voltar
             </button>
             <div style={{ flex: 1 }} />
-            <button onClick={() => setShowAdjustInput(v => !v)} style={{ padding: '10px 16px', borderRadius: '7px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '12px', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 150ms ease' }} onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.color = C.amber }} onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2 }}>
+            <button onClick={() => setShowAdjustInput(v => !v)} style={{ padding: '10px 16px', borderRadius: '7px', background: C.bg2, border: `1px solid ${C.border2}`, color: C.text2, cursor: 'pointer', fontSize: '12px', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 150ms ease' }} onMouseEnter={e => { e.currentTarget.style.borderColor = C.amber; e.currentTarget.style.color = C.amber }} onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.text2 }}>
               <Edit3 size={13} /> Ajustar Estratégia
             </button>
-            <button onClick={handleApproveAndSave} disabled={isSaving} style={{ padding: '10px 24px', borderRadius: '7px', background: isSaving ? C.bg3 : C.amber, border: `1px solid ${isSaving ? C.border2 : C.amber}`, color: isSaving ? C.text4 : '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 150ms ease' }}>
+            <button onClick={handleApproveAndSave} disabled={isSaving} style={{ padding: '10px 24px', borderRadius: '7px', background: isSaving ? C.bg3 : C.amber, border: `1px solid ${isSaving ? C.border2 : C.amber}`, color: isSaving ? C.text4 : '#fff', cursor: isSaving ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 150ms ease' }}>
               {isSaving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={14} /> Aprovar e Salvar</>}
             </button>
           </div>
