@@ -76,11 +76,16 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-geist), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-dm-serif), Georgia, serif;
+  font-weight: 400;
 }
 
 .font-mono {
