@@ -1,12 +1,19 @@
 import type { Metadata } from 'next'
-import { Geist, IBM_Plex_Mono } from 'next/font/google'
+import { DM_Sans, DM_Serif_Display, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import { ThemeProvider } from '@/lib/theme-context'
 
-const geist = Geist({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-geist',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-dm-sans',
+})
+
+const dmSerifDisplay = DM_Serif_Display({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-dm-serif',
 })
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -25,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`${geist.variable} ${ibmPlexMono.variable}`}
+      className={`${dmSans.variable} ${dmSerifDisplay.variable} ${ibmPlexMono.variable}`}
     >
       <head>
         {/* Anti-flash: apply saved theme before React hydrates */}
